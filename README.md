@@ -1,8 +1,32 @@
 # easyCode sandbox
 
+easyCode is a local Agent system under construction. The current repository
+contains the Windows Sandbox Infrastructure slice and the first Execution
+Foundation / Runtime Boundary slice; Agent and Canvas are future layers.
+
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
 lifecycle. A Java worker will be just one future caller of this API.
+
+## Execution Foundation / Runtime Boundary
+
+The execution layer is intentionally thin:
+
+```text
+ExecutionRequest
+    -> ExecutionBackend
+        -> HostExecutionBackend
+        -> SandboxExecutionBackend -> SandboxService -> SandboxBackend
+```
+
+`ExecutionRequest` describes what to run and carries the target `HOST` or
+`SANDBOX` environment; the caller supplies the matching backend to
+`ExecutionService`.
+`ExecutionResult` provides the same status, exit code, stdout, stderr, duration,
+and termination reason for both environments. `JvmWorkerRuntime` adapts the
+existing short-lived JVM worker to this contract. `SandboxRunner` remains the
+older runtime-specific convenience API and is not required by the execution
+layer.
 
 The current `ProcessSandboxManager` is the first lifecycle backend:
 
