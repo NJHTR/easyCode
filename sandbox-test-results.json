@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-04",
+  "command": "mvn clean test",
+  "testClasses": [
+    {
+      "name": "com.easycode.sandbox.integration.SandboxLifecycleIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "status": "PASS"
+    },
+    {
+      "name": "com.easycode.sandbox.integration.WindowsSandboxIntegrationTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "status": "PASS"
+    }
+  ],
+  "totalTests": 7,
+  "totalFailures": 0,
+  "totalErrors": 0,
+  "status": "PASS",
+  "notProven": [
+    "hard CPU quota",
+    "thread-count limiting",
+    "real network isolation",
+    "controlled memory-pressure enforcement",
+    "ACL recovery after host crash",
+    "standalone CreateRestrictedToken backend"
+  ]
+}
