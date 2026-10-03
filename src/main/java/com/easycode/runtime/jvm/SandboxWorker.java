@@ -20,8 +20,15 @@ public final class SandboxWorker {
     public static void main(String[] args) {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
-            String operation = reader.readLine();
-            String payload = reader.readLine();
+            String operation;
+            String payload;
+            if (args.length == 2) {
+                operation = args[0];
+                payload = args[1];
+            } else {
+                operation = reader.readLine();
+                payload = reader.readLine();
+            }
             if (operation == null || payload == null) {
                 throw new IllegalArgumentException("worker input must contain operation and payload");
             }
