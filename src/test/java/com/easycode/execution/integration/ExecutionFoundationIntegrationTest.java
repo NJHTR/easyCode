@@ -1,0 +1,133 @@
+package com.easycode.execution.integration;
+
+import com.easycode.execution.api.ExecutionService;
+import com.easycode.execution.host.HostExecutionBackend;
+import com.easycode.execution.model.ExecutionEnvironment;
+import com.easycode.execution.model.ExecutionRequest;
+import com.easycode.execution.model.ExecutionResult;
+import com.easycode.execution.model.ExecutionStatus;
+import com.easycode.execution.model.ExecutionTerminationReason;
+import com.easycode.execution.runtime.jvm.JvmWorkerRuntime;
+import com.easycode.execution.sandbox.SandboxExecutionBackend;
+import com.easycode.runtime.jvm.SandboxTask;
+import com.easycode.sandbox.api.SandboxService;
+import com.easycode.sandbox.model.SandboxPolicy;
+import com.easycode.sandbox.windows.WindowsJobObjectSandboxManager;
+import com.easycode.sandbox.integration.SandboxTestProcess;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ExecutionFoundationIntegrationTest {
+    @Test
+    void hostExecutionCapturesOutput() {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(request(
+                    SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of()));
+
+            assertEquals(ExecutionStatus.SUCCEEDED, result.status(), result.toString());
+            assertEquals(0, result.exitCode());
+            assertTrue(result.stdout().contains("sandbox-stdout"), result.stdout());
+            assertTrue(result.stderr().contains("sandbox-stderr"), result.stderr());
+            assertEquals(ExecutionTerminationReason.COMPLETED, result.terminationReason());
+        }
+    }
+
+    @Test
+    void hostTimeoutIsMappedToExecutionResult() {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(request(
+                    SandboxTestProcess.command("sleep", "5000"), Duration.ofMillis(150), Map.of()));
+
+            assertEquals(ExecutionStatus.TIMED_OUT, result.status(), result.toString());
+            assertEquals(ExecutionTerminationReason.TIMED_OUT, result.terminationReason());
+        }
+    }
+
+    @Test
+    void hostFailureIncludesStartReason() {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(request(
+                    List.of("easycode-command-that-does-not-exist"), Duration.ofSeconds(5), Map.of()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status(), result.toString());
+            assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
+            assertTrue(!result.failureMessage().isBlank(), result.toString());
+        }
+    }
+
+    @Test
+    void hostPassesEnvironmentAndWorkingDirectory(@TempDir Path workingDirectory) {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionRequest environmentRequest = request(
+                    SandboxTestProcess.command("env", "EASYCODE_TEST"),
+                    Duration.ofSeconds(5), Map.of("EASYCODE_TEST", "value"));
+            ExecutionRequest workingDirectoryRequest = new ExecutionRequest(
+                    java.util.UUID.randomUUID(),
+                    SandboxTestProcess.command("cwd"),
+                    workingDirectory,
+                    Map.of(),
+                    Duration.ofSeconds(5),
+                    ExecutionEnvironment.HOST,
+                    4096,
+                    SandboxPolicy.defaults());
+
+            assertEquals("value", service.execute(environmentRequest).stdout());
+            assertEquals(workingDirectory.toAbsolutePath().normalize().toString(),
+                    service.execute(workingDirectoryRequest).stdout());
+        }
+    }
+
+    @Test
+    void jvmWorkerRuntimeBuildsExecutableRequest() {
+        JvmWorkerRuntime runtime = new JvmWorkerRuntime();
+        ExecutionRequest request = runtime.request(
+                new SandboxTask("uppercase", "execution"),
+                ExecutionEnvironment.HOST,
+                Duration.ofSeconds(5));
+
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(request);
+            assertEquals(ExecutionStatus.SUCCEEDED, result.status(), result.toString());
+            assertEquals("EXECUTION", result.stdout());
+        }
+    }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void sandboxExecutionUsesExistingSandboxService() throws Exception {
+        try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());
+             ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandboxService))) {
+            ExecutionRequest request = new ExecutionRequest(
+                    java.util.UUID.randomUUID(),
+                    List.of("cmd.exe", "/c", "echo sandbox-ok"),
+                    null,
+                    Map.of(),
+                    Duration.ofSeconds(5),
+                    ExecutionEnvironment.SANDBOX,
+                    4096,
+                    SandboxPolicy.defaults());
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(ExecutionStatus.SUCCEEDED, result.status(), result.toString());
+            assertEquals(0, result.exitCode());
+            assertTrue(result.stdout().contains("sandbox-ok"), result.stdout());
+        }
+    }
+
+    private static ExecutionRequest request(
+            List<String> command, Duration timeout, Map<String, String> environment) {
+        return new ExecutionRequest(
+                java.util.UUID.randomUUID(), command, null, environment, timeout,
+                ExecutionEnvironment.HOST, 4096, SandboxPolicy.defaults());
+    }
+}

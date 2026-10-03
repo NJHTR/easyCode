@@ -22,6 +22,8 @@ public final class SandboxTestProcess {
             case "sleep" -> Thread.sleep(Long.parseLong(args[1]));
             case "write" -> Files.writeString(Path.of(args[1]), args[2]);
             case "read" -> System.out.print(Files.readString(Path.of(args[1])));
+            case "env" -> System.out.print(System.getenv(args[1]));
+            case "cwd" -> System.out.print(Path.of("").toAbsolutePath().normalize());
             case "exit" -> System.exit(Integer.parseInt(args[1]));
             case "spawn-child" -> spawnChild(args);
             default -> throw new IllegalArgumentException("unknown test process operation: " + args[0]
@@ -44,18 +46,18 @@ public final class SandboxTestProcess {
         Thread.sleep(parentSleepMillis);
     }
 
-    static String javaExecutable() {
+    public static String javaExecutable() {
         String executable = System.getProperty("os.name", "")
                 .toLowerCase()
                 .contains("win") ? "java.exe" : "java";
         return Path.of(System.getProperty("java.home"), "bin", executable).toString();
     }
 
-    static String testClasspath() {
+    public static String testClasspath() {
         return System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
     }
 
-    static java.util.List<String> command(String... arguments) {
+    public static java.util.List<String> command(String... arguments) {
         java.util.ArrayList<String> command = new java.util.ArrayList<>();
         command.add(javaExecutable());
         command.add("-cp");
