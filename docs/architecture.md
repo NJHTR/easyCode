@@ -143,6 +143,22 @@ contract.
 Tool. The conversion and any decision to execute belong to a future Agent
 orchestration layer.
 
+### Spring AI Adapter
+
+`SpringAiLlmProvider` is an infrastructure adapter that implements the core
+`LlmProvider` contract by calling Spring AI's low-level `ChatModel` API. The
+adapter converts core messages, model selection, Tool definitions, and Spring
+AI responses at the boundary. Spring AI 2.0.1 is used through the minimal
+`spring-ai-model` module and is not part of `llm.api`, `llm.model`, or
+`llm.exception`.
+
+Tool definitions are exposed through descriptor-only Spring AI callbacks
+because the low-level API carries definitions in `ToolCallingChatOptions`. The
+callbacks reject `call(...)`; `SpringAiLlmProvider` never executes an easyCode
+Tool, owns the registry, or starts a Tool Calling loop. `ChatClient`,
+`ToolCallingAdvisor`, and Spring AI orchestration features are intentionally
+outside this boundary.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -155,6 +171,7 @@ Implemented:
 - the independent Tool contract and in-process ToolRegistry
 - `AgentToolAccess` for Agent-side Tool discovery and invocation
 - the framework-independent LLM Provider contract and model Tool Call data
+- `SpringAiLlmProvider` as the Spring AI `ChatModel` adapter
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
@@ -164,5 +181,5 @@ Not implemented in this slice:
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
-- concrete LLM provider, MCP, AI framework, or Tool plugin integrations
+- direct model-provider configuration, MCP, AI framework, or Tool plugin integrations
 - Agent Loop, automatic Tool selection, Planner, and ReAct execution
