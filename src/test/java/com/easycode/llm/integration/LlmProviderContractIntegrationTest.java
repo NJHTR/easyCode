@@ -7,6 +7,12 @@ import com.easycode.llm.model.LlmMessageRole;
 import com.easycode.llm.model.LlmRequest;
 import com.easycode.llm.model.LlmResponse;
 import com.easycode.llm.model.LlmToolCall;
+import com.easycode.agent.api.AgentToolAccess;
+import com.easycode.tool.api.Tool;
+import com.easycode.tool.api.ToolRegistry;
+import com.easycode.tool.model.ToolDefinition;
+import com.easycode.tool.model.ToolInvocation;
+import com.easycode.tool.model.ToolResult;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
@@ -30,6 +36,41 @@ class LlmProviderContractIntegrationTest {
         assertEquals(2, request.messages().size());
         assertEquals(LlmMessageRole.USER, request.messages().get(1).role());
         assertEquals("hello", request.messages().get(1).content());
+        assertTrue(request.tools().isEmpty());
+    }
+
+    @Test
+    void requestExposesToolDefinitionsWithoutToolImplementations() {
+        ToolDefinition definition = new ToolDefinition(
+                "test.echo", "Echoes text", "{\"type\":\"object\"}");
+
+        LlmRequest request = LlmRequest.of(
+                "fake-model", List.of(LlmMessage.user("hello")), List.of(definition));
+
+        assertEquals(List.of(definition), request.tools());
+        assertEquals("test.echo", request.tools().get(0).name());
+        assertEquals("Echoes text", request.tools().get(0).description());
+        assertEquals("{\"type\":\"object\"}", request.tools().get(0).inputSchema());
+    }
+
+    @Test
+    void requestDoesNotExposeToolImplementationsOrRegistries() {
+        Class<?>[] forbidden = {
+                Tool.class,
+                ToolRegistry.class,
+                AgentToolAccess.class,
+                ToolInvocation.class,
+                ToolResult.class
+        };
+
+        for (Field field : LlmRequest.class.getDeclaredFields()) {
+            assertFalse(java.util.Arrays.asList(forbidden).contains(field.getType()),
+                    "LlmRequest exposes " + field.getType().getName());
+        }
+        for (Method method : LlmProvider.class.getMethods()) {
+            assertNoForbidden(method.getParameterTypes(), forbidden);
+            assertNoForbidden(new Class<?>[]{method.getReturnType()}, forbidden);
+        }
     }
 
     @Test
@@ -90,7 +131,6 @@ class LlmProviderContractIntegrationTest {
     void llmCorePublicBoundaryDoesNotDependOnOtherRuntimeLayers() {
         String[] forbidden = {
                 "com.easycode.agent",
-                "com.easycode.tool",
                 "com.easycode.execution",
                 "com.easycode.runtime",
                 "com.easycode.sandbox",
@@ -118,6 +158,13 @@ class LlmProviderContractIntegrationTest {
                 assertNoForbidden(method.getParameterTypes(), forbidden);
                 assertNoForbidden(new Class<?>[]{method.getReturnType()}, forbidden);
             }
+        }
+    }
+
+    private static void assertNoForbidden(Class<?>[] types, Class<?>[] forbidden) {
+        for (Class<?> type : types) {
+            assertFalse(java.util.Arrays.asList(forbidden).contains(type),
+                    "LLM boundary exposes " + type.getName());
         }
     }
 
