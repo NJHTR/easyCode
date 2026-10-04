@@ -44,13 +44,18 @@ The model boundary is separate from both Tool and Execution:
 
 ```text
 Agent
+  -> AgentToolAccess
+      -> ToolDefinition
   -> LlmProvider
       -> LlmRequest / LlmResponse
           -> LlmToolCall
 ```
 
-`LlmProvider` performs one synchronous model call and returns provider-neutral
-data. It does not execute Tools, call Execution, or run an Agent loop.
+`LlmRequest` may carry the available `ToolDefinition` values as capability
+descriptions. It never carries Tool implementations, a registry, or Agent
+access. `LlmProvider` performs one synchronous model call and returns
+provider-neutral data. It does not discover or execute Tools, call Execution,
+or run an Agent loop.
 
 The current deterministic path is:
 
@@ -127,7 +132,10 @@ larger Agent operation belongs to a future orchestration layer.
 
 The LLM boundary consists of `LlmProvider`, `LlmRequest`, `LlmMessage`,
 `LlmResponse`, and `LlmToolCall`, with `LlmException` as the provider-neutral
-failure boundary. No AI framework type is part of this core contract.
+failure boundary. `LlmRequest.tools` reuses the existing `ToolDefinition`
+model, preserving its name, description, and input schema without duplicating
+the Tool capability contract. No AI framework type is part of this core
+contract.
 
 `LlmToolCall` means that the model requested an action. It is not a
 `ToolInvocation`, which means that the application is actually invoking a
