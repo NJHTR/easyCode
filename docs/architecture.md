@@ -40,6 +40,18 @@ Agent
 not expose Tool implementations or registration operations. Registration is
 owned by the composition root that builds the `ToolRegistry`.
 
+The model boundary is separate from both Tool and Execution:
+
+```text
+Agent
+  -> LlmProvider
+      -> LlmRequest / LlmResponse
+          -> LlmToolCall
+```
+
+`LlmProvider` performs one synchronous model call and returns provider-neutral
+data. It does not execute Tools, call Execution, or run an Agent loop.
+
 The current deterministic path is:
 
 ```text
@@ -111,6 +123,17 @@ registry. Tool failures remain `ToolResult` values; they are not automatically
 converted into an `AgentRun` failure. Deciding what a Tool failure means for a
 larger Agent operation belongs to a future orchestration layer.
 
+### LLM Provider
+
+The LLM boundary consists of `LlmProvider`, `LlmRequest`, `LlmMessage`,
+`LlmResponse`, and `LlmToolCall`, with `LlmException` as the provider-neutral
+failure boundary. No AI framework type is part of this core contract.
+
+`LlmToolCall` means that the model requested an action. It is not a
+`ToolInvocation`, which means that the application is actually invoking a
+Tool. The conversion and any decision to execute belong to a future Agent
+orchestration layer.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -122,6 +145,7 @@ Implemented:
 - `JvmAgentExecutionAdapter` as the current JVM implementation
 - the independent Tool contract and in-process ToolRegistry
 - `AgentToolAccess` for Agent-side Tool discovery and invocation
+- the framework-independent LLM Provider contract and model Tool Call data
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
@@ -131,4 +155,5 @@ Not implemented in this slice:
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
-- LLM, MCP, AI framework, or Tool plugin integrations
+- concrete LLM provider, MCP, AI framework, or Tool plugin integrations
+- Agent Loop, automatic Tool selection, Planner, and ReAct execution
