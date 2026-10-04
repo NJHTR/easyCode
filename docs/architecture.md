@@ -174,6 +174,21 @@ API key from its `toString` output. Factory creation only constructs the
 client/model; it does not send a network request. Real credentials and model
 calls are outside this slice.
 
+### Real Provider Verification
+
+`RealLlmSmokeTest` is an explicit external integration test, not part of the
+normal offline regression. It only runs when
+`EASYCODE_REAL_LLM_TEST=true`, `EASYCODE_LLM_API_KEY`, and
+`EASYCODE_LLM_MODEL` are present. `EASYCODE_LLM_BASE_URL` is optional and
+defaults to the configured OpenAI endpoint. Without these settings the smoke
+test is skipped and must be reported as `NOT_RUN`, never as a pass.
+
+The smoke request is a short text-only prompt and succeeds only when the
+provider returns a non-empty `LlmResponse`. It does not expose credentials in
+test output, does not execute Tools, and does not start an Agent or Tool
+Calling loop. Run it explicitly with `mvn -Dtest=RealLlmSmokeTest test` only
+when external access is intentionally enabled.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -188,11 +203,12 @@ Implemented:
 - the framework-independent LLM Provider contract and model Tool Call data
 - `SpringAiLlmProvider` as the Spring AI `ChatModel` adapter
 - `OpenAiCompatibleModelConfig` and `OpenAiChatModelFactory` for concrete model creation
+- `RealLlmSmokeTest` as an explicitly enabled external verification path
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
 
-- real external LLM calls or prompt handling
+- production external LLM calls or prompt handling
 - Planner, Workflow, Canvas, Node, Port, or Trigger
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
