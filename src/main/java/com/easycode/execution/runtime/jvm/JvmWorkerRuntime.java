@@ -15,6 +15,14 @@ import java.util.Map;
 /** Builds an ExecutionRequest for the existing short-lived JVM worker. */
 public final class JvmWorkerRuntime {
     public ExecutionRequest request(
+            String operation,
+            String payload,
+            ExecutionEnvironment environment,
+            Duration timeout) {
+        return request(new SandboxTask(operation, payload), environment, timeout);
+    }
+
+    public ExecutionRequest request(
             SandboxTask task, ExecutionEnvironment environment, Duration timeout) {
         List<String> command = new ArrayList<>();
         command.add(javaExecutable());
