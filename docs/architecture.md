@@ -159,6 +159,21 @@ Tool, owns the registry, or starts a Tool Calling loop. `ChatClient`,
 `ToolCallingAdvisor`, and Spring AI orchestration features are intentionally
 outside this boundary.
 
+The first concrete model configuration is OpenAI-compatible:
+
+```text
+OpenAiCompatibleModelConfig
+    -> OpenAiChatModelFactory
+        -> OpenAiChatModel
+            -> SpringAiLlmProvider
+```
+
+The configuration requires a valid HTTP(S) `baseUrl`, a non-blank API key, and
+a model name. It supports custom OpenAI-compatible endpoints and redacts the
+API key from its `toString` output. Factory creation only constructs the
+client/model; it does not send a network request. Real credentials and model
+calls are outside this slice.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -172,14 +187,15 @@ Implemented:
 - `AgentToolAccess` for Agent-side Tool discovery and invocation
 - the framework-independent LLM Provider contract and model Tool Call data
 - `SpringAiLlmProvider` as the Spring AI `ChatModel` adapter
+- `OpenAiCompatibleModelConfig` and `OpenAiChatModelFactory` for concrete model creation
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
 
-- LLM integration or prompt handling
+- real external LLM calls or prompt handling
 - Planner, Workflow, Canvas, Node, Port, or Trigger
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
-- direct model-provider configuration, MCP, AI framework, or Tool plugin integrations
+- other model-provider configurations, MCP, AI framework, or Tool plugin integrations
 - Agent Loop, automatic Tool selection, Planner, and ReAct execution
