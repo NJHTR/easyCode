@@ -1,8 +1,12 @@
-# easyCode sandbox
+# easyCode
 
 easyCode is a local Agent system under construction. The current repository
-contains the Windows Sandbox Infrastructure slice and the first Execution
-Foundation / Runtime Boundary slice; Agent and Canvas are future layers.
+contains the Windows Sandbox Infrastructure, Execution Foundation / Runtime
+Boundary, and Agent Core slices. Agent Core is currently deterministic; Agent
+intelligence, Canvas, and workflow layers are future slices.
+
+The layer responsibilities and dependency direction are documented in
+[`docs/architecture.md`](docs/architecture.md).
 
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
