@@ -13,6 +13,19 @@ Agent
               -> Host or Sandbox
 ```
 
+Agent capabilities are parallel boundaries:
+
+```text
+                 Agent
+                /     \
+               /       \
+          Execution     Tool
+             |            |
+          Runtime      Tool implementation
+             |
+       Host / Sandbox
+```
+
 The current deterministic path is:
 
 ```text
@@ -67,6 +80,18 @@ behind `SandboxService` and `SandboxBackend`. Sandbox is execution
 infrastructure, not the easyCode product itself. Agent code does not call
 Windows managers, JNA, Win32, or `SandboxRunner` directly.
 
+### Tool
+
+A Tool is a callable capability exposed to an Agent. The current Tool contract
+contains `ToolDefinition`, `ToolInvocation`, `ToolResult`, `Tool`, and
+`ToolRegistry`. The registry performs only in-process registration, name
+resolution, listing, and invocation. Tool failures are converted to stable
+ToolResult failure categories instead of exposing implementation exceptions.
+
+Tool is not Execution: a future Tool may use Java APIs directly, or may choose
+to call an execution capability when that is appropriate. Tool is also not a
+Runtime or Sandbox.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -76,6 +101,7 @@ Implemented:
 - `AgentResult` and Agent-level failure classification
 - `AgentExecutionPort` as the runtime-independent Agent boundary
 - `JvmAgentExecutionAdapter` as the current JVM implementation
+- the independent Tool contract and in-process ToolRegistry
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
@@ -85,3 +111,4 @@ Not implemented in this slice:
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
+- LLM, MCP, AI framework, or Tool plugin integrations
