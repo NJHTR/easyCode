@@ -5,28 +5,19 @@ import com.easycode.agent.model.AgentRequest;
 import com.easycode.agent.model.AgentResult;
 import com.easycode.agent.model.AgentRun;
 import com.easycode.agent.model.AgentRunStatus;
-import com.easycode.execution.api.ExecutionService;
-import com.easycode.execution.model.ExecutionRequest;
 import com.easycode.execution.model.ExecutionResult;
 import com.easycode.execution.model.ExecutionStatus;
-import com.easycode.execution.runtime.jvm.JvmWorkerRuntime;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Deterministic Agent facade over the existing JVM runtime and Execution layer. */
+/** Deterministic Agent facade over the runtime-independent execution port. */
 public final class AgentService {
-    private final ExecutionService executionService;
-    private final JvmWorkerRuntime runtime;
+    private final AgentExecutionPort executionPort;
 
-    public AgentService(ExecutionService executionService) {
-        this(executionService, new JvmWorkerRuntime());
-    }
-
-    public AgentService(ExecutionService executionService, JvmWorkerRuntime runtime) {
-        this.executionService = Objects.requireNonNull(executionService, "executionService");
-        this.runtime = Objects.requireNonNull(runtime, "runtime");
+    public AgentService(AgentExecutionPort executionPort) {
+        this.executionPort = Objects.requireNonNull(executionPort, "executionPort");
     }
 
     public AgentResult run(AgentRequest request) {
@@ -36,12 +27,7 @@ public final class AgentService {
         Instant startedAt = Instant.now();
 
         try {
-            ExecutionRequest executionRequest = runtime.request(
-                    request.action(),
-                    request.input(),
-                    request.executionEnvironment(),
-                    request.timeout());
-            ExecutionResult executionResult = executionService.execute(executionRequest);
+            ExecutionResult executionResult = executionPort.execute(request);
             Instant finishedAt = Instant.now();
             AgentRun run = new AgentRun(
                     runId,
