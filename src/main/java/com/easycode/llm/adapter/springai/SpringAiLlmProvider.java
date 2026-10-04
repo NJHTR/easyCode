@@ -46,11 +46,20 @@ public final class SpringAiLlmProvider implements LlmProvider {
         }
     }
 
-    private static ChatOptions toOptions(LlmRequest request) {
+    private ChatOptions toOptions(LlmRequest request) {
         List<ToolCallback> callbacks = request.tools().stream()
                 .map(DescriptorOnlyToolCallback::new)
                 .map(callback -> (ToolCallback) callback)
                 .toList();
+
+        ChatOptions modelOptions = chatModel.getOptions();
+        if (modelOptions instanceof ToolCallingChatOptions toolCallingOptions) {
+            return toolCallingOptions.mutate()
+                    .model(request.model())
+                    .toolCallbacks(callbacks)
+                    .build();
+        }
+
         return ToolCallingChatOptions.builder()
                 .model(request.model())
                 .toolCallbacks(callbacks)

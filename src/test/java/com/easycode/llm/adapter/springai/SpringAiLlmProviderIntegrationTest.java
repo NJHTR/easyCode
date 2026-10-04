@@ -15,6 +15,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.openai.OpenAiChatOptions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -79,6 +80,26 @@ class SpringAiLlmProviderIntegrationTest {
     }
 
     @Test
+    void preservesProviderSpecificOptionsWhenChatModelProvidesThem() throws LlmException {
+        OpenAiChatOptions modelOptions = OpenAiChatOptions.builder()
+                .baseUrl("https://example.test/v1")
+                .apiKey("test-key")
+                .model("default-model")
+                .build();
+        RecordingChatModel chatModel = new RecordingChatModel(
+                prompt -> textResponse("model answer"), modelOptions);
+
+        new SpringAiLlmProvider(chatModel).generate(
+                LlmRequest.of("request-model", List.of(LlmMessage.user("hello"))));
+
+        OpenAiChatOptions promptOptions = assertInstanceOf(
+                OpenAiChatOptions.class, chatModel.lastPrompt().getOptions());
+        assertEquals("request-model", promptOptions.getModel());
+        assertEquals("https://example.test/v1", promptOptions.getBaseUrl());
+        assertEquals("test-key", promptOptions.getApiKey());
+    }
+
+    @Test
     void mapsSpringAiToolCallToLlmToolCallWithoutInvokingIt() throws LlmException {
         AssistantMessage assistantMessage = AssistantMessage.builder()
                 .content("")
@@ -123,16 +144,29 @@ class SpringAiLlmProviderIntegrationTest {
 
     private static final class RecordingChatModel implements ChatModel {
         private final Function<Prompt, ChatResponse> responder;
+        private final org.springframework.ai.chat.prompt.ChatOptions options;
         private Prompt lastPrompt;
 
         private RecordingChatModel(Function<Prompt, ChatResponse> responder) {
+            this(responder, null);
+        }
+
+        private RecordingChatModel(
+                Function<Prompt, ChatResponse> responder,
+                org.springframework.ai.chat.prompt.ChatOptions options) {
             this.responder = responder;
+            this.options = options;
         }
 
         @Override
         public ChatResponse call(Prompt prompt) {
             lastPrompt = prompt;
             return responder.apply(prompt);
+        }
+
+        @Override
+        public org.springframework.ai.chat.prompt.ChatOptions getOptions() {
+            return options;
         }
 
         private Prompt lastPrompt() {
