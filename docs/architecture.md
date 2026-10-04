@@ -26,6 +26,20 @@ Agent capabilities are parallel boundaries:
        Host / Sandbox
 ```
 
+The Agent-facing Tool boundary is intentionally narrower than the application
+owned registry:
+
+```text
+Agent
+  -> AgentToolAccess
+      -> ToolDefinition / ToolInvocation / ToolResult
+          -> application-owned ToolRegistry
+```
+
+`AgentToolAccess` exposes only `listTools`, `resolveTool`, and `invoke`. It does
+not expose Tool implementations or registration operations. Registration is
+owned by the composition root that builds the `ToolRegistry`.
+
 The current deterministic path is:
 
 ```text
@@ -92,6 +106,11 @@ Tool is not Execution: a future Tool may use Java APIs directly, or may choose
 to call an execution capability when that is appropriate. Tool is also not a
 Runtime or Sandbox.
 
+The current `RegistryAgentToolAccess` is only an adapter around the existing
+registry. Tool failures remain `ToolResult` values; they are not automatically
+converted into an `AgentRun` failure. Deciding what a Tool failure means for a
+larger Agent operation belongs to a future orchestration layer.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -102,6 +121,7 @@ Implemented:
 - `AgentExecutionPort` as the runtime-independent Agent boundary
 - `JvmAgentExecutionAdapter` as the current JVM implementation
 - the independent Tool contract and in-process ToolRegistry
+- `AgentToolAccess` for Agent-side Tool discovery and invocation
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
