@@ -18,10 +18,18 @@ The current deterministic path is:
 ```text
 AgentRequest
   -> AgentService
-      -> JvmWorkerRuntime
-          -> ExecutionRequest
-              -> ExecutionService
-                  -> HostExecutionBackend or SandboxExecutionBackend
+      -> AgentExecutionPort
+          -> ExecutionService
+              -> HostExecutionBackend or SandboxExecutionBackend
+```
+
+The current JVM implementation is an adapter behind the port:
+
+```text
+JvmAgentExecutionAdapter
+  -> JvmWorkerRuntime
+      -> ExecutionRequest
+          -> ExecutionService
 ```
 
 ## Responsibilities
@@ -30,8 +38,9 @@ AgentRequest
 
 Accepts one user-level request, creates one run, calls Execution, and converts
 the result into an AgentResult. The current Agent is intentionally a thin
-deterministic orchestrator. It does not perform LLM reasoning, planning,
-workflow management, memory, tool calling, or multi-agent coordination.
+deterministic orchestrator and depends only on `AgentExecutionPort`. It does
+not perform LLM reasoning, planning, workflow management, memory, tool calling,
+or multi-agent coordination.
 
 ### Execution
 
@@ -65,7 +74,8 @@ Implemented:
 - `AgentRequest`
 - `AgentRun` and a small terminal lifecycle
 - `AgentResult` and Agent-level failure classification
-- `AgentService` over the existing Execution and JVM Runtime contracts
+- `AgentExecutionPort` as the runtime-independent Agent boundary
+- `JvmAgentExecutionAdapter` as the current JVM implementation
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
