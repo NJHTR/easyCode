@@ -46,9 +46,10 @@ The model boundary is separate from both Tool and Execution:
 Agent
   -> AgentToolAccess
       -> ToolDefinition
-  -> LlmProvider
-      -> LlmRequest / LlmResponse
-          -> LlmToolCall
+          -> LlmRequest
+              -> LlmProvider
+                  -> LlmResponse
+                      -> LlmToolCall
 ```
 
 `LlmRequest` may carry the available `ToolDefinition` values as capability
