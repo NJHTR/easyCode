@@ -40,4 +40,9 @@ public final class LocalAgentComposition {
     public AgentExecution runWithTrace(AgentPromptRequest request) {
         return agentService.runWithTrace(Objects.requireNonNull(request, "request"));
     }
+
+    /** Opens a new volatile session that reuses this composition boundary. */
+    public LocalAgentSession openSession() {
+        return new LocalAgentSession(this);
+    }
 }
