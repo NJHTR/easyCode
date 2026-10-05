@@ -7,6 +7,7 @@ import com.easycode.agent.model.AgentRun;
 import com.easycode.agent.model.AgentRunStatus;
 import com.easycode.execution.model.ExecutionResult;
 import com.easycode.execution.model.ExecutionStatus;
+import com.easycode.agent.model.AgentPromptRequest;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -15,12 +16,22 @@ import java.util.UUID;
 /** Deterministic Agent facade over the runtime-independent execution port. */
 public final class AgentService {
     private final AgentExecutionPort executionPort;
+    private final AgentOrchestrator orchestrator;
 
     public AgentService(AgentExecutionPort executionPort) {
         this.executionPort = Objects.requireNonNull(executionPort, "executionPort");
+        this.orchestrator = null;
+    }
+
+    public AgentService(AgentOrchestrator orchestrator) {
+        this.executionPort = null;
+        this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
     }
 
     public AgentResult run(AgentRequest request) {
+        if (executionPort == null) {
+            throw new IllegalStateException("AgentService is configured for LLM orchestration");
+        }
         Objects.requireNonNull(request, "request");
         UUID runId = UUID.randomUUID();
         Instant createdAt = Instant.now();
@@ -58,6 +69,13 @@ public final class AgentService {
                             ? "agent runtime failed"
                             : exception.getMessage());
         }
+    }
+
+    public AgentResult run(AgentPromptRequest request) {
+        if (orchestrator == null) {
+            throw new IllegalStateException("AgentService is configured for execution");
+        }
+        return orchestrator.run(request);
     }
 
     private static AgentRunStatus statusOf(ExecutionResult result) {

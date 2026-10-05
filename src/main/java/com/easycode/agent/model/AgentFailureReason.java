@@ -6,5 +6,8 @@ public enum AgentFailureReason {
     RUNTIME_FAILURE,
     ENVIRONMENT_FAILURE,
     TIMEOUT,
-    CANCELLED
+    CANCELLED,
+    LLM_FAILURE,
+    INVALID_RESPONSE,
+    MAX_STEPS_REACHED
 }

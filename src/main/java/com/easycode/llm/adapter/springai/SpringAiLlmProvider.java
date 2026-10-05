@@ -77,7 +77,9 @@ public final class SpringAiLlmProvider implements LlmProvider {
             case ASSISTANT -> new AssistantMessage(message.content());
             case TOOL -> ToolResponseMessage.builder()
                     .responses(List.of(new ToolResponseMessage.ToolResponse(
-                            "", "", message.content())))
+                            message.toolCallId() == null ? "" : message.toolCallId().toString(),
+                            message.toolName() == null ? "" : message.toolName(),
+                            message.content())))
                     .build();
         };
     }

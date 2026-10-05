@@ -10,10 +10,6 @@ public record LlmResponse(String content, List<LlmToolCall> toolCalls) {
         if (toolCalls.stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("toolCalls cannot contain null");
         }
-        if (content.isBlank() && toolCalls.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "response must contain content or at least one tool call");
-        }
     }
 
     public static LlmResponse text(String content) {
