@@ -22,7 +22,7 @@ $artifact = Join-Path $projectRoot 'target\easyCode-1.0-SNAPSHOT.jar'
 Push-Location $projectRoot
 try {
     & $mavenCommand '-q' '-DskipTests' 'package' 'dependency:build-classpath' `
-        "-Dmdep.outputFile=$classPathFile" '-Dmdep.includeScope=runtime'
+        "-Dmdep.outputFile=$classPathFile" '-DincludeScope=runtime'
     if ($LASTEXITCODE -ne 0) {
         throw "Maven build failed with exit code $LASTEXITCODE."
     }
