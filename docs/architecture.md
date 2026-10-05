@@ -246,6 +246,15 @@ Tool observations, duration fields, successful outcome, and that the trace
 contains no credentials or provider-specific objects. It is also explicitly
 enabled and never runs in the default offline regression.
 
+The local composition boundary is `LocalAgentComposition`. It owns the small
+application wiring needed by a local caller: an application-provided
+`LlmProvider`, `ToolRegistry`, and positive `maxSteps` are combined into the
+existing `RegistryAgentToolAccess`, `AgentOrchestrator`, and `AgentService`.
+Callers use `run(...)` or `runWithTrace(...)` without constructing those
+components repeatedly. The boundary does not select providers, register Tool
+implementations, expose framework types, or add persistence, UI, workflow,
+memory, or a provider registry.
+
 ## Current Agent Core scope
 
 Implemented:
