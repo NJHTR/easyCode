@@ -3,8 +3,11 @@ package com.easycode.agent.integration;
 import com.easycode.agent.api.AgentOrchestrator;
 import com.easycode.agent.adapter.tool.RegistryAgentToolAccess;
 import com.easycode.agent.model.AgentFailureReason;
+import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
 import com.easycode.agent.model.AgentResult;
+import com.easycode.agent.model.AgentStepOutcome;
+import com.easycode.agent.model.AgentStepTrace;
 import com.easycode.tool.api.Tool;
 import com.easycode.tool.api.ToolRegistry;
 import com.easycode.tool.model.ToolDefinition;
@@ -26,6 +29,99 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AgentOrchestratorIntegrationTest {
+    @Test
+    void directResponseTraceContainsOneCompletedStep() {
+        RecordingProvider provider = new RecordingProvider(LlmResponse.text("hello"));
+        AgentExecution execution = orchestrator(provider, 5).runWithTrace(prompt());
+
+        assertTrue(execution.result().succeeded());
+        assertEquals(1, execution.trace().steps().size());
+        assertEquals(AgentStepOutcome.COMPLETED, execution.trace().steps().get(0).outcome());
+    }
+
+    @Test
+    void toolTraceContainsInvocationAndResultBeforeFinalStep() {
+        LlmToolCall call = LlmToolCall.create("test.echo", "input");
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("done"));
+        AgentExecution execution = orchestrator(provider, 5).runWithTrace(prompt());
+
+        assertEquals(2, execution.trace().steps().size());
+        assertEquals(AgentStepOutcome.TOOL_CALLS, execution.trace().steps().get(0).outcome());
+        assertEquals(1, execution.trace().steps().get(0).toolObservations().size());
+        assertTrue(execution.trace().steps().get(0).toolObservations().get(0).succeeded());
+        assertEquals(AgentStepOutcome.COMPLETED, execution.trace().steps().get(1).outcome());
+    }
+
+    @Test
+    void multipleToolTracePreservesToolOrder() {
+        LlmToolCall first = LlmToolCall.create("test.echo", "first");
+        LlmToolCall second = LlmToolCall.create("test.echo", "second");
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(first, second)), LlmResponse.text("done"));
+        AgentExecution execution = orchestrator(provider, 5)
+                .runWithTrace(prompt());
+
+        assertEquals(List.of("first", "second"), provider.requests.get(1).messages().subList(2, 4)
+                .stream().map(LlmMessage::content).toList());
+        assertEquals(List.of("test.echo", "test.echo"), execution.trace().steps().get(0)
+                .toolObservations().stream().map(AgentStepTrace.ToolObservation::toolName).toList());
+    }
+
+    @Test
+    void failureTraceRecordsToolFailure() {
+        LlmToolCall call = LlmToolCall.create("test.fail", "input");
+        AgentExecution execution = orchestrator(new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("done")), 5)
+                .runWithTrace(prompt());
+
+        assertFalse(execution.trace().steps().get(0).toolObservations().get(0).succeeded());
+        assertEquals(com.easycode.tool.model.ToolFailureReason.EXECUTION_FAILURE,
+                execution.trace().steps().get(0).toolObservations().get(0).failureReason());
+    }
+
+    @Test
+    void unknownToolTraceRecordsNotFound() {
+        LlmToolCall call = LlmToolCall.create("missing.tool", "input");
+        AgentExecution execution = orchestrator(new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("done")), 5)
+                .runWithTrace(prompt());
+
+        assertEquals(com.easycode.tool.model.ToolFailureReason.TOOL_NOT_FOUND,
+                execution.trace().steps().get(0).toolObservations().get(0).failureReason());
+    }
+
+    @Test
+    void llmFailureTraceRecordsFailureOutcome() {
+        AgentExecution execution = orchestrator(request -> {
+            throw new LlmException("provider down");
+        }, 5).runWithTrace(prompt());
+
+        assertEquals(AgentFailureReason.LLM_FAILURE, execution.trace().failureReason());
+        assertEquals(AgentStepOutcome.LLM_FAILURE, execution.trace().steps().get(0).outcome());
+    }
+
+    @Test
+    void maxStepsTraceRecordsBoundary() {
+        LlmToolCall call = LlmToolCall.create("test.echo", "input");
+        AgentExecution execution = orchestrator(new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call))), 1).runWithTrace(prompt());
+
+        assertEquals(AgentFailureReason.MAX_STEPS_REACHED, execution.trace().failureReason());
+        assertEquals(AgentStepOutcome.MAX_STEPS_REACHED,
+                execution.trace().steps().get(0).outcome());
+    }
+
+    @Test
+    void emptyResponseTraceRecordsInvalidResponse() {
+        AgentExecution execution = orchestrator(request -> new LlmResponse("", List.of()), 5)
+                .runWithTrace(prompt());
+
+        assertEquals(AgentFailureReason.INVALID_RESPONSE, execution.trace().failureReason());
+        assertEquals(AgentStepOutcome.INVALID_RESPONSE,
+                execution.trace().steps().get(0).outcome());
+    }
+
     @Test
     void directTextFinishesAfterOneModelCall() {
         RecordingProvider provider = new RecordingProvider(LlmResponse.text("hello"));
