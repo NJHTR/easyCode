@@ -277,6 +277,14 @@ one complete provider-neutral prompt synchronously, and prints only the final
 result message. It does not print or persist credentials and is not a UI,
 workflow, memory, persistence, or asynchronous runtime.
 
+For a local Windows launch, `scripts/start-local-agent.ps1` runs Maven's
+standard `package` goal and `dependency:build-classpath`, then starts the
+application JAR with the generated runtime classpath. Provider configuration
+is supplied through `EASYCODE_LLM_API_KEY`, `EASYCODE_LLM_MODEL`, optional
+`EASYCODE_LLM_BASE_URL`, and optional `EASYCODE_AGENT_MAX_STEPS`. This is a
+repeatable headless launch path, not a bundled installer; no API key is placed
+on the command line or in repository files.
+
 ## Current Agent Core scope
 
 Implemented:

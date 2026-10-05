@@ -8,6 +8,30 @@ intelligence, Canvas, and workflow layers are future slices.
 The layer responsibilities and dependency direction are documented in
 [`docs/architecture.md`](docs/architecture.md).
 
+## Start the headless local application
+
+The repository provides a small Windows PowerShell launcher for the current
+one-shot `LocalAgentApplication` boundary. It builds the project JAR and a
+runtime dependency classpath before starting Java; it is not an installer or a
+production distribution format.
+
+From the repository root in PowerShell:
+
+```powershell
+$env:EASYCODE_LLM_API_KEY = '<your-provider-key>'
+$env:EASYCODE_LLM_MODEL = 'gpt-5.6-sol'
+$env:EASYCODE_LLM_BASE_URL = 'https://llmapi.xfcxb.com/v1'
+$env:EASYCODE_AGENT_MAX_STEPS = '5' # optional
+& .\scripts\start-local-agent.ps1 'Reply with a short greeting.'
+```
+
+The API key is read from the process environment by `LocalAgentApplication`;
+the launcher does not put it in command-line arguments, print it, or store it
+in the repository. If Maven is not on `PATH`, set `EASYCODE_MAVEN_CMD` to an
+absolute `mvn.cmd` path before launching. The default `mvn clean test` remains
+offline; the launcher only makes a network request when the configured
+provider is actually called.
+
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
 lifecycle. A Java worker will be just one future caller of this API.
