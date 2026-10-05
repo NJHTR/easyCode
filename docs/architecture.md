@@ -235,12 +235,14 @@ when external access is intentionally enabled.
 `RealAgentToolCallingSmokeTest` is a separate explicit external test. When the
 same environment variables are enabled, it verifies a real model Tool Call,
 the test-only `add` Tool, the returned `5` Tool result, the second model
-request, and the final AgentResult. The `add` Tool exists only under
+request, and the final AgentResult through `LocalAgentApplication` and its
+session boundary. The `add` Tool exists only under
 `src/test/java`; it does not expose shell, file, network, database, JVM, or
 sandbox capabilities. It is never part of the default offline regression.
 
 `RealAgentRunTraceSmokeTest` separately verifies the same real Tool Calling
-scenario through `AgentOrchestrator.runWithTrace(...)`. It checks the final
+scenario through `LocalAgentApplication` and `LocalAgentSession.runWithTrace(...)`.
+It checks the final
 `AgentExecution`, run/request identity, one Step per model generation, ordered
 Tool observations, duration fields, successful outcome, and that the trace
 contains no credentials or provider-specific objects. It is also explicitly
