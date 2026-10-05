@@ -255,6 +255,14 @@ components repeatedly. The boundary does not select providers, register Tool
 implementations, expose framework types, or add persistence, UI, workflow,
 memory, or a provider registry.
 
+`LocalAgentSession` is the minimal local continuation boundary. A composition
+can open a volatile, synchronous session with `openSession()`. The session has
+one UUID and correlates each completed `AgentPromptRequest` with its
+`AgentResult` and `AgentRunTrace`; callers can list the in-memory executions or
+find one by `runId`. It does not persist data, automatically append prior
+messages, or provide Agent memory: every call still supplies its complete
+provider-neutral prompt. There is no scheduler or asynchronous lifecycle.
+
 ## Current Agent Core scope
 
 Implemented:
