@@ -65,8 +65,29 @@ AgentRequest
   -> AgentService
       -> AgentExecutionPort
           -> ExecutionService
-              -> HostExecutionBackend or SandboxExecutionBackend
+      -> HostExecutionBackend or SandboxExecutionBackend
 ```
+
+The controlled Agent loop is a separate, synchronous orchestration boundary:
+
+```text
+AgentService
+  -> AgentOrchestrator
+      -> LlmProvider (one generation)
+          -> text -> AgentResult SUCCESS
+          -> Tool calls -> AgentToolAccess -> ToolResult
+                           -> TOOL message -> next generation
+```
+
+`AgentOrchestrator` accepts a provider-neutral `AgentPromptRequest`, exposes
+only `ToolDefinition` values to the model, and converts each model
+`LlmToolCall` into a separate `ToolInvocation`. Tool execution is always
+sequential. Tool failures and unknown tools become TOOL messages so the model
+can recover; provider failures, invalid empty responses, and a reached
+`maxSteps` boundary fail the Agent run. `maxSteps` counts model generations
+and is required to be positive, so the loop cannot be unbounded. The
+orchestrator does not depend on Spring AI, a ToolRegistry, an Execution port,
+or any runtime implementation.
 
 The current JVM implementation is an adapter behind the port:
 
@@ -81,11 +102,11 @@ JvmAgentExecutionAdapter
 
 ### Agent
 
-Accepts one user-level request, creates one run, calls Execution, and converts
-the result into an AgentResult. The current Agent is intentionally a thin
-deterministic orchestrator and depends only on `AgentExecutionPort`. It does
-not perform LLM reasoning, planning, workflow management, memory, tool calling,
-or multi-agent coordination.
+`AgentService` keeps the existing deterministic Execution facade and also
+accepts the controlled LLM path through `AgentOrchestrator`. The two paths are
+separate: the Execution facade depends on `AgentExecutionPort`, while the LLM
+facade depends on `LlmProvider` and `AgentToolAccess`. Neither path exposes
+runtime, sandbox, registry, or framework implementations to the other.
 
 ### Execution
 
@@ -204,6 +225,7 @@ Implemented:
 - `SpringAiLlmProvider` as the Spring AI `ChatModel` adapter
 - `OpenAiCompatibleModelConfig` and `OpenAiChatModelFactory` for concrete model creation
 - `RealLlmSmokeTest` as an explicitly enabled external verification path
+- `AgentOrchestrator` as a bounded synchronous LLM/Tool loop
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
@@ -214,4 +236,5 @@ Not implemented in this slice:
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
 - other model-provider configurations, MCP, AI framework, or Tool plugin integrations
-- Agent Loop, automatic Tool selection, Planner, and ReAct execution
+- Planner, ReAct, Memory, persistence, cancellation, and asynchronous Agent
+  execution
