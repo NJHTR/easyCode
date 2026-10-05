@@ -231,6 +231,13 @@ request, and the final AgentResult. The `add` Tool exists only under
 `src/test/java`; it does not expose shell, file, network, database, JVM, or
 sandbox capabilities. It is never part of the default offline regression.
 
+`RealAgentRunTraceSmokeTest` separately verifies the same real Tool Calling
+scenario through `AgentOrchestrator.runWithTrace(...)`. It checks the final
+`AgentExecution`, run/request identity, one Step per model generation, ordered
+Tool observations, duration fields, successful outcome, and that the trace
+contains no credentials or provider-specific objects. It is also explicitly
+enabled and never runs in the default offline regression.
+
 ## Current Agent Core scope
 
 Implemented:
