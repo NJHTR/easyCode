@@ -8,6 +8,7 @@ import com.easycode.agent.model.AgentRunStatus;
 import com.easycode.execution.model.ExecutionResult;
 import com.easycode.execution.model.ExecutionStatus;
 import com.easycode.agent.model.AgentPromptRequest;
+import com.easycode.agent.model.AgentExecution;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -76,6 +77,13 @@ public final class AgentService {
             throw new IllegalStateException("AgentService is configured for execution");
         }
         return orchestrator.run(request);
+    }
+
+    public AgentExecution runWithTrace(AgentPromptRequest request) {
+        if (orchestrator == null) {
+            throw new IllegalStateException("AgentService is configured for execution");
+        }
+        return orchestrator.runWithTrace(request);
     }
 
     private static AgentRunStatus statusOf(ExecutionResult result) {

@@ -1,10 +1,14 @@
 package com.easycode.agent.api;
 
 import com.easycode.agent.model.AgentFailureReason;
+import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
 import com.easycode.agent.model.AgentResult;
 import com.easycode.agent.model.AgentRun;
 import com.easycode.agent.model.AgentRunStatus;
+import com.easycode.agent.model.AgentRunTrace;
+import com.easycode.agent.model.AgentStepOutcome;
+import com.easycode.agent.model.AgentStepTrace;
 import com.easycode.llm.api.LlmProvider;
 import com.easycode.llm.exception.LlmException;
 import com.easycode.llm.model.LlmMessage;
@@ -35,37 +39,65 @@ public final class AgentOrchestrator {
     }
 
     public AgentResult run(AgentPromptRequest request) {
+        return runWithTrace(request).result();
+    }
+
+    public AgentExecution runWithTrace(AgentPromptRequest request) {
         Objects.requireNonNull(request, "request");
         Instant createdAt = Instant.now();
+        UUID runId = UUID.randomUUID();
         List<LlmMessage> messages = new ArrayList<>(request.messages());
+        List<AgentStepTrace> steps = new ArrayList<>();
 
         for (int step = 1; step <= maxSteps; step++) {
+            Instant stepStartedAt = Instant.now();
+            int messageCount = messages.size();
+            int availableToolCount = toolAccess.listTools().size();
             LlmResponse response;
             try {
                 response = llmProvider.generate(new com.easycode.llm.model.LlmRequest(
                         request.model(), messages, toolAccess.listTools()));
             } catch (LlmException | RuntimeException exception) {
-                return failure(request, createdAt, AgentFailureReason.LLM_FAILURE,
-                        messageOf(exception, "LLM provider failed"));
+                String message = messageOf(exception, "LLM provider failed");
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, false, 0, List.of(),
+                        AgentStepOutcome.LLM_FAILURE));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.LLM_FAILURE, message, steps);
             }
 
             if (response == null) {
-                return failure(request, createdAt, AgentFailureReason.INVALID_RESPONSE,
-                        "LLM provider returned no response");
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, false, 0, List.of(),
+                        AgentStepOutcome.INVALID_RESPONSE));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.INVALID_RESPONSE, "LLM provider returned no response", steps);
             }
             if (response.toolCalls().isEmpty()) {
                 if (response.content().isBlank()) {
-                    return failure(request, createdAt, AgentFailureReason.INVALID_RESPONSE,
-                            "LLM response contained neither text nor Tool calls");
+                    steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                            messageCount, availableToolCount, false, 0, List.of(),
+                            AgentStepOutcome.INVALID_RESPONSE));
+                    return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                            AgentFailureReason.INVALID_RESPONSE,
+                            "LLM response contained neither text nor Tool calls", steps);
                 }
-                return success(request, createdAt, response.content());
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, true, 0, List.of(),
+                        AgentStepOutcome.COMPLETED));
+                return execution(request, runId, createdAt, AgentRunStatus.SUCCEEDED,
+                        null, response.content(), steps);
             }
             if (step == maxSteps) {
-                return failure(request, createdAt, AgentFailureReason.MAX_STEPS_REACHED,
-                        "maximum Agent steps reached");
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, !response.content().isBlank(),
+                        response.toolCalls().size(), List.of(), AgentStepOutcome.MAX_STEPS_REACHED));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
             }
 
             messages.add(LlmMessage.assistant(response.content(), response.toolCalls()));
+            List<AgentStepTrace.ToolObservation> observations = new ArrayList<>();
             for (LlmToolCall call : response.toolCalls()) {
                 ToolInvocation invocation = new ToolInvocation(
                         call.callId(), call.toolName(), call.arguments());
@@ -78,11 +110,15 @@ public final class AgentOrchestrator {
                             com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
                             messageOf(exception, "Tool access failed"));
                 }
+                observations.add(AgentStepTrace.ToolObservation.from(invocation, result));
                 messages.add(LlmMessage.tool(call.callId(), call.toolName(), toolMessage(result)));
             }
+            steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                    messageCount, availableToolCount, !response.content().isBlank(),
+                    response.toolCalls().size(), observations, AgentStepOutcome.TOOL_CALLS));
         }
-        return failure(request, createdAt, AgentFailureReason.MAX_STEPS_REACHED,
-                "maximum Agent steps reached");
+        return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
     }
 
     private static String toolMessage(ToolResult result) {
@@ -91,22 +127,15 @@ public final class AgentOrchestrator {
                 : "Tool failure [" + result.failureReason() + "]: " + result.error();
     }
 
-    private static AgentResult success(AgentPromptRequest request, Instant createdAt, String content) {
-        return new AgentResult(terminalRun(request, createdAt, AgentRunStatus.SUCCEEDED), null,
-                null, content);
-    }
-
-    private static AgentResult failure(AgentPromptRequest request, Instant createdAt,
-            AgentFailureReason reason, String message) {
-        return new AgentResult(terminalRun(request, createdAt, AgentRunStatus.FAILED), reason,
-                null, message);
-    }
-
-    private static AgentRun terminalRun(AgentPromptRequest request, Instant createdAt,
-            AgentRunStatus status) {
+    private static AgentExecution execution(AgentPromptRequest request, UUID runId,
+            Instant createdAt, AgentRunStatus status, AgentFailureReason reason,
+            String message, List<AgentStepTrace> steps) {
         Instant finishedAt = Instant.now();
-        return new AgentRun(UUID.randomUUID(), request.requestId(), status, createdAt,
+        AgentRun run = new AgentRun(runId, request.requestId(), status, createdAt,
                 createdAt, finishedAt);
+        AgentResult result = new AgentResult(run, reason, null, message);
+        return new AgentExecution(result,
+                new AgentRunTrace(runId, request.requestId(), steps, status, reason));
     }
 
     private static String messageOf(Exception exception, String fallback) {
