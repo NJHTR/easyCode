@@ -89,6 +89,11 @@ and is required to be positive, so the loop cannot be unbounded. The
 orchestrator does not depend on Spring AI, a ToolRegistry, an Execution port,
 or any runtime implementation.
 
+When a model returns Tool Calls, the next request preserves both the assistant
+Tool Call message and the matching TOOL result message. This keeps the
+provider-neutral conversation complete for OpenAI-compatible adapters while
+leaving actual Tool execution under easyCode's `AgentOrchestrator`.
+
 The current JVM implementation is an adapter behind the port:
 
 ```text
@@ -210,6 +215,13 @@ test output, does not execute Tools, and does not start an Agent or Tool
 Calling loop. Run it explicitly with `mvn -Dtest=RealLlmSmokeTest test` only
 when external access is intentionally enabled.
 
+`RealAgentToolCallingSmokeTest` is a separate explicit external test. When the
+same environment variables are enabled, it verifies a real model Tool Call,
+the test-only `add` Tool, the returned `5` Tool result, the second model
+request, and the final AgentResult. The `add` Tool exists only under
+`src/test/java`; it does not expose shell, file, network, database, JVM, or
+sandbox capabilities. It is never part of the default offline regression.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -226,6 +238,8 @@ Implemented:
 - `OpenAiCompatibleModelConfig` and `OpenAiChatModelFactory` for concrete model creation
 - `RealLlmSmokeTest` as an explicitly enabled external verification path
 - `AgentOrchestrator` as a bounded synchronous LLM/Tool loop
+- `RealAgentToolCallingSmokeTest` as an explicitly enabled end-to-end Tool
+  Calling verification path
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
