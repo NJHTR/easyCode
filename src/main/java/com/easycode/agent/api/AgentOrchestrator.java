@@ -65,9 +65,7 @@ public final class AgentOrchestrator {
                         "maximum Agent steps reached");
             }
 
-            if (!response.content().isBlank()) {
-                messages.add(LlmMessage.assistant(response.content()));
-            }
+            messages.add(LlmMessage.assistant(response.content(), response.toolCalls()));
             for (LlmToolCall call : response.toolCalls()) {
                 ToolInvocation invocation = new ToolInvocation(
                         call.callId(), call.toolName(), call.arguments());

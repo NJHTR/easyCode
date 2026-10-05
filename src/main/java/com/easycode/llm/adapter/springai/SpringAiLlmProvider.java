@@ -74,7 +74,7 @@ public final class SpringAiLlmProvider implements LlmProvider {
         return switch (message.role()) {
             case SYSTEM -> new SystemMessage(message.content());
             case USER -> new UserMessage(message.content());
-            case ASSISTANT -> new AssistantMessage(message.content());
+            case ASSISTANT -> toAssistantMessage(message);
             case TOOL -> ToolResponseMessage.builder()
                     .responses(List.of(new ToolResponseMessage.ToolResponse(
                             message.toolCallId() == null ? "" : message.toolCallId().toString(),
@@ -82,6 +82,23 @@ public final class SpringAiLlmProvider implements LlmProvider {
                             message.content())))
                     .build();
         };
+    }
+
+    private static AssistantMessage toAssistantMessage(LlmMessage message) {
+        if (message.toolCalls().isEmpty()) {
+            return new AssistantMessage(message.content());
+        }
+        List<AssistantMessage.ToolCall> toolCalls = message.toolCalls().stream()
+                .map(toolCall -> new AssistantMessage.ToolCall(
+                        toolCall.callId().toString(),
+                        "function",
+                        toolCall.toolName(),
+                        toolCall.arguments()))
+                .toList();
+        return AssistantMessage.builder()
+                .content(message.content())
+                .toolCalls(toolCalls)
+                .build();
     }
 
     private static LlmResponse toResponse(ChatResponse response) {
