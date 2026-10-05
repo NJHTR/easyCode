@@ -1,7 +1,6 @@
 package com.easycode.agent.integration;
 
-import com.easycode.agent.api.AgentOrchestrator;
-import com.easycode.agent.adapter.tool.RegistryAgentToolAccess;
+import com.easycode.agent.application.LocalAgentApplication;
 import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
 import com.easycode.agent.model.AgentRunStatus;
@@ -58,9 +57,9 @@ class RealAgentRunTraceSmokeTest {
             return;
         }
 
-        AgentExecution execution = new AgentOrchestrator(
-                provider, new RegistryAgentToolAccess(registry), 5).runWithTrace(
-                        AgentPromptRequest.create(model, List.of(LlmMessage.user(
+        AgentExecution execution = LocalAgentApplication.openSession(
+                provider, registry, 5).runWithTrace(AgentPromptRequest.create(
+                        model, List.of(LlmMessage.user(
                                 "Use the add tool to calculate 2 + 3. "
                                         + "Do not calculate it yourself. You must call the add tool. "
                                         + "After receiving the tool result, reply with the final result."))));
