@@ -263,6 +263,18 @@ find one by `runId`. It does not persist data, automatically append prior
 messages, or provide Agent memory: every call still supplies its complete
 provider-neutral prompt. There is no scheduler or asynchronous lifecycle.
 
+The headless local application boundary is `LocalAgentApplication`. It provides
+two explicit construction paths: callers may inject an `LlmProvider` for local
+or offline wiring tests, or may pass an `OpenAiCompatibleModelConfig` to build
+the concrete `OpenAiChatModelFactory` and `SpringAiLlmProvider` adapter. The
+command-line `main` path reads `EASYCODE_LLM_API_KEY`,
+`EASYCODE_LLM_MODEL`, optional `EASYCODE_LLM_BASE_URL`, and optional
+`EASYCODE_AGENT_MAX_STEPS`, then accepts exactly one prompt argument. It creates
+an empty application-owned `ToolRegistry`, opens a `LocalAgentSession`, runs
+one complete provider-neutral prompt synchronously, and prints only the final
+result message. It does not print or persist credentials and is not a UI,
+workflow, memory, persistence, or asynchronous runtime.
+
 ## Current Agent Core scope
 
 Implemented:
@@ -281,11 +293,14 @@ Implemented:
 - `AgentOrchestrator` as a bounded synchronous LLM/Tool loop
 - `RealAgentToolCallingSmokeTest` as an explicitly enabled end-to-end Tool
   Calling verification path
+- `LocalAgentApplication` as the minimal headless local entry boundary for
+  explicit OpenAI-compatible configuration and one synchronous prompt
 - real Host and Windows Sandbox integration tests
 
 Not implemented in this slice:
 
-- production external LLM calls or prompt handling
+- interactive prompt sessions, provider registry, and production configuration
+  lifecycle beyond the one-shot headless entry point
 - Planner, Workflow, Canvas, Node, Port, or Trigger
 - Runtime registry or additional runtimes
 - persistence, scheduling, asynchronous execution, or realtime logs
