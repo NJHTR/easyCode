@@ -126,15 +126,15 @@ class RealAgentToolCallingSmokeTest {
         }
     }
 
-    private static final class AddTool implements Tool {
+    static final class AddTool implements Tool {
         private static final ToolDefinition DEFINITION = new ToolDefinition(
                 "add", "Add two integers and return the result.",
                 "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"integer\"},\"b\":{\"type\":\"integer\"}},\"required\":[\"a\",\"b\"]}");
-        private int invocationCount;
-        private int lastA;
-        private int lastB;
-        private String lastOutput;
-        private ToolFailureReason failureReason;
+        int invocationCount;
+        int lastA;
+        int lastB;
+        String lastOutput;
+        ToolFailureReason failureReason;
 
         @Override
         public ToolDefinition definition() {
