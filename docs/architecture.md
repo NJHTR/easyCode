@@ -103,6 +103,14 @@ credentials or provider raw responses. `AgentExecution` keeps the final
 `AgentResult` and trace separate. The trace is in-memory structured data, not
 logging, persistence, an Event Store, or distributed telemetry.
 
+Completed in-memory traces can be read through the narrow `AgentTraceQuery`
+contract. `InMemoryAgentTraceQuery` indexes existing `AgentRunTrace` values by
+their UUID `runId` and exposes only `findByRunId(...)`. A missing run returns
+`Optional.empty()`. Returned traces are immutable sorted copies whose Steps are
+ordered by ascending `stepNumber`; the query does not execute Agents, call
+Tools, or change the original trace. Persistence, REST, and UI are not part of
+this boundary.
+
 The current JVM implementation is an adapter behind the port:
 
 ```text
