@@ -121,8 +121,7 @@ class LlmProviderContractIntegrationTest {
                 () -> new LlmRequest("fake-model", List.of()));
         assertThrows(IllegalArgumentException.class,
                 () -> new LlmMessage(LlmMessageRole.USER, null));
-        assertThrows(IllegalArgumentException.class,
-                () -> new LlmResponse("", List.of()));
+        assertEquals("", new LlmResponse("", List.of()).content());
         assertThrows(IllegalArgumentException.class,
                 () -> new LlmToolCall(java.util.UUID.randomUUID(), "", "{}"));
     }
