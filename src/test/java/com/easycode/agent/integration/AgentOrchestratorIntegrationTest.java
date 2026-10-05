@@ -48,8 +48,8 @@ class AgentOrchestratorIntegrationTest {
         assertEquals("final answer", result.message());
         assertEquals(2, provider.calls);
         assertEquals(2, provider.requests.get(0).tools().size());
-        assertEquals("input", provider.requests.get(1).messages().get(1).content());
-        assertEquals(call.callId(), provider.requests.get(1).messages().get(1).toolCallId());
+        assertEquals("input", provider.requests.get(1).messages().get(2).content());
+        assertEquals(call.callId(), provider.requests.get(1).messages().get(2).toolCallId());
     }
 
     @Test
@@ -62,7 +62,7 @@ class AgentOrchestratorIntegrationTest {
 
         assertTrue(result.succeeded(), result.toString());
         assertEquals("recovered", result.message());
-        assertTrue(provider.requests.get(1).messages().get(1).content().contains("EXECUTION_FAILURE"));
+        assertTrue(provider.requests.get(1).messages().get(2).content().contains("EXECUTION_FAILURE"));
     }
 
     @Test
@@ -77,8 +77,8 @@ class AgentOrchestratorIntegrationTest {
 
         assertTrue(result.succeeded(), result.toString());
         List<LlmMessage> messages = provider.requests.get(1).messages();
-        assertEquals("first", messages.get(1).content());
-        assertEquals("second", messages.get(2).content());
+        assertEquals("first", messages.get(2).content());
+        assertEquals("second", messages.get(3).content());
     }
 
     @Test
@@ -90,7 +90,7 @@ class AgentOrchestratorIntegrationTest {
         AgentResult result = orchestrator(provider, 5).run(prompt());
 
         assertTrue(result.succeeded(), result.toString());
-        assertTrue(provider.requests.get(1).messages().get(1).content().contains("TOOL_NOT_FOUND"));
+        assertTrue(provider.requests.get(1).messages().get(2).content().contains("TOOL_NOT_FOUND"));
     }
 
     @Test
