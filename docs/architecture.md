@@ -94,6 +94,15 @@ Tool Call message and the matching TOOL result message. This keeps the
 provider-neutral conversation complete for OpenAI-compatible adapters while
 leaving actual Tool execution under easyCode's `AgentOrchestrator`.
 
+Each model generation is recorded as one immutable `AgentStepTrace` inside an
+immutable `AgentRunTrace`. A step records safe metadata such as model,
+message/tool counts, response-content presence, duration, outcome, and ordered
+Tool observations. Tool observations retain name, call ID, success/failure,
+failure category, and input/output presence and lengths; they do not retain
+credentials or provider raw responses. `AgentExecution` keeps the final
+`AgentResult` and trace separate. The trace is in-memory structured data, not
+logging, persistence, an Event Store, or distributed telemetry.
+
 The current JVM implementation is an adapter behind the port:
 
 ```text
