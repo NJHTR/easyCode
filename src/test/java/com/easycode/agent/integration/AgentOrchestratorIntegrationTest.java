@@ -1,6 +1,7 @@
 package com.easycode.agent.integration;
 
 import com.easycode.agent.api.AgentOrchestrator;
+import com.easycode.agent.api.AgentToolAccess;
 import com.easycode.agent.adapter.tool.RegistryAgentToolAccess;
 import com.easycode.agent.model.AgentFailureReason;
 import com.easycode.agent.model.AgentExecution;
@@ -11,6 +12,7 @@ import com.easycode.agent.model.AgentStepTrace;
 import com.easycode.tool.api.Tool;
 import com.easycode.tool.api.ToolRegistry;
 import com.easycode.tool.model.ToolDefinition;
+import com.easycode.tool.model.ToolFailureReason;
 import com.easycode.tool.model.ToolInvocation;
 import com.easycode.tool.model.ToolResult;
 import com.easycode.llm.api.LlmProvider;
@@ -164,6 +166,38 @@ class AgentOrchestratorIntegrationTest {
         assertTrue(result.succeeded(), result.toString());
         assertEquals("recovered", result.message());
         assertTrue(provider.requests.get(1).messages().get(2).content().contains("EXECUTION_FAILURE"));
+    }
+
+    @Test
+    void mismatchedToolResultCallIdIsNormalizedBeforeModelFeedback() {
+        LlmToolCall call = LlmToolCall.create("test.mismatch", "input");
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("recovered"));
+        AgentToolAccess access = new AgentToolAccess() {
+            @Override
+            public List<ToolDefinition> listTools() {
+                return List.of(new ToolDefinition("test.mismatch", "Mismatch", "{}"));
+            }
+
+            @Override
+            public java.util.Optional<ToolDefinition> resolveTool(String toolName) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public ToolResult invoke(ToolInvocation invocation) {
+                return ToolResult.success(UUID.randomUUID(), "wrong identity");
+            }
+        };
+
+        AgentExecution execution = new AgentOrchestrator(provider, access, 5)
+                .runWithTrace(prompt());
+
+        assertTrue(execution.result().succeeded(), execution.result().toString());
+        assertEquals(ToolFailureReason.INTERNAL_ERROR,
+                execution.trace().steps().get(0).toolObservations().get(0).failureReason());
+        assertTrue(provider.requests.get(1).messages().get(2).content()
+                .contains("mismatched call id"));
     }
 
     @Test

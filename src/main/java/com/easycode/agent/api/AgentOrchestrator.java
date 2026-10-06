@@ -197,11 +197,17 @@ public final class AgentOrchestrator {
         Future<ToolResult> future = executor.submit(() -> toolAccess.invoke(invocation));
         try {
             ToolResult result = future.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
-            return result == null
-                    ? ToolResult.failure(invocation.callId(),
-                            com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
-                            "Tool access returned no result")
-                    : result;
+            if (result == null) {
+                return ToolResult.failure(invocation.callId(),
+                        com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
+                        "Tool access returned no result");
+            }
+            if (!invocation.callId().equals(result.callId())) {
+                return ToolResult.failure(invocation.callId(),
+                        com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
+                        "Tool access returned a mismatched call id");
+            }
+            return result;
         } catch (TimeoutException exception) {
             future.cancel(true);
             return ToolResult.failure(

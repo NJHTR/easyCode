@@ -97,6 +97,10 @@ and is required to be positive. Each generation is also limited to 32 Tool
 Calls; exceeding that hard safety ceiling fails the run before any of those
 Tools execute. Tool call IDs must also be unique within one model response; a
 duplicate is treated as an invalid provider response before any Tool executes.
+The orchestration boundary also verifies that each `AgentToolAccess` result
+preserves the requested Tool call ID; a null or mismatched result becomes a
+structured internal Tool failure before it is added to model feedback or the
+run trace.
 Together these bounds keep the synchronous loop bounded. The orchestrator also
 applies the `AgentPromptRequest.timeout()` wall-clock budget
 to each provider generation. A timed-out generation is interrupted best-effort,
