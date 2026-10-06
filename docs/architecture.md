@@ -142,7 +142,8 @@ in-memory structured data, not logging, persistence, an Event Store, or
 distributed telemetry. A trace rejects duplicate step numbers and duplicate
 Tool observation call IDs so a querying caller cannot observe ambiguous
 generation history, and each presence flag must agree with its recorded content
-length.
+length. A `COMPLETED` step must also contain response text and no Tool calls;
+failure, timeout, and cancellation steps may retain partial observations.
 
 Completed in-memory traces can be read through the narrow `AgentTraceQuery`
 contract. `InMemoryAgentTraceQuery` indexes existing `AgentRunTrace` values by

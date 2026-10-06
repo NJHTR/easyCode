@@ -170,6 +170,19 @@ class AgentTraceQueryIntegrationTest {
     }
 
     @Test
+    void rejectsCompletedStepWithoutTextOrWithToolCalls() {
+        Instant now = Instant.now();
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentStepTrace(
+                        1, now, now, "model", 1, 0, false, 0,
+                        List.of(), AgentStepOutcome.COMPLETED));
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentStepTrace(
+                        1, now, now, "model", 1, 1, true, 1,
+                        List.of(), AgentStepOutcome.COMPLETED));
+    }
+
+    @Test
     void rejectsResultAndTraceWithDifferentRunIds() {
         Instant now = Instant.now();
         UUID requestId = UUID.randomUUID();

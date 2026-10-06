@@ -52,6 +52,11 @@ public record AgentStepTrace(
             }
         }
         Objects.requireNonNull(outcome, "outcome");
+        if (outcome == AgentStepOutcome.COMPLETED
+                && (!responseContentPresent || toolCallCount != 0 || !toolObservations.isEmpty())) {
+            throw new IllegalArgumentException(
+                    "completed step must contain response content and no Tool calls");
+        }
     }
 
     public Duration duration() {
