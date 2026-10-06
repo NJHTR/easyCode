@@ -179,7 +179,9 @@ concepts.
 `executionId`; a null or mismatched result is normalized to a failed
 `INTERNAL_ERROR` result with the original request identity. Because this slice
 is synchronous, `CREATED` and `RUNNING` results are also rejected at this
-boundary instead of being exposed as completed executions.
+boundary instead of being exposed as completed executions. A closed Host
+backend rejects later requests with `START_FAILED` and cleans up a process if
+shutdown races with output-reader startup.
 
 Host and sandbox process launchers remove inherited Agent/provider configuration
 variables, including API-key variables, before applying explicit request

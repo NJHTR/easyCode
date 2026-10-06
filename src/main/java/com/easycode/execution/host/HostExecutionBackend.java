@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.RejectedExecutionException;
 
 /** Runs one request as a normal process on the local host. */
 public final class HostExecutionBackend implements ExecutionBackend {
@@ -35,6 +36,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
         thread.setDaemon(true);
         return thread;
     });
+    private volatile boolean closed;
 
     @Override
     public ExecutionResult execute(ExecutionRequest request) {
@@ -45,6 +47,11 @@ public final class HostExecutionBackend implements ExecutionBackend {
                     ExecutionTerminationReason.START_FAILED,
                     "HostExecutionBackend cannot execute "
                             + request.executionEnvironment() + " requests");
+        }
+        if (closed) {
+            return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
+                    ExecutionTerminationReason.START_FAILED,
+                    "HostExecutionBackend is closed");
         }
         Process process;
         try {
@@ -61,10 +68,21 @@ public final class HostExecutionBackend implements ExecutionBackend {
                     ExecutionTerminationReason.START_FAILED, exception.getMessage());
         }
 
-        Future<String> stdout = outputReaders.submit(
-                () -> readOutput(process.getInputStream(), request.maxOutputChars()));
-        Future<String> stderr = outputReaders.submit(
-                () -> readOutput(process.getErrorStream(), request.maxOutputChars()));
+        Future<String> stdout = null;
+        Future<String> stderr = null;
+        try {
+            stdout = outputReaders.submit(
+                    () -> readOutput(process.getInputStream(), request.maxOutputChars()));
+            stderr = outputReaders.submit(
+                    () -> readOutput(process.getErrorStream(), request.maxOutputChars()));
+        } catch (RejectedExecutionException exception) {
+            destroyProcessTree(process);
+            cancelReaders(stdout, stderr);
+            closeProcessStreams(process);
+            return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
+                    ExecutionTerminationReason.START_FAILED,
+                    "HostExecutionBackend is closed");
+        }
         try {
             if (!process.waitFor(request.timeout().toMillis(), TimeUnit.MILLISECONDS)) {
                 destroyProcessTree(process);
@@ -113,6 +131,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
 
     @Override
     public void close() {
+        closed = true;
         outputReaders.shutdownNow();
     }
 
@@ -158,8 +177,12 @@ public final class HostExecutionBackend implements ExecutionBackend {
     }
 
     private static void cancelReaders(Future<String> stdout, Future<String> stderr) {
-        stdout.cancel(true);
-        stderr.cancel(true);
+        if (stdout != null) {
+            stdout.cancel(true);
+        }
+        if (stderr != null) {
+            stderr.cancel(true);
+        }
     }
 
     private static ExecutionResult result(

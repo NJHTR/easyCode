@@ -152,6 +152,21 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void hostBackendRejectsExecutionAfterCloseWithoutStartingAProcess() {
+        HostExecutionBackend backend = new HostExecutionBackend();
+        backend.close();
+        try (ExecutionService service = new ExecutionService(backend)) {
+            ExecutionResult result = service.execute(request(
+                    SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.START_FAILED,
+                    result.terminationReason());
+            assertEquals("HostExecutionBackend is closed", result.failureMessage());
+        }
+    }
+
+    @Test
     void sandboxBackendRejectsHostRequest() {
         try (SandboxService sandbox = new SandboxService(new ProcessSandboxManager());
              ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
