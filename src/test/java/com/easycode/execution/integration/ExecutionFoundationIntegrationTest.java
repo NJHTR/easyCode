@@ -19,12 +19,14 @@ import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExecutionFoundationIntegrationTest {
@@ -50,6 +52,28 @@ class ExecutionFoundationIntegrationTest {
 
             assertEquals(ExecutionStatus.TIMED_OUT, result.status(), result.toString());
             assertEquals(ExecutionTerminationReason.TIMED_OUT, result.terminationReason());
+        }
+    }
+
+    @Test
+    void hostTimeoutTerminatesChildProcesses(@TempDir Path workingDirectory) throws Exception {
+        Path childPidFile = workingDirectory.resolve("child.pid");
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    java.util.UUID.randomUUID(),
+                    SandboxTestProcess.command("spawn-child", childPidFile.toString(),
+                            "10000", "10000"),
+                    workingDirectory,
+                    Map.of(),
+                    Duration.ofSeconds(2),
+                    ExecutionEnvironment.HOST,
+                    4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.TIMED_OUT, result.status(), result.toString());
+            long childPid = Long.parseLong(Files.readString(childPidFile));
+            waitForProcessExit(childPid);
+            assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false));
         }
     }
 
@@ -129,5 +153,13 @@ class ExecutionFoundationIntegrationTest {
         return new ExecutionRequest(
                 java.util.UUID.randomUUID(), command, null, environment, timeout,
                 ExecutionEnvironment.HOST, 4096, SandboxPolicy.defaults());
+    }
+
+    private static void waitForProcessExit(long pid) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)
+                && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
     }
 }
