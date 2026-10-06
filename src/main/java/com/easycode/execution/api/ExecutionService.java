@@ -30,7 +30,23 @@ public final class ExecutionService implements AutoCloseable {
             return invalidResult(request,
                     "execution backend returned a non-terminal status: " + result.status());
         }
+        if (!isConsistent(result)) {
+            return invalidResult(request,
+                    "execution backend returned an inconsistent status and termination reason");
+        }
         return result;
+    }
+
+    private static boolean isConsistent(ExecutionResult result) {
+        return switch (result.status()) {
+            case SUCCEEDED -> result.terminationReason() == ExecutionTerminationReason.COMPLETED;
+            case TIMED_OUT -> result.terminationReason() == ExecutionTerminationReason.TIMED_OUT;
+            case CANCELLED -> result.terminationReason() == ExecutionTerminationReason.CANCELLED;
+            case FAILED -> result.terminationReason() != ExecutionTerminationReason.COMPLETED
+                    && result.terminationReason() != ExecutionTerminationReason.TIMED_OUT
+                    && result.terminationReason() != ExecutionTerminationReason.CANCELLED;
+            case CREATED, RUNNING -> false;
+        };
     }
 
     private static ExecutionResult invalidResult(ExecutionRequest request, String message) {

@@ -181,7 +181,9 @@ concepts.
 is synchronous, `CREATED` and `RUNNING` results are also rejected at this
 boundary instead of being exposed as completed executions. A closed Host
 backend rejects later requests with `START_FAILED` and cleans up a process if
-shutdown races with output-reader startup.
+shutdown races with output-reader startup. The service also rejects terminal
+results whose status and termination reason disagree, preserving one coherent
+outcome for Agent callers.
 
 Host and sandbox process launchers remove inherited Agent/provider configuration
 variables, including API-key variables, before applying explicit request

@@ -451,6 +451,32 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void normalizesBackendReturningInconsistentTerminalResult() {
+        ExecutionRequest request = request(
+                SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+        try (ExecutionService service = new ExecutionService(new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest ignored) {
+                return new ExecutionResult(
+                        request.executionId(), ExecutionStatus.SUCCEEDED, 0, "wrong", "",
+                        Duration.ZERO, ExecutionTerminationReason.INTERNAL_ERROR, "");
+            }
+
+            @Override
+            public void close() {
+            }
+        })) {
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("execution backend returned an inconsistent status and termination reason",
+                    result.failureMessage());
+        }
+    }
+
+    @Test
     @EnabledOnOs(OS.WINDOWS)
     void sandboxExecutionUsesExistingSandboxService() throws Exception {
         try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());
