@@ -81,6 +81,28 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void hostCompletionTerminatesChildProcesses(@TempDir Path workingDirectory) throws Exception {
+        Path childPidFile = workingDirectory.resolve("child-after-parent.pid");
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    java.util.UUID.randomUUID(),
+                    SandboxTestProcess.command("spawn-child", childPidFile.toString(),
+                            "10000", "0"),
+                    workingDirectory,
+                    Map.of(),
+                    Duration.ofSeconds(5),
+                    ExecutionEnvironment.HOST,
+                    4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.SUCCEEDED, result.status(), result.toString());
+            long childPid = Long.parseLong(Files.readString(childPidFile));
+            waitForProcessExit(childPid);
+            assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false));
+        }
+    }
+
+    @Test
     void hostFailureIncludesStartReason() {
         try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
             ExecutionResult result = service.execute(request(

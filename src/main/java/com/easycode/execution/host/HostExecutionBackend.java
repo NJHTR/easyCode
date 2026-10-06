@@ -97,9 +97,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
             return result(request, startedAt, ExecutionStatus.FAILED, null,
                     readQuietly(stdout), readQuietly(stderr), reason, cause.getMessage());
         } finally {
-            if (process.isAlive()) {
-                destroyProcessTree(process);
-            }
+            destroyProcessTree(process);
         }
     }
 

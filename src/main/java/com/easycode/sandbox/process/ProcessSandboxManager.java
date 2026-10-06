@@ -157,6 +157,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 destroyProcessTree(process);
                 awaitReaders();
             } finally {
+                destroyProcessTree(process);
                 finishedAt = Instant.now();
                 cleanupDirectory();
             }
@@ -170,7 +171,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 }
                 status = SandboxStatus.DESTROYED;
             }
-            if (process != null && process.isAlive()) {
+            if (process != null) {
                 destroyProcessTree(process);
             }
             finishedAt = Instant.now();

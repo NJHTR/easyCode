@@ -65,6 +65,21 @@ class SandboxLifecycleIntegrationTest {
     }
 
     @Test
+    void normalCompletionDestroysChildProcesses(@TempDir Path tempDirectory) throws Exception {
+        Path childPidFile = tempDirectory.resolve("child-after-parent.pid");
+        try (SandboxService service = new SandboxService(new ProcessSandboxManager())) {
+            SandboxInfo info = awaitTerminal(service, service.create(spec("tree-complete",
+                    SandboxTestProcess.command("spawn-child", childPidFile.toString(),
+                            "10000", "0"), tempDirectory, DEFAULT_LIMITS)));
+
+            assertEquals(SandboxStatus.SUCCEEDED, info.status());
+            long childPid = Long.parseLong(Files.readString(childPidFile));
+            waitForProcessExit(childPid);
+            assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false));
+        }
+    }
+
+    @Test
     void preservesExplicitWorkspaceAndAllowsWriting(@TempDir Path workspace) throws Exception {
         Path output = workspace.resolve("output.txt");
         try (SandboxService service = new SandboxService(new ProcessSandboxManager())) {
