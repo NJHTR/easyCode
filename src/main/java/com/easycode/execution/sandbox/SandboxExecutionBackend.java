@@ -3,6 +3,7 @@ package com.easycode.execution.sandbox;
 import com.easycode.execution.api.ExecutionBackend;
 import com.easycode.execution.model.ExecutionRequest;
 import com.easycode.execution.model.ExecutionResult;
+import com.easycode.execution.model.ExecutionEnvironment;
 import com.easycode.execution.model.ExecutionStatus;
 import com.easycode.execution.model.ExecutionTerminationReason;
 import com.easycode.sandbox.api.SandboxService;
@@ -28,6 +29,12 @@ public final class SandboxExecutionBackend implements ExecutionBackend {
     public ExecutionResult execute(ExecutionRequest request) {
         Objects.requireNonNull(request, "request");
         Instant startedAt = Instant.now();
+        if (request.executionEnvironment() != ExecutionEnvironment.SANDBOX) {
+            return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
+                    ExecutionTerminationReason.START_FAILED,
+                    "SandboxExecutionBackend cannot execute "
+                            + request.executionEnvironment() + " requests");
+        }
         SandboxHandle handle = null;
         try {
             SandboxLimits limits = new SandboxLimits(

@@ -3,6 +3,7 @@ package com.easycode.execution.host;
 import com.easycode.execution.api.ExecutionBackend;
 import com.easycode.execution.model.ExecutionRequest;
 import com.easycode.execution.model.ExecutionResult;
+import com.easycode.execution.model.ExecutionEnvironment;
 import com.easycode.execution.model.ExecutionStatus;
 import com.easycode.execution.model.ExecutionTerminationReason;
 
@@ -35,6 +36,12 @@ public final class HostExecutionBackend implements ExecutionBackend {
     public ExecutionResult execute(ExecutionRequest request) {
         Objects.requireNonNull(request, "request");
         Instant startedAt = Instant.now();
+        if (request.executionEnvironment() != ExecutionEnvironment.HOST) {
+            return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
+                    ExecutionTerminationReason.START_FAILED,
+                    "HostExecutionBackend cannot execute "
+                            + request.executionEnvironment() + " requests");
+        }
         Process process;
         try {
             ProcessBuilder builder = new ProcessBuilder(request.command())

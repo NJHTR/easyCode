@@ -13,6 +13,7 @@ import com.easycode.execution.routing.EnvironmentExecutionBackend;
 import com.easycode.runtime.jvm.SandboxTask;
 import com.easycode.sandbox.api.SandboxService;
 import com.easycode.sandbox.model.SandboxPolicy;
+import com.easycode.sandbox.process.ProcessSandboxManager;
 import com.easycode.sandbox.windows.WindowsJobObjectSandboxManager;
 import com.easycode.sandbox.integration.SandboxTestProcess;
 import org.junit.jupiter.api.Test;
@@ -88,6 +89,35 @@ class ExecutionFoundationIntegrationTest {
             assertEquals(ExecutionStatus.FAILED, result.status(), result.toString());
             assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
             assertTrue(!result.failureMessage().isBlank(), result.toString());
+        }
+    }
+
+    @Test
+    void hostBackendRejectsSandboxRequest() {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    UUID.randomUUID(), List.of("ignored"), null, Map.of(),
+                    Duration.ofSeconds(1), ExecutionEnvironment.SANDBOX, 4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
+            assertTrue(result.failureMessage().contains("cannot execute SANDBOX"));
+        }
+    }
+
+    @Test
+    void sandboxBackendRejectsHostRequest() {
+        try (SandboxService sandbox = new SandboxService(new ProcessSandboxManager());
+             ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    UUID.randomUUID(), List.of("ignored"), null, Map.of(),
+                    Duration.ofSeconds(1), ExecutionEnvironment.HOST, 4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
+            assertTrue(result.failureMessage().contains("cannot execute HOST"));
         }
     }
 
