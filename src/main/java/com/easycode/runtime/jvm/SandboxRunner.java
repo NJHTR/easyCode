@@ -90,7 +90,7 @@ public final class SandboxRunner {
             }
             return result;
         } finally {
-            if (process != null && process.isAlive()) {
+            if (process != null) {
                 destroyProcessTree(process);
             }
             readerExecutor.shutdownNow();
@@ -139,18 +139,33 @@ public final class SandboxRunner {
     }
 
     private static void destroyProcessTree(Process process) {
-        process.descendants().forEach(child -> {
+        List<ProcessHandle> descendants = process.descendants().toList();
+        for (int index = descendants.size() - 1; index >= 0; index--) {
+            ProcessHandle child = descendants.get(index);
             try {
                 child.destroyForcibly();
             } catch (SecurityException ignored) {
                 // Best effort cleanup; the parent is forcibly terminated below.
             }
-        });
+        }
+        for (int index = descendants.size() - 1; index >= 0; index--) {
+            awaitExit(descendants.get(index));
+        }
         process.destroyForcibly();
         try {
             process.waitFor(1, TimeUnit.SECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitExit(ProcessHandle process) {
+        try {
+            process.onExit().get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException ignored) {
+            // Cleanup remains best effort when a child does not exit promptly.
         }
     }
 
