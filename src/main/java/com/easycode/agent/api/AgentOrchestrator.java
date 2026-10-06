@@ -32,6 +32,9 @@ import java.util.concurrent.TimeoutException;
 
 /** Synchronous, bounded coordinator for model responses and Tool calls. */
 public final class AgentOrchestrator {
+    private static final int MAX_TOOL_MESSAGE_CHARS = 32_768;
+    private static final String TOOL_OUTPUT_TRUNCATED_MARKER = "\n[tool output truncated]";
+
     private final LlmProvider llmProvider;
     private final AgentToolAccess toolAccess;
     private final int maxSteps;
@@ -174,9 +177,14 @@ public final class AgentOrchestrator {
     }
 
     private static String toolMessage(ToolResult result) {
-        return result.succeeded()
+        String message = result.succeeded()
                 ? result.output()
                 : "Tool failure [" + result.failureReason() + "]: " + result.error();
+        if (message.length() <= MAX_TOOL_MESSAGE_CHARS) {
+            return message;
+        }
+        int contentLength = MAX_TOOL_MESSAGE_CHARS - TOOL_OUTPUT_TRUNCATED_MARKER.length();
+        return message.substring(0, contentLength) + TOOL_OUTPUT_TRUNCATED_MARKER;
     }
 
     private static AgentExecution execution(AgentPromptRequest request, UUID runId,

@@ -104,6 +104,12 @@ a synchronous boundary, not an asynchronous cancellation API, and never uses
 The orchestrator does not depend on Spring AI, a ToolRegistry,
 an Execution port, or any runtime implementation.
 
+Tool feedback sent to a subsequent model generation is bounded to 32,768
+characters. Oversized output is truncated with a marker before it becomes
+conversation context, while the original Tool result and trace length metadata
+remain unchanged. This keeps provider requests and in-memory conversation
+growth bounded without changing Tool behavior.
+
 When a model returns Tool Calls, the next request preserves both the assistant
 Tool Call message and the matching TOOL result message. This keeps the
 provider-neutral conversation complete for OpenAI-compatible adapters while

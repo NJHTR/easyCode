@@ -166,6 +166,36 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void oversizedToolOutputIsBoundedBeforeNextModelCall() {
+        ToolRegistry registry = new ToolRegistry();
+        String largeOutput = "x".repeat(100_000);
+        registry.register(new Tool() {
+            @Override
+            public ToolDefinition definition() {
+                return new ToolDefinition("test.large", "Large output", "{}");
+            }
+
+            @Override
+            public ToolResult execute(ToolInvocation invocation) {
+                return ToolResult.success(invocation.callId(), largeOutput);
+            }
+        });
+        LlmToolCall call = LlmToolCall.create("test.large", "input");
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("done"));
+
+        AgentExecution execution = new AgentOrchestrator(
+                provider, new RegistryAgentToolAccess(registry), 5).runWithTrace(prompt());
+
+        assertTrue(execution.result().succeeded(), execution.result().toString());
+        String toolMessage = provider.requests.get(1).messages().get(2).content();
+        assertEquals(32_768, toolMessage.length());
+        assertTrue(toolMessage.endsWith("[tool output truncated]"));
+        assertEquals(100_000, execution.trace().steps().get(0)
+                .toolObservations().get(0).outputLength());
+    }
+
+    @Test
     void multipleToolCallsAreExecutedInReturnedOrder() {
         LlmToolCall first = LlmToolCall.create("test.echo", "first");
         LlmToolCall second = LlmToolCall.create("test.echo", "second");
