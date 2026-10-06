@@ -13,6 +13,7 @@ import com.easycode.tool.api.ToolRegistry;
 
 import java.util.List;
 import java.util.Objects;
+import java.io.PrintStream;
 
 /**
  * Minimal headless entry boundary for one local Agent session.
@@ -76,12 +77,59 @@ public final class LocalAgentApplication {
 
     /** Runs one prompt using EASYCODE_LLM_* configuration and prints only its result. */
     public static void main(String[] args) {
-        if (args == null || args.length != 1) {
-            throw new IllegalArgumentException(
-                    "usage: LocalAgentApplication <prompt>");
+        int exitCode = runCli(args, System.out, System.err);
+        if (exitCode != 0) {
+            System.exit(exitCode);
         }
-        AgentExecution execution = runOnceFromEnvironment(args[0]);
-        System.out.println(execution.result().message());
+    }
+
+    /** Runs the one-shot CLI boundary without terminating the hosting JVM. */
+    static int runCli(String[] args, PrintStream stdout, PrintStream stderr) {
+        Objects.requireNonNull(stdout, "stdout");
+        Objects.requireNonNull(stderr, "stderr");
+        try {
+            if (args == null || args.length != 1) {
+                throw new IllegalArgumentException(
+                        "usage: LocalAgentApplication <prompt>");
+            }
+            return reportExecution(runOnceFromEnvironment(args[0]), stdout, stderr);
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            stderr.println("Local agent configuration error: "
+                    + safeConfigurationMessage(exception));
+            return 1;
+        } catch (RuntimeException exception) {
+            // Provider failures may contain request details or credentials; keep the
+            // process diagnostic deliberately generic at this boundary.
+            stderr.println("Local agent failed: "
+                    + exception.getClass().getSimpleName());
+            return 1;
+        }
+    }
+
+    public static int reportExecution(
+            AgentExecution execution, PrintStream stdout, PrintStream stderr) {
+        Objects.requireNonNull(execution, "execution");
+        Objects.requireNonNull(stdout, "stdout");
+        Objects.requireNonNull(stderr, "stderr");
+        if (execution.result().succeeded()) {
+            stdout.println(execution.result().message());
+            return 0;
+        }
+        stderr.println("Agent execution failed: "
+                + execution.result().run().status()
+                + " (" + execution.result().failureReason() + ")");
+        return 1;
+    }
+
+    private static String safeConfigurationMessage(RuntimeException exception) {
+        String message = exception.getMessage();
+        if (message != null && (message.endsWith(" is not configured")
+                || message.startsWith("usage:")
+                || message.startsWith("prompt must not be blank")
+                || message.startsWith(MAX_STEPS_ENV + " must be"))) {
+            return message;
+        }
+        return "invalid local agent configuration";
     }
 
     private static String requiredEnvironment(String name) {

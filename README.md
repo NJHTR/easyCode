@@ -30,7 +30,9 @@ the launcher does not put it in command-line arguments, print it, or store it
 in the repository. If Maven is not on `PATH`, set `EASYCODE_MAVEN_CMD` to an
 absolute `mvn.cmd` path before launching. The default `mvn clean test` remains
 offline; the launcher only makes a network request when the configured
-provider is actually called.
+provider is actually called. A successful Agent response is written to stdout
+and exits with code `0`; configuration or Agent failures are summarized on
+stderr and exit with a non-zero code.
 
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
