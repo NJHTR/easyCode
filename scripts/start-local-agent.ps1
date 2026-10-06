@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
     [ValidateNotNullOrEmpty()]
-    [string] $Prompt
+    [string] $Prompt,
+    [switch] $Trace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,7 +42,15 @@ try {
 
     # Credentials are read by LocalAgentApplication from the process environment;
     # they never become command-line arguments or script output.
-    & 'java.exe' '-cp' $classPath 'com.easycode.agent.application.LocalAgentApplication' $Prompt
+    $javaArguments = @(
+        '-cp', $classPath,
+        'com.easycode.agent.application.LocalAgentApplication'
+    )
+    if ($Trace) {
+        $javaArguments += '--trace'
+    }
+    $javaArguments += $Prompt
+    & 'java.exe' @javaArguments
     exit $LASTEXITCODE
 }
 finally {

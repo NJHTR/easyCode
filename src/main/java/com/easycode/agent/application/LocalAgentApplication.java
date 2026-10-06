@@ -4,6 +4,8 @@ import com.easycode.agent.composition.LocalAgentComposition;
 import com.easycode.agent.composition.LocalAgentSession;
 import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
+import com.easycode.agent.model.AgentRunTrace;
+import com.easycode.agent.model.AgentStepTrace;
 import com.easycode.llm.adapter.springai.SpringAiLlmProvider;
 import com.easycode.llm.adapter.springai.openai.OpenAiChatModelFactory;
 import com.easycode.llm.adapter.springai.openai.OpenAiCompatibleModelConfig;
@@ -92,11 +94,19 @@ public final class LocalAgentApplication {
                 printHelp(stdout);
                 return 0;
             }
-            if (args == null || args.length != 1) {
+            boolean trace = args != null && args.length >= 1
+                    && "--trace".equals(args[0]);
+            if (args == null || (trace && (args.length != 2
+                    || args[1] == null || args[1].isBlank()))
+                    || (!trace && args.length != 1)) {
                 throw new IllegalArgumentException(
-                        "usage: LocalAgentApplication <prompt>");
+                        "usage: LocalAgentApplication [--trace] <prompt>");
             }
-            return reportExecution(runOnceFromEnvironment(args[0]), stdout, stderr);
+            String prompt = trace ? args[1] : args[0];
+            AgentExecution execution = runOnceFromEnvironment(prompt);
+            return trace
+                    ? reportTraceSummary(execution, stdout, stderr)
+                    : reportExecution(execution, stdout, stderr);
         } catch (IllegalArgumentException | IllegalStateException exception) {
             stderr.println("Local agent configuration error: "
                     + safeConfigurationMessage(exception));
@@ -116,8 +126,9 @@ public final class LocalAgentApplication {
     }
 
     private static void printHelp(PrintStream stdout) {
-        stdout.println("Usage: LocalAgentApplication <prompt>");
+        stdout.println("Usage: LocalAgentApplication [--trace] <prompt>");
         stdout.println("Runs one prompt through the local Agent application.");
+        stdout.println("Use --trace to print safe run metadata and step summary.");
         stdout.println();
         stdout.println("Required environment variables:");
         stdout.println("  " + API_KEY_ENV);
@@ -142,6 +153,44 @@ public final class LocalAgentApplication {
                 + execution.result().run().status()
                 + " (" + execution.result().failureReason() + ")");
         return 1;
+    }
+
+    /**
+     * Prints safe, non-content trace metadata for a completed execution.
+     * Prompt text, Tool payloads, provider responses, and result messages are
+     * intentionally excluded from this boundary.
+     */
+    public static int reportTraceSummary(
+            AgentExecution execution, PrintStream stdout, PrintStream stderr) {
+        Objects.requireNonNull(execution, "execution");
+        Objects.requireNonNull(stdout, "stdout");
+        Objects.requireNonNull(stderr, "stderr");
+        AgentRunTrace trace = execution.trace();
+        stdout.println("runId=" + trace.runId());
+        stdout.println("requestId=" + trace.requestId());
+        stdout.println("status=" + trace.outcome());
+        stdout.println("failureReason=" + (trace.failureReason() == null
+                ? "NONE" : trace.failureReason()));
+        stdout.println("steps=" + trace.steps().size());
+        for (AgentStepTrace step : trace.steps()) {
+            int successfulObservations = 0;
+            int failedObservations = 0;
+            for (AgentStepTrace.ToolObservation observation : step.toolObservations()) {
+                if (observation.succeeded()) {
+                    successfulObservations++;
+                } else {
+                    failedObservations++;
+                }
+            }
+            String prefix = "step[" + step.stepNumber() + "]";
+            stdout.println(prefix + ".outcome=" + step.outcome());
+            stdout.println(prefix + ".durationMs=" + step.duration().toMillis());
+            stdout.println(prefix + ".toolCalls=" + step.toolCallCount());
+            stdout.println(prefix + ".toolObservations=" + step.toolObservations().size());
+            stdout.println(prefix + ".successfulToolObservations=" + successfulObservations);
+            stdout.println(prefix + ".failedToolObservations=" + failedObservations);
+        }
+        return execution.result().succeeded() ? 0 : 1;
     }
 
     private static String safeConfigurationMessage(RuntimeException exception) {

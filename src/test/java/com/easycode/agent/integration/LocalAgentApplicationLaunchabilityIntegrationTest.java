@@ -61,7 +61,8 @@ class LocalAgentApplicationLaunchabilityIntegrationTest {
                 process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
         assertEquals(0, process.waitFor());
-        assertTrue(help.contains("Usage: LocalAgentApplication <prompt>"));
+        assertTrue(help.contains("Usage: LocalAgentApplication [--trace] <prompt>"));
+        assertTrue(help.contains("--trace"));
         assertTrue(help.contains("EASYCODE_LLM_API_KEY"));
         assertTrue(help.contains("EASYCODE_LLM_MODEL"));
         assertTrue(help.contains("EASYCODE_LLM_BASE_URL"));

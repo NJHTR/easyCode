@@ -26,6 +26,18 @@ $env:EASYCODE_AGENT_MAX_STEPS = '5' # optional
 & .\scripts\start-local-agent.ps1 'Reply with a short greeting.'
 ```
 
+To print a safe summary of the completed run, including run/request IDs,
+status, failure classification, step outcomes, durations, and Tool observation
+counts, add `-Trace`:
+
+```powershell
+& .\scripts\start-local-agent.ps1 -Trace 'Reply with a short greeting.'
+```
+
+Trace mode intentionally omits the prompt, API key, Tool inputs/outputs, and
+raw provider responses. The default command continues to print only the Agent
+message on success.
+
 To inspect the command without configuring an LLM or making a network request:
 
 ```powershell
