@@ -1,5 +1,6 @@
 package com.easycode.agent.model;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -31,5 +32,13 @@ public record AgentRun(
                 || status == AgentRunStatus.FAILED
                 || status == AgentRunStatus.TIMED_OUT
                 || status == AgentRunStatus.CANCELLED;
+    }
+
+    /** Returns the elapsed run duration when the run has started and finished. */
+    public Duration duration() {
+        if (startedAt == null || finishedAt == null) {
+            return Duration.ZERO;
+        }
+        return Duration.between(startedAt, finishedAt);
     }
 }

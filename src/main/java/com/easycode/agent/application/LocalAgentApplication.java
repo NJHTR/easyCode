@@ -171,6 +171,7 @@ public final class LocalAgentApplication {
         stdout.println("status=" + trace.outcome());
         stdout.println("failureReason=" + (trace.failureReason() == null
                 ? "NONE" : trace.failureReason()));
+        stdout.println("durationMs=" + execution.result().run().duration().toMillis());
         stdout.println("steps=" + trace.steps().size());
         for (AgentStepTrace step : trace.steps()) {
             int successfulObservations = 0;

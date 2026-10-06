@@ -109,6 +109,7 @@ class LocalAgentApplicationIntegrationTest {
         assertTrue(summary.contains("requestId=" + execution.trace().requestId()));
         assertTrue(summary.contains("status=SUCCEEDED"));
         assertTrue(summary.contains("failureReason=NONE"));
+        assertTrue(summary.contains("durationMs=10"));
         assertTrue(summary.contains("steps=1"));
         assertTrue(summary.contains("step[1].outcome=TOOL_CALLS"));
         assertTrue(summary.contains("step[1].durationMs=10"));
