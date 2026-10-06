@@ -144,6 +144,20 @@ class AgentTraceQueryIntegrationTest {
     }
 
     @Test
+    void rejectsDuplicateToolObservationIdsInOneStep() {
+        UUID callId = UUID.randomUUID();
+        AgentStepTrace.ToolObservation first = new AgentStepTrace.ToolObservation(
+                callId, "test.echo", true, null, false, false, 0, 0);
+        AgentStepTrace.ToolObservation duplicate = new AgentStepTrace.ToolObservation(
+                callId, "test.echo", true, null, false, false, 0, 0);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentStepTrace(
+                        1, Instant.now(), Instant.now(), "model", 1, 1, false, 2,
+                        List.of(first, duplicate), AgentStepOutcome.TOOL_CALLS));
+    }
+
+    @Test
     void rejectsResultAndTraceWithDifferentRunIds() {
         Instant now = Instant.now();
         UUID requestId = UUID.randomUUID();

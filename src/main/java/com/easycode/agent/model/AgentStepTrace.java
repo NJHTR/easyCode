@@ -4,8 +4,10 @@ import com.easycode.tool.model.ToolFailureReason;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /** Immutable, provider-neutral observation of one LLM generation. */
@@ -40,6 +42,14 @@ public record AgentStepTrace(
                 ? List.of() : List.copyOf(toolObservations);
         if (toolObservations.size() > toolCallCount) {
             throw new IllegalArgumentException("too many Tool observations");
+        }
+        Set<UUID> observationIds = new HashSet<>();
+        for (ToolObservation observation : toolObservations) {
+            Objects.requireNonNull(observation, "toolObservations cannot contain null");
+            if (!observationIds.add(observation.callId())) {
+                throw new IllegalArgumentException(
+                        "step cannot contain duplicate Tool call id: " + observation.callId());
+            }
         }
         Objects.requireNonNull(outcome, "outcome");
     }
