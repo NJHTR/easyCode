@@ -325,6 +325,30 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void excessiveToolCallsFailBeforeAnyToolExecution() {
+        List<LlmToolCall> calls = java.util.stream.IntStream.range(0, 33)
+                .mapToObj(index -> LlmToolCall.create("test.echo", "input-" + index))
+                .toList();
+        int[] toolCalls = {0};
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new EchoTool(() -> toolCalls[0]++));
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", calls));
+
+        AgentExecution execution = new AgentOrchestrator(
+                provider, new RegistryAgentToolAccess(registry), 5)
+                .runWithTrace(prompt());
+
+        assertFalse(execution.result().succeeded());
+        assertEquals(AgentFailureReason.MAX_TOOL_CALLS_REACHED,
+                execution.result().failureReason());
+        assertEquals(AgentStepOutcome.MAX_TOOL_CALLS_REACHED,
+                execution.trace().steps().get(0).outcome());
+        assertEquals(0, toolCalls[0]);
+        assertEquals(1, provider.calls);
+    }
+
+    @Test
     void providerFailureBecomesAgentFailure() {
         AgentResult result = orchestrator(request -> { throw new LlmException("provider down"); }, 5)
                 .run(prompt());

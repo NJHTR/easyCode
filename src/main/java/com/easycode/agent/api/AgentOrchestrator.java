@@ -33,6 +33,7 @@ import java.util.concurrent.TimeoutException;
 /** Synchronous, bounded coordinator for model responses and Tool calls. */
 public final class AgentOrchestrator {
     private static final int MAX_TOOL_MESSAGE_CHARS = 32_768;
+    private static final int MAX_TOOL_CALLS_PER_STEP = 32;
     private static final String TOOL_OUTPUT_TRUNCATED_MARKER = "\n[tool output truncated]";
 
     private final LlmProvider llmProvider;
@@ -118,6 +119,15 @@ public final class AgentOrchestrator {
                         response.toolCalls().size(), List.of(), AgentStepOutcome.MAX_STEPS_REACHED));
                 return execution(request, runId, createdAt, AgentRunStatus.FAILED,
                         AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
+            }
+            if (response.toolCalls().size() > MAX_TOOL_CALLS_PER_STEP) {
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, !response.content().isBlank(),
+                        response.toolCalls().size(), List.of(),
+                        AgentStepOutcome.MAX_TOOL_CALLS_REACHED));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.MAX_TOOL_CALLS_REACHED,
+                        "maximum Tool calls per step reached: " + MAX_TOOL_CALLS_PER_STEP, steps);
             }
 
             messages.add(LlmMessage.assistant(response.content(), response.toolCalls()));

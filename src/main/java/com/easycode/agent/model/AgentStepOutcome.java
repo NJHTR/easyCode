@@ -8,5 +8,6 @@ public enum AgentStepOutcome {
     CANCELLED,
     TIMEOUT,
     INVALID_RESPONSE,
-    MAX_STEPS_REACHED
+    MAX_STEPS_REACHED,
+    MAX_TOOL_CALLS_REACHED
 }

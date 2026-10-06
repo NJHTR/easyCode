@@ -9,5 +9,6 @@ public enum AgentFailureReason {
     CANCELLED,
     LLM_FAILURE,
     INVALID_RESPONSE,
-    MAX_STEPS_REACHED
+    MAX_STEPS_REACHED,
+    MAX_TOOL_CALLS_REACHED
 }
