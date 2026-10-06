@@ -68,6 +68,12 @@ AgentRequest
       -> HostExecutionBackend or SandboxExecutionBackend
 ```
 
+When one Agent composition must support both environments, an
+`EnvironmentExecutionBackend` routes each `ExecutionRequest` by its explicit
+`ExecutionEnvironment` before delegating to the Host or Sandbox backend. A
+single-environment `ExecutionService` remains valid for focused callers, but
+it should not be used as a substitute for environment routing.
+
 The controlled Agent loop is a separate, synchronous orchestration boundary:
 
 ```text

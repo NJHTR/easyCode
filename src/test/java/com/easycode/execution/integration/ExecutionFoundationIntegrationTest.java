@@ -9,6 +9,7 @@ import com.easycode.execution.model.ExecutionStatus;
 import com.easycode.execution.model.ExecutionTerminationReason;
 import com.easycode.execution.runtime.jvm.JvmWorkerRuntime;
 import com.easycode.execution.sandbox.SandboxExecutionBackend;
+import com.easycode.execution.routing.EnvironmentExecutionBackend;
 import com.easycode.runtime.jvm.SandboxTask;
 import com.easycode.sandbox.api.SandboxService;
 import com.easycode.sandbox.model.SandboxPolicy;
@@ -24,6 +25,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -127,6 +129,31 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void routesRequestsToTheBackendSelectedByEnvironment() {
+        RecordingBackend host = new RecordingBackend("host");
+        RecordingBackend sandbox = new RecordingBackend("sandbox");
+        try (ExecutionService service = new ExecutionService(
+                new EnvironmentExecutionBackend(host, sandbox))) {
+            ExecutionResult hostResult = service.execute(request(
+                    SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of()));
+            ExecutionResult sandboxResult = service.execute(new ExecutionRequest(
+                    UUID.randomUUID(),
+                    List.of("ignored"),
+                    null,
+                    Map.of(),
+                    Duration.ofSeconds(5),
+                    ExecutionEnvironment.SANDBOX,
+                    4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals("host", hostResult.stdout());
+            assertEquals("sandbox", sandboxResult.stdout());
+            assertEquals(1, host.calls);
+            assertEquals(1, sandbox.calls);
+        }
+    }
+
+    @Test
     @EnabledOnOs(OS.WINDOWS)
     void sandboxExecutionUsesExistingSandboxService() throws Exception {
         try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());
@@ -160,6 +187,27 @@ class ExecutionFoundationIntegrationTest {
         while (ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)
                 && System.nanoTime() < deadline) {
             Thread.sleep(20);
+        }
+    }
+
+    private static final class RecordingBackend implements com.easycode.execution.api.ExecutionBackend {
+        private final String output;
+        private int calls;
+
+        private RecordingBackend(String output) {
+            this.output = output;
+        }
+
+        @Override
+        public ExecutionResult execute(ExecutionRequest request) {
+            calls++;
+            return new ExecutionResult(
+                    request.executionId(), ExecutionStatus.SUCCEEDED, 0, output, "",
+                    Duration.ZERO, ExecutionTerminationReason.COMPLETED, "");
+        }
+
+        @Override
+        public void close() {
         }
     }
 }
