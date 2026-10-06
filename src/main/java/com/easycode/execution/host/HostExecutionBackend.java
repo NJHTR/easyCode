@@ -72,9 +72,9 @@ public final class HostExecutionBackend implements ExecutionBackend {
         Future<String> stderr = null;
         try {
             stdout = outputReaders.submit(
-                    () -> readOutput(process.getInputStream(), request.maxOutputChars()));
+                    () -> readOutput(process, process.getInputStream(), request.maxOutputChars()));
             stderr = outputReaders.submit(
-                    () -> readOutput(process.getErrorStream(), request.maxOutputChars()));
+                    () -> readOutput(process, process.getErrorStream(), request.maxOutputChars()));
         } catch (RejectedExecutionException exception) {
             destroyProcessTree(process);
             cancelReaders(stdout, stderr);
@@ -135,7 +135,8 @@ public final class HostExecutionBackend implements ExecutionBackend {
         outputReaders.shutdownNow();
     }
 
-    private static String readOutput(InputStream input, int maxOutputChars) throws IOException {
+    private static String readOutput(
+            Process process, InputStream input, int maxOutputChars) throws IOException {
         StringBuilder result = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(input, StandardCharsets.UTF_8))) {
@@ -143,6 +144,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
             int read;
             while ((read = reader.read(buffer)) != -1) {
                 if (result.length() + read > maxOutputChars) {
+                    destroyProcessTree(process);
                     throw new IOException("execution output exceeded " + maxOutputChars + " characters");
                 }
                 result.append(buffer, 0, read);

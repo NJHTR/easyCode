@@ -60,6 +60,27 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void hostOutputLimitTerminatesProcessAndMapsFailure() {
+        ExecutionRequest request = new ExecutionRequest(
+                UUID.randomUUID(),
+                SandboxTestProcess.command("large-output", "128"),
+                null,
+                Map.of(),
+                Duration.ofSeconds(5),
+                ExecutionEnvironment.HOST,
+                16,
+                SandboxPolicy.defaults());
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(ExecutionStatus.FAILED, result.status(), result.toString());
+            assertEquals(ExecutionTerminationReason.OUTPUT_LIMIT,
+                    result.terminationReason());
+            assertTrue(result.failureMessage().contains("output exceeded"), result.toString());
+        }
+    }
+
+    @Test
     void sandboxOutputLimitIsMappedToExecutionFailure() {
         try (SandboxService sandbox = new SandboxService(new ProcessSandboxManager());
              ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
