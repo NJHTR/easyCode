@@ -237,6 +237,51 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void interruptingBlockingToolCancelsTheAgentRun() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new Tool() {
+            @Override
+            public ToolDefinition definition() {
+                return new ToolDefinition("test.interruptible", "Interruptible tool", "{}");
+            }
+
+            @Override
+            public ToolResult execute(ToolInvocation invocation) {
+                entered.countDown();
+                try {
+                    new CountDownLatch(1).await();
+                } catch (InterruptedException exception) {
+                    interrupted.countDown();
+                    throw new RuntimeException("tool interrupted", exception);
+                }
+                return ToolResult.success(invocation.callId(), "unreachable");
+            }
+        });
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(
+                        LlmToolCall.create("test.interruptible", "input"))));
+        AtomicReference<AgentExecution> execution = new AtomicReference<>();
+        Thread runner = new Thread(() -> execution.set(new AgentOrchestrator(
+                provider, new RegistryAgentToolAccess(registry), 5)
+                .runWithTrace(AgentPromptRequest.create(
+                        "fake-model", List.of(LlmMessage.user("hello")), Duration.ofSeconds(5)))));
+        runner.start();
+
+        assertTrue(entered.await(1, TimeUnit.SECONDS));
+        runner.interrupt();
+        runner.join(1000);
+
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        assertFalse(runner.isAlive());
+        assertEquals(com.easycode.agent.model.AgentRunStatus.CANCELLED,
+                execution.get().result().run().status());
+        assertEquals(AgentFailureReason.CANCELLED, execution.get().result().failureReason());
+        assertEquals(AgentStepOutcome.CANCELLED, execution.get().trace().steps().get(0).outcome());
+    }
+
+    @Test
     void multipleToolCallsAreExecutedInReturnedOrder() {
         LlmToolCall first = LlmToolCall.create("test.echo", "first");
         LlmToolCall second = LlmToolCall.create("test.echo", "second");
