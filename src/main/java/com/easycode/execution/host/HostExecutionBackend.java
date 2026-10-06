@@ -70,6 +70,10 @@ public final class HostExecutionBackend implements ExecutionBackend {
                         "execution exceeded " + request.timeout().toMillis() + " ms");
             }
 
+            // Clean descendants immediately after the parent exits. Waiting for
+            // output first can let Windows re-parent a child, making it invisible
+            // to ProcessHandle.descendants().
+            destroyProcessTree(process);
             String output = await(stdout);
             String error = await(stderr);
             int exitCode = process.exitValue();
@@ -98,6 +102,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
                     readQuietly(stdout), readQuietly(stderr), reason, cause.getMessage());
         } finally {
             destroyProcessTree(process);
+            closeProcessStreams(process);
         }
     }
 
@@ -177,6 +182,23 @@ public final class HostExecutionBackend implements ExecutionBackend {
             process.waitFor(1, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void closeProcessStreams(Process process) {
+        if (process == null) {
+            return;
+        }
+        closeQuietly(process.getInputStream());
+        closeQuietly(process.getErrorStream());
+        closeQuietly(process.getOutputStream());
+    }
+
+    private static void closeQuietly(java.io.Closeable stream) {
+        try {
+            stream.close();
+        } catch (IOException ignored) {
+            // Best effort release of process handles during cleanup.
         }
     }
 

@@ -125,6 +125,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 executor.submit(this::monitor);
             } catch (IOException | RuntimeException exception) {
                 destroyProcessTree(process);
+                closeProcessStreams(process);
                 status = SandboxStatus.FAILED;
                 finishedAt = Instant.now();
                 cleanupDirectory();
@@ -150,6 +151,10 @@ public final class ProcessSandboxManager implements SandboxBackend {
                             finishedAt = Instant.now();
                         }
                     }
+                    // Capture and terminate descendants before the exited parent can
+                    // be re-parented by Windows. Waiting for output first can make
+                    // descendants disappear from ProcessHandle.descendants().
+                    destroyProcessTree(process);
                 }
                 awaitReaders();
             } catch (InterruptedException interrupted) {
@@ -158,6 +163,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 awaitReaders();
             } finally {
                 destroyProcessTree(process);
+                closeProcessStreams(process);
                 finishedAt = Instant.now();
                 cleanupDirectory();
             }
@@ -173,6 +179,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
             }
             if (process != null) {
                 destroyProcessTree(process);
+                closeProcessStreams(process);
             }
             finishedAt = Instant.now();
             cleanupDirectory();
@@ -308,6 +315,23 @@ public final class ProcessSandboxManager implements SandboxBackend {
             process.waitFor(1, TimeUnit.SECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void closeProcessStreams(Process process) {
+        if (process == null) {
+            return;
+        }
+        closeQuietly(process.getInputStream());
+        closeQuietly(process.getErrorStream());
+        closeQuietly(process.getOutputStream());
+    }
+
+    private static void closeQuietly(java.io.Closeable stream) {
+        try {
+            stream.close();
+        } catch (IOException ignored) {
+            // Best effort release of process handles during cleanup.
         }
     }
 
