@@ -12,9 +12,9 @@ The layer responsibilities and dependency direction are documented in
 ## Start the headless local application
 
 The repository provides a small Windows PowerShell launcher for the current
-one-shot `LocalAgentApplication` boundary. It builds the project JAR and a
-runtime dependency classpath before starting Java; it is not an installer or a
-production distribution format.
+one-shot `LocalAgentApplication` boundary. Maven also produces an executable
+fat JAR for local distribution; this is not an installer or a production
+update mechanism.
 
 From the repository root in PowerShell:
 
@@ -25,6 +25,30 @@ $env:EASYCODE_LLM_BASE_URL = 'https://llmapi.xfcxb.com/v1'
 $env:EASYCODE_AGENT_MAX_STEPS = '5' # optional
 & .\scripts\start-local-agent.ps1 'Reply with a short greeting.'
 ```
+
+The Maven package is directly executable without a separate classpath:
+
+```powershell
+& mvn.cmd -q clean package
+& java -jar .\target\easyCode-1.0-SNAPSHOT.jar --help
+```
+
+If Maven is not on `PATH`, invoke the Maven bundled with IntelliJ or set
+`EASYCODE_MAVEN_CMD` as described below.
+
+The JAR still reads credentials only from the process environment. To verify
+the safe missing-configuration path in a PowerShell process, remove the
+variables before invoking it:
+
+```powershell
+Remove-Item Env:EASYCODE_LLM_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:EASYCODE_LLM_MODEL -ErrorAction SilentlyContinue
+& java -jar .\target\easyCode-1.0-SNAPSHOT.jar 'offline launch check'
+```
+
+That command exits non-zero before creating a provider request. The JAR keeps
+the same one-shot CLI contract as the PowerShell launcher; it is not a service
+or interactive runtime.
 
 To print a safe summary of the completed run, including run/request IDs,
 status, failure classification, step outcomes, durations, and Tool observation
