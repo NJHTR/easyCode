@@ -203,6 +203,8 @@ contains `ToolDefinition`, `ToolInvocation`, `ToolResult`, `Tool`, and
 `ToolRegistry`. The registry performs only in-process registration, name
 resolution, listing, and invocation. Tool failures are converted to stable
 ToolResult failure categories instead of exposing implementation exceptions.
+The registry also verifies that a Tool result preserves the invocation call ID
+before returning it to the Agent boundary.
 
 Tool is not Execution: a future Tool may use Java APIs directly, or may choose
 to call an execution capability when that is appropriate. Tool is also not a

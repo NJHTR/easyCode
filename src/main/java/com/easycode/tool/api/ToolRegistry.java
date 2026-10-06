@@ -65,6 +65,12 @@ public final class ToolRegistry {
                         ToolFailureReason.INTERNAL_ERROR,
                         "tool returned no result");
             }
+            if (!invocation.callId().equals(result.callId())) {
+                return ToolResult.failure(
+                        invocation.callId(),
+                        ToolFailureReason.INTERNAL_ERROR,
+                        "tool returned a mismatched call id");
+            }
             return result;
         } catch (RuntimeException exception) {
             String message = exception.getMessage();

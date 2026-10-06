@@ -70,6 +70,20 @@ class ToolContractIntegrationTest {
     }
 
     @Test
+    void mismatchedToolResultCallIdIsNormalizedAtBoundary() {
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new MismatchedResultTool());
+        ToolInvocation invocation = ToolInvocation.create("test.mismatch", "input");
+
+        ToolResult result = registry.invoke(invocation);
+
+        assertEquals(invocation.callId(), result.callId());
+        assertEquals(ToolResultStatus.FAILURE, result.status());
+        assertEquals(ToolFailureReason.INTERNAL_ERROR, result.failureReason());
+        assertEquals("tool returned a mismatched call id", result.error());
+    }
+
+    @Test
     void invalidDefinitionsAndInvocationsAreRejected() {
         assertThrows(IllegalArgumentException.class,
                 () -> new ToolDefinition("Bad Name", "description", "{}"));
@@ -154,6 +168,18 @@ class ToolContractIntegrationTest {
         @Override
         public ToolResult execute(ToolInvocation invocation) {
             throw new IllegalStateException("expected test failure");
+        }
+    }
+
+    private static final class MismatchedResultTool implements Tool {
+        @Override
+        public ToolDefinition definition() {
+            return new ToolDefinition("test.mismatch", "Returns a mismatched result", "{}");
+        }
+
+        @Override
+        public ToolResult execute(ToolInvocation invocation) {
+            return ToolResult.success(UUID.randomUUID(), "wrong correlation");
         }
     }
 }
