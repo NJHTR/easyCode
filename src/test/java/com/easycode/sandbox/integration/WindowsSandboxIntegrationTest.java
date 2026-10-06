@@ -44,6 +44,14 @@ class WindowsSandboxIntegrationTest {
                     "job-timeout", List.of("cmd.exe", "/c", "ping -n 10 127.0.0.1 > nul"), null,
                     timeout, SandboxPolicy.defaults())));
             assertEquals(SandboxStatus.TIMED_OUT, timedOut.status());
+
+            SandboxLimits outputLimit = new SandboxLimits(
+                    Duration.ofSeconds(5), 32, 128L * 1024 * 1024, 2);
+            SandboxInfo limited = awaitTerminal(service, service.create(spec(
+                    "job-output-limit",
+                    List.of("cmd.exe", "/c", "for /L %i in (1,1,1000) do @echo x"),
+                    null, outputLimit, SandboxPolicy.defaults())));
+            assertEquals(SandboxStatus.OUTPUT_LIMIT, limited.status(), limited.toString());
         }
     }
 
@@ -109,6 +117,7 @@ class WindowsSandboxIntegrationTest {
             if (info.status() == SandboxStatus.SUCCEEDED
                     || info.status() == SandboxStatus.FAILED
                     || info.status() == SandboxStatus.TIMED_OUT
+                    || info.status() == SandboxStatus.OUTPUT_LIMIT
                     || info.status() == SandboxStatus.DESTROYED) {
                 return info;
             }

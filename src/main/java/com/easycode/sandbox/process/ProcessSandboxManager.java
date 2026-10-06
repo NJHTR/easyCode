@@ -92,6 +92,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
         private final StringBuilder error = new StringBuilder();
 
         private volatile SandboxStatus status = SandboxStatus.STARTING;
+        private volatile boolean outputLimitExceeded;
         private volatile long processId = -1;
         private volatile Instant startedAt;
         private volatile Instant finishedAt;
@@ -137,6 +138,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
             try {
                 if (!process.waitFor(spec.limits().timeout().toMillis(), TimeUnit.MILLISECONDS)) {
                     destroyProcessTree(process);
+                    awaitReaders();
                     synchronized (this) {
                         if (status == SandboxStatus.RUNNING) {
                             status = SandboxStatus.TIMED_OUT;
@@ -145,18 +147,20 @@ public final class ProcessSandboxManager implements SandboxBackend {
                     }
                 } else {
                     exitCode = process.exitValue();
+                    // The output readers can still discover an output-limit
+                    // violation after the parent exits, so finalize status only
+                    // after they have drained both streams.
+                    destroyProcessTree(process);
+                    awaitReaders();
                     synchronized (this) {
                         if (status == SandboxStatus.RUNNING) {
-                            status = exitCode == 0 ? SandboxStatus.SUCCEEDED : SandboxStatus.FAILED;
+                            status = outputLimitExceeded
+                                    ? SandboxStatus.OUTPUT_LIMIT
+                                    : (exitCode == 0 ? SandboxStatus.SUCCEEDED : SandboxStatus.FAILED);
                             finishedAt = Instant.now();
                         }
                     }
-                    // Capture and terminate descendants before the exited parent can
-                    // be re-parented by Windows. Waiting for output first can make
-                    // descendants disappear from ProcessHandle.descendants().
-                    destroyProcessTree(process);
                 }
-                awaitReaders();
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 destroyProcessTree(process);
@@ -172,7 +176,9 @@ public final class ProcessSandboxManager implements SandboxBackend {
         private void destroy() {
             synchronized (this) {
                 if (status == SandboxStatus.SUCCEEDED || status == SandboxStatus.FAILED
-                        || status == SandboxStatus.TIMED_OUT || status == SandboxStatus.DESTROYED) {
+                        || status == SandboxStatus.TIMED_OUT
+                        || status == SandboxStatus.OUTPUT_LIMIT
+                        || status == SandboxStatus.DESTROYED) {
                     return;
                 }
                 status = SandboxStatus.DESTROYED;
@@ -221,6 +227,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 while ((read = reader.read(buffer)) != -1) {
                     synchronized (target) {
                         if (target.length() + read > spec.limits().maxOutputChars()) {
+                            outputLimitExceeded = true;
                             target.append(buffer, 0,
                                     (int) (spec.limits().maxOutputChars() - target.length()));
                             if (errorStream) {

@@ -74,6 +74,7 @@ public final class SandboxExecutionBackend implements ExecutionBackend {
             if (info.status() == com.easycode.sandbox.model.SandboxStatus.SUCCEEDED
                     || info.status() == com.easycode.sandbox.model.SandboxStatus.FAILED
                     || info.status() == com.easycode.sandbox.model.SandboxStatus.TIMED_OUT
+                    || info.status() == com.easycode.sandbox.model.SandboxStatus.OUTPUT_LIMIT
                     || info.status() == com.easycode.sandbox.model.SandboxStatus.DESTROYED) {
                 return info;
             }
@@ -95,6 +96,12 @@ public final class SandboxExecutionBackend implements ExecutionBackend {
             case TIMED_OUT -> {
                 status = ExecutionStatus.TIMED_OUT;
                 reason = ExecutionTerminationReason.TIMED_OUT;
+            }
+            case OUTPUT_LIMIT -> {
+                status = ExecutionStatus.FAILED;
+                reason = ExecutionTerminationReason.OUTPUT_LIMIT;
+                failureMessage = "sandbox output exceeded "
+                        + request.maxOutputChars() + " characters";
             }
             case DESTROYED -> {
                 status = ExecutionStatus.CANCELLED;

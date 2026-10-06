@@ -49,6 +49,19 @@ class SandboxLifecycleIntegrationTest {
     }
 
     @Test
+    void reportsOutputLimit() throws Exception {
+        SandboxLimits limits = new SandboxLimits(Duration.ofSeconds(5), 16, 0, 2);
+        try (SandboxService service = new SandboxService(new ProcessSandboxManager())) {
+            SandboxInfo info = awaitTerminal(service, service.create(spec(
+                    "output-limit", SandboxTestProcess.command("large-output", "128"),
+                    null, limits)));
+
+            assertEquals(SandboxStatus.OUTPUT_LIMIT, info.status());
+            assertTrue(!info.error().isBlank(), info.error());
+        }
+    }
+
+    @Test
     void destroysParentAndChildProcesses(@TempDir Path tempDirectory) throws Exception {
         Path childPidFile = tempDirectory.resolve("child.pid");
         try (SandboxService service = new SandboxService(new ProcessSandboxManager())) {
@@ -117,6 +130,7 @@ class SandboxLifecycleIntegrationTest {
             if (info.status() == SandboxStatus.SUCCEEDED
                     || info.status() == SandboxStatus.FAILED
                     || info.status() == SandboxStatus.TIMED_OUT
+                    || info.status() == SandboxStatus.OUTPUT_LIMIT
                     || info.status() == SandboxStatus.DESTROYED) {
                 return info;
             }

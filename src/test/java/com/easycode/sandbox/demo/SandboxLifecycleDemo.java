@@ -66,7 +66,9 @@ public final class SandboxLifecycleDemo {
         while (true) {
             SandboxStatus status = service.query(handle).status();
             if (status == SandboxStatus.SUCCEEDED || status == SandboxStatus.FAILED
-                    || status == SandboxStatus.TIMED_OUT || status == SandboxStatus.DESTROYED) {
+                    || status == SandboxStatus.TIMED_OUT
+                    || status == SandboxStatus.OUTPUT_LIMIT
+                    || status == SandboxStatus.DESTROYED) {
                 return;
             }
             Thread.sleep(20);

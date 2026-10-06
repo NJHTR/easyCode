@@ -59,6 +59,28 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void sandboxOutputLimitIsMappedToExecutionFailure() {
+        try (SandboxService sandbox = new SandboxService(new ProcessSandboxManager());
+             ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
+            ExecutionRequest request = new ExecutionRequest(
+                    UUID.randomUUID(),
+                    SandboxTestProcess.command("large-output", "128"),
+                    null,
+                    Map.of(),
+                    Duration.ofSeconds(5),
+                    ExecutionEnvironment.SANDBOX,
+                    16,
+                    SandboxPolicy.defaults());
+
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(ExecutionStatus.FAILED, result.status(), result.toString());
+            assertEquals(ExecutionTerminationReason.OUTPUT_LIMIT, result.terminationReason());
+            assertTrue(result.failureMessage().contains("output exceeded"), result.toString());
+        }
+    }
+
+    @Test
     void hostTimeoutTerminatesChildProcesses(@TempDir Path workingDirectory) throws Exception {
         Path childPidFile = workingDirectory.resolve("child.pid");
         try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {

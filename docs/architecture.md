@@ -148,8 +148,10 @@ runtime, sandbox, registry, or framework implementations to the other.
 ### Execution
 
 Executes one command synchronously and returns a common result containing status,
-exit code, output, duration, and termination reason. It does not know about
-Agent planning or Canvas concepts.
+exit code, output, duration, and termination reason. Output-limit termination is
+represented as `ExecutionTerminationReason.OUTPUT_LIMIT`, independent of the
+underlying process exit code. It does not know about Agent planning or Canvas
+concepts.
 
 ### Runtime
 

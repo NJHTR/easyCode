@@ -151,6 +151,7 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
         private final StringBuilder nativeError = new StringBuilder();
 
         private volatile SandboxStatus status = SandboxStatus.STARTING;
+        private volatile boolean outputLimitExceeded;
         private volatile long processId = -1;
         private volatile Instant startedAt;
         private volatile Instant finishedAt;
@@ -223,7 +224,9 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
                     terminalStatus = SandboxStatus.TIMED_OUT;
                 } else {
                     exitCode = NativeProcess.exitCode(nativeProcess.processInfo.hProcess);
-                    terminalStatus = exitCode == 0 ? SandboxStatus.SUCCEEDED : SandboxStatus.FAILED;
+                    terminalStatus = outputLimitExceeded
+                            ? SandboxStatus.OUTPUT_LIMIT
+                            : (exitCode == 0 ? SandboxStatus.SUCCEEDED : SandboxStatus.FAILED);
                 }
             } catch (RuntimeException exception) {
                 synchronized (nativeError) {
@@ -269,13 +272,14 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
                 long remaining = TimeUnit.NANOSECONDS.toMillis(
                         Math.max(0, deadline - System.nanoTime()));
                 if (NativeProcess.waitFor(nativeProcess.processInfo.hProcess, Math.min(100, remaining))) {
+                    if (outputExceeded()) {
+                        markOutputLimitExceeded();
+                        nativeProcess.terminateJobBestEffort();
+                    }
                     return true;
                 }
                 if (outputExceeded()) {
-                    synchronized (nativeError) {
-                        nativeError.append("sandbox output exceeded ")
-                                .append(spec.limits().maxOutputChars()).append(" characters\n");
-                    }
+                    markOutputLimitExceeded();
                     nativeProcess.terminateJobBestEffort();
                     return true;
                 }
@@ -288,6 +292,17 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
         private boolean outputExceeded() {
             long max = spec.limits().maxOutputChars();
             return fileSize(stdoutFile) > max || fileSize(stderrFile) > max;
+        }
+
+        private void markOutputLimitExceeded() {
+            if (outputLimitExceeded) {
+                return;
+            }
+            outputLimitExceeded = true;
+            synchronized (nativeError) {
+                nativeError.append("sandbox output exceeded ")
+                        .append(spec.limits().maxOutputChars()).append(" characters\n");
+            }
         }
 
         private long fileSize(Path file) {
@@ -303,7 +318,9 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
         private void destroy() {
             synchronized (this) {
                 if (status == SandboxStatus.SUCCEEDED || status == SandboxStatus.FAILED
-                        || status == SandboxStatus.TIMED_OUT || status == SandboxStatus.DESTROYED) {
+                        || status == SandboxStatus.TIMED_OUT
+                        || status == SandboxStatus.OUTPUT_LIMIT
+                        || status == SandboxStatus.DESTROYED) {
                     return;
                 }
                 status = SandboxStatus.DESTROYED;

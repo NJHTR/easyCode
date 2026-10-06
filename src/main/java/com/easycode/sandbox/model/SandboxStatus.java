@@ -7,5 +7,6 @@ public enum SandboxStatus {
     SUCCEEDED,
     FAILED,
     TIMED_OUT,
+    OUTPUT_LIMIT,
     DESTROYED
 }

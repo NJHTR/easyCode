@@ -19,6 +19,7 @@ public final class SandboxTestProcess {
                 System.out.println("sandbox-stdout");
                 System.err.println("sandbox-stderr");
             }
+            case "large-output" -> System.out.print("x".repeat(Integer.parseInt(args[1])));
             case "sleep" -> Thread.sleep(Long.parseLong(args[1]));
             case "write" -> Files.writeString(Path.of(args[1]), args[2]);
             case "read" -> System.out.print(Files.readString(Path.of(args[1])));

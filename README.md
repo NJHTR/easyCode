@@ -99,7 +99,9 @@ ExecutionRequest
 `SANDBOX` environment; the caller supplies the matching backend to
 `ExecutionService`.
 `ExecutionResult` provides the same status, exit code, stdout, stderr, duration,
-and termination reason for both environments. `JvmWorkerRuntime` adapts the
+and termination reason for both environments. Output exceeding the configured
+limit is reported as `OUTPUT_LIMIT` rather than a successful process exit.
+`JvmWorkerRuntime` adapts the
 existing short-lived JVM worker to this contract. `SandboxRunner` remains the
 older runtime-specific convenience API and is not required by the execution
 layer.
