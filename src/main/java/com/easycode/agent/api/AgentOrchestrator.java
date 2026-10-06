@@ -18,10 +18,17 @@ import com.easycode.tool.model.ToolInvocation;
 import com.easycode.tool.model.ToolResult;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Synchronous, bounded coordinator for model responses and Tool calls. */
 public final class AgentOrchestrator {
@@ -55,8 +62,15 @@ public final class AgentOrchestrator {
             int availableToolCount = toolAccess.listTools().size();
             LlmResponse response;
             try {
-                response = llmProvider.generate(new com.easycode.llm.model.LlmRequest(
+                response = generateWithTimeout(request.timeout(), new com.easycode.llm.model.LlmRequest(
                         request.model(), messages, toolAccess.listTools()));
+            } catch (TimeoutException exception) {
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, false, 0, List.of(),
+                        AgentStepOutcome.TIMEOUT));
+                return execution(request, runId, createdAt, AgentRunStatus.TIMED_OUT,
+                        AgentFailureReason.TIMEOUT, "LLM provider call exceeded "
+                                + request.timeout().toMillis() + " ms", steps);
             } catch (LlmException | RuntimeException exception) {
                 String message = messageOf(exception, "LLM provider failed");
                 steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
@@ -119,6 +133,38 @@ public final class AgentOrchestrator {
         }
         return execution(request, runId, createdAt, AgentRunStatus.FAILED,
                 AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
+    }
+
+    private LlmResponse generateWithTimeout(Duration timeout,
+            com.easycode.llm.model.LlmRequest request)
+            throws LlmException, TimeoutException {
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "easycode-agent-llm");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Future<LlmResponse> future = executor.submit(() -> llmProvider.generate(request));
+        try {
+            return future.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException exception) {
+            future.cancel(true);
+            throw exception;
+        } catch (InterruptedException exception) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Agent orchestration interrupted", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof LlmException llmException) {
+                throw llmException;
+            }
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new RuntimeException(cause);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private static String toolMessage(ToolResult result) {

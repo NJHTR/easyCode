@@ -86,8 +86,14 @@ sequential. Tool failures and unknown tools become TOOL messages so the model
 can recover; provider failures, invalid empty responses, and a reached
 `maxSteps` boundary fail the Agent run. `maxSteps` counts model generations
 and is required to be positive, so the loop cannot be unbounded. The
-orchestrator does not depend on Spring AI, a ToolRegistry, an Execution port,
-or any runtime implementation.
+orchestrator also applies the `AgentPromptRequest.timeout()` wall-clock budget
+to each provider generation. A timed-out generation is interrupted best-effort,
+records a `TIMEOUT` step, and terminates the run as `TIMED_OUT` with failure
+reason `TIMEOUT`; no Tool calls are made for that response. The default timeout
+is 30 seconds and callers can provide a shorter explicit duration. This remains
+a synchronous boundary, not asynchronous cancellation, and never uses
+`Thread.stop`. The orchestrator does not depend on Spring AI, a ToolRegistry,
+an Execution port, or any runtime implementation.
 
 When a model returns Tool Calls, the next request preserves both the assistant
 Tool Call message and the matching TOOL result message. This keeps the
@@ -301,6 +307,7 @@ Implemented:
 - `OpenAiCompatibleModelConfig` and `OpenAiChatModelFactory` for concrete model creation
 - `RealLlmSmokeTest` as an explicitly enabled external verification path
 - `AgentOrchestrator` as a bounded synchronous LLM/Tool loop
+- per-generation timeout handling with terminal trace/result semantics
 - `RealAgentToolCallingSmokeTest` as an explicitly enabled end-to-end Tool
   Calling verification path
 - `LocalAgentApplication` as the minimal headless local entry boundary for
@@ -317,4 +324,4 @@ Not implemented in this slice:
 - debugger variables, threads, or stack inspection
 - other model-provider configurations, MCP, AI framework, or Tool plugin integrations
 - Planner, ReAct, Memory, persistence, cancellation, and asynchronous Agent
-  execution
+  execution (other than the bounded provider-generation timeout)

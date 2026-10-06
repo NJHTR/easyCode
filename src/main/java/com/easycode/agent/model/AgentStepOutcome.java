@@ -5,6 +5,7 @@ public enum AgentStepOutcome {
     TOOL_CALLS,
     COMPLETED,
     LLM_FAILURE,
+    TIMEOUT,
     INVALID_RESPONSE,
     MAX_STEPS_REACHED
 }

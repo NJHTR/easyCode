@@ -21,8 +21,11 @@ import com.easycode.llm.model.LlmToolCall;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
+import java.time.Duration;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -223,6 +226,37 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void blockingProviderTimesOutWithoutInvokingTools() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+        int[] toolCalls = {0};
+        LlmProvider provider = request -> {
+            entered.countDown();
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException exception) {
+                interrupted.countDown();
+                throw new LlmException("provider interrupted", exception);
+            }
+            return LlmResponse.withToolCalls("", List.of(LlmToolCall.create("test.echo", "never")));
+        };
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new EchoTool(() -> toolCalls[0]++));
+        AgentExecution execution = new AgentOrchestrator(provider,
+                new RegistryAgentToolAccess(registry), 5)
+                .runWithTrace(AgentPromptRequest.create("fake-model",
+                        List.of(LlmMessage.user("hello")), Duration.ofMillis(100)));
+
+        assertTrue(entered.await(1, TimeUnit.SECONDS));
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        assertEquals(com.easycode.agent.model.AgentRunStatus.TIMED_OUT,
+                execution.result().run().status());
+        assertEquals(AgentFailureReason.TIMEOUT, execution.result().failureReason());
+        assertEquals(AgentStepOutcome.TIMEOUT, execution.trace().steps().get(0).outcome());
+        assertEquals(0, toolCalls[0]);
+    }
+
+    @Test
     void orchestratorPublicBoundaryDoesNotDependOnFrameworkOrRuntime() {
         String[] forbidden = {
                 "org.springframework.ai", "com.easycode.execution", "com.easycode.sandbox",
@@ -274,6 +308,16 @@ class AgentOrchestratorIntegrationTest {
     }
 
     private static final class EchoTool implements Tool {
+        private final Runnable onExecute;
+
+        private EchoTool() {
+            this(() -> { });
+        }
+
+        private EchoTool(Runnable onExecute) {
+            this.onExecute = onExecute;
+        }
+
         @Override
         public ToolDefinition definition() {
             return new ToolDefinition("test.echo", "Echo", "{}");
@@ -281,6 +325,7 @@ class AgentOrchestratorIntegrationTest {
 
         @Override
         public ToolResult execute(ToolInvocation invocation) {
+            onExecute.run();
             return ToolResult.success(invocation.callId(), invocation.input());
         }
     }
