@@ -88,6 +88,10 @@ public final class LocalAgentApplication {
         Objects.requireNonNull(stdout, "stdout");
         Objects.requireNonNull(stderr, "stderr");
         try {
+            if (isHelpRequest(args)) {
+                printHelp(stdout);
+                return 0;
+            }
             if (args == null || args.length != 1) {
                 throw new IllegalArgumentException(
                         "usage: LocalAgentApplication <prompt>");
@@ -104,6 +108,25 @@ public final class LocalAgentApplication {
                     + exception.getClass().getSimpleName());
             return 1;
         }
+    }
+
+    private static boolean isHelpRequest(String[] args) {
+        return args != null && args.length == 1
+                && ("--help".equals(args[0]) || "-h".equals(args[0]));
+    }
+
+    private static void printHelp(PrintStream stdout) {
+        stdout.println("Usage: LocalAgentApplication <prompt>");
+        stdout.println("Runs one prompt through the local Agent application.");
+        stdout.println();
+        stdout.println("Required environment variables:");
+        stdout.println("  " + API_KEY_ENV);
+        stdout.println("  " + MODEL_ENV);
+        stdout.println("Optional environment variables:");
+        stdout.println("  " + BASE_URL_ENV);
+        stdout.println("  " + MAX_STEPS_ENV);
+        stdout.println();
+        stdout.println("Use -h or --help to show this help.");
     }
 
     public static int reportExecution(

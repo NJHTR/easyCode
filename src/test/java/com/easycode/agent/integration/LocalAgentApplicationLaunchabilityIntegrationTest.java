@@ -35,6 +35,40 @@ class LocalAgentApplicationLaunchabilityIntegrationTest {
         assertFalse(output.contains("offline-secret"));
     }
 
+    @Test
+    void helpIsAvailableOfflineWithoutLlmConfiguration() throws Exception {
+        for (String option : new String[]{"--help", "-h"}) {
+            assertHelpProcess(option);
+        }
+    }
+
+    private static void assertHelpProcess(String option) throws Exception {
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                javaExecutable(),
+                "-cp",
+                System.getProperty("java.class.path"),
+                "com.easycode.agent.application.LocalAgentApplication",
+                option);
+        Map<String, String> environment = processBuilder.environment();
+        environment.remove("EASYCODE_LLM_API_KEY");
+        environment.remove("EASYCODE_LLM_MODEL");
+        environment.remove("EASYCODE_LLM_BASE_URL");
+        environment.remove("EASYCODE_AGENT_MAX_STEPS");
+        processBuilder.redirectErrorStream(true);
+
+        Process process = processBuilder.start();
+        String help = new String(
+                process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        assertEquals(0, process.waitFor());
+        assertTrue(help.contains("Usage: LocalAgentApplication <prompt>"));
+        assertTrue(help.contains("EASYCODE_LLM_API_KEY"));
+        assertTrue(help.contains("EASYCODE_LLM_MODEL"));
+        assertTrue(help.contains("EASYCODE_LLM_BASE_URL"));
+        assertTrue(help.contains("EASYCODE_AGENT_MAX_STEPS"));
+        assertFalse(help.contains("is not configured"));
+    }
+
     private static String javaExecutable() {
         String executable = System.getProperty("os.name")
                 .toLowerCase(java.util.Locale.ROOT).contains("win")

@@ -25,6 +25,15 @@ $env:EASYCODE_AGENT_MAX_STEPS = '5' # optional
 & .\scripts\start-local-agent.ps1 'Reply with a short greeting.'
 ```
 
+To inspect the command without configuring an LLM or making a network request:
+
+```powershell
+& .\scripts\start-local-agent.ps1 --help
+```
+
+The direct Java entry point also accepts `-h` and `--help`. A normal prompt
+still requires `EASYCODE_LLM_API_KEY` and `EASYCODE_LLM_MODEL`.
+
 The API key is read from the process environment by `LocalAgentApplication`;
 the launcher does not put it in command-line arguments, print it, or store it
 in the repository. If Maven is not on `PATH`, set `EASYCODE_MAVEN_CMD` to an
