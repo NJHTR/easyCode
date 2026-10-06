@@ -117,6 +117,7 @@ class LocalAgentApplicationIntegrationTest {
         assertTrue(summary.contains("step[1].toolObservations=1"));
         assertTrue(summary.contains("step[1].successfulToolObservations=1"));
         assertTrue(summary.contains("step[1].failedToolObservations=0"));
+        assertTrue(summary.contains("step[1].toolFailureReasons=NONE"));
         assertTrue(!summary.contains(secretPrompt));
         assertTrue(!summary.contains(secretToolInput));
         assertTrue(!summary.contains(secretToolOutput));
@@ -144,6 +145,7 @@ class LocalAgentApplicationIntegrationTest {
         assertTrue(summary.contains("failureReason=LLM_FAILURE"));
         assertTrue(summary.contains("step[1].outcome=LLM_FAILURE"));
         assertTrue(summary.contains("step[1].failedToolObservations=1"));
+        assertTrue(summary.contains("step[1].toolFailureReasons=INTERNAL_ERROR:1"));
         assertTrue(error.toString().isEmpty());
     }
 

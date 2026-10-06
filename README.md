@@ -59,8 +59,9 @@ counts, add `-Trace`:
 ```
 
 Trace mode intentionally omits the prompt, API key, Tool inputs/outputs, and
-raw provider responses. The default command continues to print only the Agent
-message on success.
+raw provider responses. It includes safe Tool failure-reason counts such as
+`TIMEOUT:1`; the default command continues to print only the Agent message on
+success.
 
 To inspect the command without configuring an LLM or making a network request:
 

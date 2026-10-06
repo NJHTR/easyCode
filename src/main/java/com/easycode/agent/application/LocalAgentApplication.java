@@ -14,6 +14,8 @@ import com.easycode.llm.model.LlmMessage;
 import com.easycode.tool.api.ToolRegistry;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.io.PrintStream;
 
@@ -190,8 +192,28 @@ public final class LocalAgentApplication {
             stdout.println(prefix + ".toolObservations=" + step.toolObservations().size());
             stdout.println(prefix + ".successfulToolObservations=" + successfulObservations);
             stdout.println(prefix + ".failedToolObservations=" + failedObservations);
+            Map<com.easycode.tool.model.ToolFailureReason, Integer> failureReasons =
+                    new LinkedHashMap<>();
+            for (AgentStepTrace.ToolObservation observation : step.toolObservations()) {
+                if (!observation.succeeded()) {
+                    failureReasons.merge(observation.failureReason(), 1, Integer::sum);
+                }
+            }
+            stdout.println(prefix + ".toolFailureReasons="
+                    + formatFailureReasons(failureReasons));
         }
         return execution.result().succeeded() ? 0 : 1;
+    }
+
+    private static String formatFailureReasons(
+            Map<com.easycode.tool.model.ToolFailureReason, Integer> failureReasons) {
+        if (failureReasons.isEmpty()) {
+            return "NONE";
+        }
+        return failureReasons.entrySet().stream()
+                .map(entry -> entry.getKey() + ":" + entry.getValue())
+                .reduce((left, right) -> left + "," + right)
+                .orElse("NONE");
     }
 
     private static String safeConfigurationMessage(RuntimeException exception) {
