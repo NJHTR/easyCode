@@ -153,6 +153,11 @@ represented as `ExecutionTerminationReason.OUTPUT_LIMIT`, independent of the
 underlying process exit code. It does not know about Agent planning or Canvas
 concepts.
 
+Host and sandbox process launchers remove inherited Agent/provider configuration
+variables, including API-key variables, before applying explicit request
+environment overrides. This prevents a child task from receiving the parent
+Agent credential implicitly; an explicitly supplied override remains deliberate.
+
 ### Runtime
 
 Describes what is being run. The current runtime adapter is

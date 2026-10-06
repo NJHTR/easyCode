@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,6 +27,9 @@ import java.util.concurrent.CancellationException;
 
 /** Runs one request as a normal process on the local host. */
 public final class HostExecutionBackend implements ExecutionBackend {
+    private static final Set<String> INHERITED_AGENT_CONFIGURATION = Set.of(
+            "EASYCODE_LLM_API_KEY", "OPENAI_API_KEY", "EASYCODE_LLM_MODEL",
+            "EASYCODE_LLM_BASE_URL", "EASYCODE_AGENT_MAX_STEPS");
     private final ExecutorService outputReaders = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "easycode-execution-output");
         thread.setDaemon(true);
@@ -49,6 +53,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
             if (request.workingDirectory() != null) {
                 builder.directory(request.workingDirectory().toFile());
             }
+            removeInheritedAgentConfiguration(builder.environment());
             builder.environment().putAll(request.environmentVariables());
             process = builder.start();
         } catch (IOException | RuntimeException exception) {
@@ -125,6 +130,11 @@ public final class HostExecutionBackend implements ExecutionBackend {
             }
         }
         return result.toString();
+    }
+
+    private static void removeInheritedAgentConfiguration(
+            java.util.Map<String, String> environment) {
+        INHERITED_AGENT_CONFIGURATION.forEach(environment::remove);
     }
 
     private static String await(Future<String> output)

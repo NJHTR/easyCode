@@ -141,10 +141,12 @@ class SandboxLifecycleIntegrationTest {
 
     private static void waitForFile(Path file) throws Exception {
         long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-        while (!Files.exists(file) && System.nanoTime() < deadline) {
+        while ((!Files.exists(file) || Files.size(file) == 0)
+                && System.nanoTime() < deadline) {
             Thread.sleep(20);
         }
-        assertTrue(Files.exists(file), "child pid file was not created");
+        assertTrue(Files.exists(file) && Files.size(file) > 0,
+                "child pid file was not populated");
     }
 
     private static void waitForProcessExit(long pid) throws InterruptedException {

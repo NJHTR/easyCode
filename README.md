@@ -80,6 +80,11 @@ provider is actually called. A successful Agent response is written to stdout
 and exits with code `0`; configuration or Agent failures are summarized on
 stderr and exit with a non-zero code.
 
+Execution backends do not forward inherited Agent/provider configuration
+variables such as `EASYCODE_LLM_API_KEY` or `OPENAI_API_KEY` to child processes.
+Callers can still provide an explicit value through the execution request
+environment when a task is intentionally authorized to use it.
+
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
 lifecycle. A Java worker will be just one future caller of this API.

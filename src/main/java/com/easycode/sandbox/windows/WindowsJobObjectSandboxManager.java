@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +49,9 @@ import java.util.concurrent.TimeUnit;
  * allowing it to run. It can optionally add an AppContainer security token.
  */
 public final class WindowsJobObjectSandboxManager implements SandboxBackend {
+    private static final Set<String> INHERITED_AGENT_CONFIGURATION = Set.of(
+            "EASYCODE_LLM_API_KEY", "OPENAI_API_KEY", "EASYCODE_LLM_MODEL",
+            "EASYCODE_LLM_BASE_URL", "EASYCODE_AGENT_MAX_STEPS");
     private static final int WAIT_TIMEOUT = 0x102;
     private static final int CREATE_SUSPENDED = 0x00000004;
     private static final int CREATE_UNICODE_ENVIRONMENT = 0x00000400;
@@ -866,6 +870,7 @@ public final class WindowsJobObjectSandboxManager implements SandboxBackend {
 
         private static Memory environmentBlock(Map<String, String> overrides) {
             Map<String, String> environment = new LinkedHashMap<>(System.getenv());
+            INHERITED_AGENT_CONFIGURATION.forEach(environment::remove);
             environment.putAll(overrides);
             StringBuilder block = new StringBuilder();
             environment.entrySet().stream().sorted(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER))

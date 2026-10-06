@@ -188,6 +188,17 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void explicitProviderEnvironmentRemainsAvailableToTheChild() {
+        try (ExecutionService service = new ExecutionService(new HostExecutionBackend())) {
+            ExecutionRequest request = request(
+                    SandboxTestProcess.command("env", "EASYCODE_LLM_API_KEY"),
+                    Duration.ofSeconds(5), Map.of("EASYCODE_LLM_API_KEY", "explicit-value"));
+
+            assertEquals("explicit-value", service.execute(request).stdout());
+        }
+    }
+
+    @Test
     void jvmWorkerRuntimeBuildsExecutableRequest() {
         JvmWorkerRuntime runtime = new JvmWorkerRuntime();
         ExecutionRequest request = runtime.request(

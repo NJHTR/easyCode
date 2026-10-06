@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +37,9 @@ import java.util.concurrent.TimeUnit;
  * Windows file/network permissions; those belong to the native backend.
  */
 public final class ProcessSandboxManager implements SandboxBackend {
+    private static final Set<String> INHERITED_AGENT_CONFIGURATION = Set.of(
+            "EASYCODE_LLM_API_KEY", "OPENAI_API_KEY", "EASYCODE_LLM_MODEL",
+            "EASYCODE_LLM_BASE_URL", "EASYCODE_AGENT_MAX_STEPS");
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newCachedThreadPool(runnable -> {
         Thread thread = new Thread(runnable, "easycode-sandbox");
@@ -115,6 +119,7 @@ public final class ProcessSandboxManager implements SandboxBackend {
                 ProcessBuilder builder = new ProcessBuilder(spec.command())
                         .directory(workDirectory.toFile())
                         .redirectErrorStream(false);
+                removeInheritedAgentConfiguration(builder.environment());
                 builder.environment().putAll(spec.environment());
                 process = builder.start();
                 processId = process.pid();
@@ -323,6 +328,11 @@ public final class ProcessSandboxManager implements SandboxBackend {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static void removeInheritedAgentConfiguration(
+            Map<String, String> environment) {
+        INHERITED_AGENT_CONFIGURATION.forEach(environment::remove);
     }
 
     private static void closeProcessStreams(Process process) {
