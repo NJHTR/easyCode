@@ -13,6 +13,10 @@ import com.easycode.execution.sandbox.SandboxExecutionBackend;
 import com.easycode.execution.routing.EnvironmentExecutionBackend;
 import com.easycode.runtime.jvm.SandboxTask;
 import com.easycode.sandbox.api.SandboxService;
+import com.easycode.sandbox.api.SandboxBackend;
+import com.easycode.sandbox.exception.SandboxException;
+import com.easycode.sandbox.model.SandboxHandle;
+import com.easycode.sandbox.model.SandboxInfo;
 import com.easycode.sandbox.model.SandboxPolicy;
 import com.easycode.sandbox.process.ProcessSandboxManager;
 import com.easycode.sandbox.windows.WindowsJobObjectSandboxManager;
@@ -230,6 +234,49 @@ class ExecutionFoundationIntegrationTest {
             assertEquals(ExecutionStatus.FAILED, result.status());
             assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
             assertTrue(result.failureMessage().contains("cannot execute HOST"));
+        }
+    }
+
+    @Test
+    void sandboxRuntimeQueryFailureIsNotReportedAsStartFailure() {
+        SandboxBackend backend = new SandboxBackend() {
+            private final SandboxHandle handle = new SandboxHandle(UUID.randomUUID(), "fault");
+
+            @Override
+            public SandboxHandle create(com.easycode.sandbox.model.SandboxSpec spec) {
+                return handle;
+            }
+
+            @Override
+            public SandboxInfo query(SandboxHandle ignored) throws SandboxException {
+                throw new SandboxException("sandbox query failed");
+            }
+
+            @Override
+            public void destroy(SandboxHandle ignored) {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        try (SandboxService sandbox = new SandboxService(backend);
+             ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    UUID.randomUUID(),
+                    List.of("ignored"),
+                    null,
+                    Map.of(),
+                    Duration.ofSeconds(1),
+                    ExecutionEnvironment.SANDBOX,
+                    4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("sandbox query failed", result.failureMessage());
         }
     }
 

@@ -56,8 +56,11 @@ public final class SandboxExecutionBackend implements ExecutionBackend {
                     ExecutionTerminationReason.CANCELLED, "execution thread was interrupted");
         } catch (SandboxException | RuntimeException exception) {
             destroyQuietly(handle);
+            ExecutionTerminationReason reason = handle == null
+                    ? ExecutionTerminationReason.START_FAILED
+                    : ExecutionTerminationReason.INTERNAL_ERROR;
             return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
-                    ExecutionTerminationReason.START_FAILED, exception.getMessage());
+                    reason, exception.getMessage());
         }
     }
 
