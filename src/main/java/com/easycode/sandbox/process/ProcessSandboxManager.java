@@ -191,6 +191,8 @@ public final class ProcessSandboxManager implements SandboxBackend {
             if (process != null) {
                 destroyProcessTree(process);
                 closeProcessStreams(process);
+                // Do not release the workspace while reader tasks can still hold stream handles.
+                awaitReaders();
             }
             finishedAt = Instant.now();
             cleanupDirectory();
