@@ -25,6 +25,11 @@ public final class ExecutionService implements AutoCloseable {
         if (!request.executionId().equals(result.executionId())) {
             return invalidResult(request, "execution backend returned a mismatched execution id");
         }
+        if (result.status() == ExecutionStatus.CREATED
+                || result.status() == ExecutionStatus.RUNNING) {
+            return invalidResult(request,
+                    "execution backend returned a non-terminal status: " + result.status());
+        }
         return result;
     }
 

@@ -310,6 +310,33 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void normalizesBackendReturningNonTerminalStatus() {
+        ExecutionRequest request = request(
+                SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+        try (ExecutionService service = new ExecutionService(new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest ignored) {
+                return new ExecutionResult(
+                        request.executionId(), ExecutionStatus.RUNNING, null, "", "",
+                        Duration.ZERO, ExecutionTerminationReason.COMPLETED, "");
+            }
+
+            @Override
+            public void close() {
+            }
+        })) {
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(request.executionId(), result.executionId());
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("execution backend returned a non-terminal status: RUNNING",
+                    result.failureMessage());
+        }
+    }
+
+    @Test
     @EnabledOnOs(OS.WINDOWS)
     void sandboxExecutionUsesExistingSandboxService() throws Exception {
         try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());
