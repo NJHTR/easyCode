@@ -12,6 +12,7 @@ import com.easycode.execution.model.ExecutionEnvironment;
 import com.easycode.execution.model.ExecutionResult;
 import com.easycode.execution.model.ExecutionStatus;
 import com.easycode.execution.sandbox.SandboxExecutionBackend;
+import com.easycode.execution.routing.EnvironmentExecutionBackend;
 import com.easycode.sandbox.api.SandboxService;
 import com.easycode.sandbox.windows.WindowsJobObjectSandboxManager;
 import org.junit.jupiter.api.Test;
@@ -131,6 +132,23 @@ class AgentCoreIntegrationTest {
         assertEquals("PORT-OK", result.executionResult().stdout());
     }
 
+    @Test
+    void agentRoutesJvmRequestByDeclaredEnvironment() {
+        RecordingBackend host = new RecordingBackend("host-agent");
+        RecordingBackend sandbox = new RecordingBackend("sandbox-agent");
+        try (ExecutionService execution = new ExecutionService(
+                new EnvironmentExecutionBackend(host, sandbox))) {
+            AgentResult result = new AgentService(new JvmAgentExecutionAdapter(execution)).run(
+                    request("uppercase", "agent", ExecutionEnvironment.SANDBOX,
+                            Duration.ofSeconds(5)));
+
+            assertTrue(result.succeeded(), result.toString());
+            assertEquals("sandbox-agent", result.executionResult().stdout());
+            assertEquals(0, host.calls);
+            assertEquals(1, sandbox.calls);
+        }
+    }
+
     private static AgentRequest request(
             String action, String input, ExecutionEnvironment environment, Duration timeout) {
         return AgentRequest.create(action, input, environment, timeout);
@@ -141,6 +159,28 @@ class AgentCoreIntegrationTest {
             String name = type.getName();
             assertTrue(Arrays.stream(forbidden).noneMatch(name::startsWith),
                     "Agent boundary exposes " + name);
+        }
+    }
+
+    private static final class RecordingBackend implements com.easycode.execution.api.ExecutionBackend {
+        private final String output;
+        private int calls;
+
+        private RecordingBackend(String output) {
+            this.output = output;
+        }
+
+        @Override
+        public ExecutionResult execute(com.easycode.execution.model.ExecutionRequest request) {
+            calls++;
+            return new ExecutionResult(
+                    request.executionId(), ExecutionStatus.SUCCEEDED, 0, output, "",
+                    Duration.ZERO, com.easycode.execution.model.ExecutionTerminationReason.COMPLETED,
+                    "");
+        }
+
+        @Override
+        public void close() {
         }
     }
 }
