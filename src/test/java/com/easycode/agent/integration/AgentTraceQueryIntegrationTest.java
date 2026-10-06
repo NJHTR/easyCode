@@ -3,6 +3,9 @@ package com.easycode.agent.integration;
 import com.easycode.agent.adapter.trace.InMemoryAgentTraceQuery;
 import com.easycode.agent.api.AgentTraceQuery;
 import com.easycode.agent.model.AgentFailureReason;
+import com.easycode.agent.model.AgentExecution;
+import com.easycode.agent.model.AgentResult;
+import com.easycode.agent.model.AgentRun;
 import com.easycode.agent.model.AgentRunStatus;
 import com.easycode.agent.model.AgentRunTrace;
 import com.easycode.agent.model.AgentStepOutcome;
@@ -129,6 +132,50 @@ class AgentTraceQueryIntegrationTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> new InMemoryAgentTraceQuery(List.of(first, duplicate)));
+    }
+
+    @Test
+    void rejectsResultAndTraceWithDifferentRunIds() {
+        Instant now = Instant.now();
+        UUID requestId = UUID.randomUUID();
+        AgentRun run = new AgentRun(
+                UUID.randomUUID(), requestId, AgentRunStatus.SUCCEEDED, now, now, now);
+        AgentResult result = new AgentResult(run, null, null, "done");
+        AgentRunTrace trace = new AgentRunTrace(
+                UUID.randomUUID(), requestId, List.of(), AgentRunStatus.SUCCEEDED, null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentExecution(result, trace));
+    }
+
+    @Test
+    void rejectsResultAndTraceWithDifferentRequestIds() {
+        Instant now = Instant.now();
+        AgentRun run = new AgentRun(
+                UUID.randomUUID(), UUID.randomUUID(), AgentRunStatus.SUCCEEDED, now, now, now);
+        AgentResult result = new AgentResult(run, null, null, "done");
+        AgentRunTrace trace = new AgentRunTrace(
+                run.runId(), UUID.randomUUID(), List.of(), AgentRunStatus.SUCCEEDED, null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentExecution(result, trace));
+    }
+
+    @Test
+    void rejectsResultAndTraceWithDifferentFailureReasons() {
+        Instant now = Instant.now();
+        UUID runId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        AgentRun run = new AgentRun(
+                runId, requestId, AgentRunStatus.FAILED, now, now, now);
+        AgentResult result = new AgentResult(
+                run, AgentFailureReason.LLM_FAILURE, null, "failed");
+        AgentRunTrace trace = new AgentRunTrace(
+                runId, requestId, List.of(), AgentRunStatus.FAILED,
+                AgentFailureReason.EXECUTION_FAILURE);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentExecution(result, trace));
     }
 
     private static AgentRunTrace successTrace(List<AgentStepTrace> steps) {

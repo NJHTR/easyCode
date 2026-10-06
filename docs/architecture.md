@@ -130,8 +130,10 @@ message/tool counts, response-content presence, duration, outcome, and ordered
 Tool observations. Tool observations retain name, call ID, success/failure,
 failure category, and input/output presence and lengths; they do not retain
 credentials or provider raw responses. `AgentExecution` keeps the final
-`AgentResult` and trace separate. The trace is in-memory structured data, not
-logging, persistence, an Event Store, or distributed telemetry.
+`AgentResult` and trace separate, while its construction enforces matching run
+and request identities, terminal status, and failure reason. The trace is
+in-memory structured data, not logging, persistence, an Event Store, or
+distributed telemetry.
 
 Completed in-memory traces can be read through the narrow `AgentTraceQuery`
 contract. `InMemoryAgentTraceQuery` indexes existing `AgentRunTrace` values by
