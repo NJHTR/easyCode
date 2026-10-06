@@ -206,6 +206,23 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void reportsMissingEnvironmentBackendWithoutFallback() {
+        RecordingBackend host = new RecordingBackend("host");
+        try (ExecutionService service = new ExecutionService(
+                new EnvironmentExecutionBackend(Map.of(ExecutionEnvironment.HOST, host)))) {
+            ExecutionResult result = service.execute(new ExecutionRequest(
+                    UUID.randomUUID(), List.of("ignored"), null, Map.of(),
+                    Duration.ofSeconds(1), ExecutionEnvironment.SANDBOX, 4096,
+                    SandboxPolicy.defaults()));
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
+            assertTrue(result.failureMessage().contains("no execution backend configured"));
+            assertEquals(0, host.calls);
+        }
+    }
+
+    @Test
     @EnabledOnOs(OS.WINDOWS)
     void sandboxExecutionUsesExistingSandboxService() throws Exception {
         try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());
