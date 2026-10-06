@@ -154,7 +154,19 @@ class AgentTraceQueryIntegrationTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new AgentStepTrace(
                         1, Instant.now(), Instant.now(), "model", 1, 1, false, 2,
-                        List.of(first, duplicate), AgentStepOutcome.TOOL_CALLS));
+                List.of(first, duplicate), AgentStepOutcome.TOOL_CALLS));
+    }
+
+    @Test
+    void rejectsInconsistentToolObservationPresenceMetadata() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentStepTrace.ToolObservation(
+                        UUID.randomUUID(), "test.echo", true, null,
+                        true, false, 0, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> new AgentStepTrace.ToolObservation(
+                        UUID.randomUUID(), "test.echo", true, null,
+                        false, true, 2, 4));
     }
 
     @Test

@@ -83,6 +83,14 @@ public record AgentStepTrace(
             if (inputLength < 0 || outputLength < 0) {
                 throw new IllegalArgumentException("content lengths cannot be negative");
             }
+            if (inputPresent != (inputLength > 0)) {
+                throw new IllegalArgumentException(
+                        "inputPresent must match inputLength");
+            }
+            if (outputPresent != (outputLength > 0)) {
+                throw new IllegalArgumentException(
+                        "outputPresent must match outputLength");
+            }
         }
 
         public static ToolObservation from(

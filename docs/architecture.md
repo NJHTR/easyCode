@@ -141,7 +141,8 @@ and request identities, terminal status, and failure reason. The trace is
 in-memory structured data, not logging, persistence, an Event Store, or
 distributed telemetry. A trace rejects duplicate step numbers and duplicate
 Tool observation call IDs so a querying caller cannot observe ambiguous
-generation history.
+generation history, and each presence flag must agree with its recorded content
+length.
 
 Completed in-memory traces can be read through the narrow `AgentTraceQuery`
 contract. `InMemoryAgentTraceQuery` indexes existing `AgentRunTrace` values by
