@@ -1,12 +1,36 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateNotNullOrEmpty()]
+    [Parameter(Position = 0)]
     [string] $Prompt,
-    [switch] $Trace
+    [switch] $Trace,
+    [switch] $Help,
+    [switch] $h
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Keep help independent from Maven, Java, and provider configuration.
+if ($Help -or $h -or $Prompt -eq '--help' -or $Prompt -eq '-h') {
+    @(
+        'Usage: start-local-agent.ps1 [-Trace] <prompt>'
+        'Runs one prompt through the local Agent application.'
+        'Use -Trace to print safe run metadata and step summary.'
+        ''
+        'Required environment variables:'
+        '  EASYCODE_LLM_API_KEY'
+        '  EASYCODE_LLM_MODEL'
+        'Optional environment variables:'
+        '  EASYCODE_LLM_BASE_URL'
+        '  EASYCODE_AGENT_MAX_STEPS'
+        ''
+        'Use -h or --help to show this help.'
+    ) | Write-Output
+    exit 0
+}
+if ([string]::IsNullOrWhiteSpace($Prompt)) {
+    throw 'Usage: start-local-agent.ps1 [-Trace] <prompt>'
+}
+
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $mavenCommand = if ($env:EASYCODE_MAVEN_CMD) { $env:EASYCODE_MAVEN_CMD } else { 'mvn.cmd' }
 
