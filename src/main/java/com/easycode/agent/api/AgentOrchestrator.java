@@ -64,6 +64,13 @@ public final class AgentOrchestrator {
             try {
                 response = generateWithTimeout(request.timeout(), new com.easycode.llm.model.LlmRequest(
                         request.model(), messages, toolAccess.listTools()));
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, false, 0, List.of(),
+                        AgentStepOutcome.CANCELLED));
+                return execution(request, runId, createdAt, AgentRunStatus.CANCELLED,
+                        AgentFailureReason.CANCELLED, "Agent orchestration interrupted", steps);
             } catch (TimeoutException exception) {
                 steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
                         messageCount, availableToolCount, false, 0, List.of(),
@@ -137,7 +144,7 @@ public final class AgentOrchestrator {
 
     private LlmResponse generateWithTimeout(Duration timeout,
             com.easycode.llm.model.LlmRequest request)
-            throws LlmException, TimeoutException {
+            throws LlmException, TimeoutException, InterruptedException {
         ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "easycode-agent-llm");
             thread.setDaemon(true);
@@ -151,8 +158,7 @@ public final class AgentOrchestrator {
             throw exception;
         } catch (InterruptedException exception) {
             future.cancel(true);
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Agent orchestration interrupted", exception);
+            throw exception;
         } catch (ExecutionException exception) {
             Throwable cause = exception.getCause();
             if (cause instanceof LlmException llmException) {

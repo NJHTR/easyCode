@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -254,6 +255,37 @@ class AgentOrchestratorIntegrationTest {
         assertEquals(AgentFailureReason.TIMEOUT, execution.result().failureReason());
         assertEquals(AgentStepOutcome.TIMEOUT, execution.trace().steps().get(0).outcome());
         assertEquals(0, toolCalls[0]);
+    }
+
+    @Test
+    void interruptionBecomesCancelledRunInsteadOfLlmFailure() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch providerInterrupted = new CountDownLatch(1);
+        LlmProvider provider = request -> {
+            entered.countDown();
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException exception) {
+                providerInterrupted.countDown();
+                throw new LlmException("provider interrupted", exception);
+            }
+            return LlmResponse.text("unreachable");
+        };
+        AgentOrchestrator orchestrator = orchestrator(provider, 5);
+        AtomicReference<AgentExecution> execution = new AtomicReference<>();
+        Thread runner = new Thread(() -> execution.set(orchestrator.runWithTrace(prompt())));
+        runner.start();
+
+        assertTrue(entered.await(1, TimeUnit.SECONDS));
+        runner.interrupt();
+        runner.join(1000);
+
+        assertTrue(providerInterrupted.await(1, TimeUnit.SECONDS));
+        assertFalse(runner.isAlive());
+        assertEquals(com.easycode.agent.model.AgentRunStatus.CANCELLED,
+                execution.get().result().run().status());
+        assertEquals(AgentFailureReason.CANCELLED, execution.get().result().failureReason());
+        assertEquals(AgentStepOutcome.CANCELLED, execution.get().trace().steps().get(0).outcome());
     }
 
     @Test

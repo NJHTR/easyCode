@@ -99,8 +99,9 @@ to each provider generation. A timed-out generation is interrupted best-effort,
 records a `TIMEOUT` step, and terminates the run as `TIMED_OUT` with failure
 reason `TIMEOUT`; no Tool calls are made for that response. The default timeout
 is 30 seconds and callers can provide a shorter explicit duration. This remains
-a synchronous boundary, not asynchronous cancellation, and never uses
-`Thread.stop`. The orchestrator does not depend on Spring AI, a ToolRegistry,
+a synchronous boundary, not an asynchronous cancellation API, and never uses
+`Thread.stop`; an interrupted caller is mapped to a terminal `CANCELLED` run.
+The orchestrator does not depend on Spring AI, a ToolRegistry,
 an Execution port, or any runtime implementation.
 
 When a model returns Tool Calls, the next request preserves both the assistant
@@ -337,5 +338,5 @@ Not implemented in this slice:
 - persistence, scheduling, asynchronous execution, or realtime logs
 - debugger variables, threads, or stack inspection
 - other model-provider configurations, MCP, AI framework, or Tool plugin integrations
-- Planner, ReAct, Memory, persistence, cancellation, and asynchronous Agent
+- Planner, ReAct, Memory, persistence, an explicit cancellation API, and asynchronous Agent
   execution (other than the bounded provider-generation timeout)
