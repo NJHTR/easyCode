@@ -2,8 +2,9 @@
 
 easyCode is a local Agent system under construction. The current repository
 contains the Windows Sandbox Infrastructure, Execution Foundation / Runtime
-Boundary, and Agent Core slices. Agent Core is currently deterministic; Agent
-intelligence, Canvas, and workflow layers are future slices.
+Boundary, and Agent Core slices. Agent Core supports both deterministic local
+tests and a bounded LLM/Tool Calling path through the local application. Canvas
+and workflow layers are future slices.
 
 The layer responsibilities and dependency direction are documented in
 [`docs/architecture.md`](docs/architecture.md).
