@@ -196,6 +196,47 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void blockingToolTimesOutAndFeedsStructuredFailureBackToModel() throws Exception {
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch interrupted = new CountDownLatch(1);
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new Tool() {
+            @Override
+            public ToolDefinition definition() {
+                return new ToolDefinition("test.blocking", "Blocking tool", "{}");
+            }
+
+            @Override
+            public ToolResult execute(ToolInvocation invocation) {
+                entered.countDown();
+                try {
+                    new CountDownLatch(1).await();
+                } catch (InterruptedException exception) {
+                    interrupted.countDown();
+                    throw new RuntimeException("tool interrupted", exception);
+                }
+                return ToolResult.success(invocation.callId(), "unreachable");
+            }
+        });
+        LlmToolCall call = LlmToolCall.create("test.blocking", "input");
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(call)), LlmResponse.text("recovered"));
+
+        AgentExecution execution = new AgentOrchestrator(
+                provider, new RegistryAgentToolAccess(registry), 5)
+                .runWithTrace(AgentPromptRequest.create(
+                        "fake-model", List.of(LlmMessage.user("hello")), Duration.ofMillis(100)));
+
+        assertTrue(entered.await(1, TimeUnit.SECONDS));
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        assertTrue(execution.result().succeeded(), execution.result().toString());
+        assertEquals("recovered", execution.result().message());
+        assertEquals(com.easycode.tool.model.ToolFailureReason.TIMEOUT,
+                execution.trace().steps().get(0).toolObservations().get(0).failureReason());
+        assertTrue(provider.requests.get(1).messages().get(2).content().contains("TIMEOUT"));
+    }
+
+    @Test
     void multipleToolCallsAreExecutedInReturnedOrder() {
         LlmToolCall first = LlmToolCall.create("test.echo", "first");
         LlmToolCall second = LlmToolCall.create("test.echo", "second");

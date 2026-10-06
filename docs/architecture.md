@@ -104,6 +104,13 @@ a synchronous boundary, not an asynchronous cancellation API, and never uses
 The orchestrator does not depend on Spring AI, a ToolRegistry,
 an Execution port, or any runtime implementation.
 
+The same request timeout also bounds each synchronous Tool invocation. A Tool
+that exceeds the limit is interrupted best-effort and normalized to a
+`ToolFailureReason.TIMEOUT` result, which is fed back to the model like other
+Tool failures. This prevents a blocking in-process Tool from hanging the Agent
+forever; it is not a hard isolation boundary for untrusted code, which still
+belongs behind Execution and Sandbox.
+
 Tool feedback sent to a subsequent model generation is bounded to 32,768
 characters. Oversized output is truncated with a marker before it becomes
 conversation context, while the original Tool result and trace length metadata

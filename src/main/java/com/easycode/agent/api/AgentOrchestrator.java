@@ -127,7 +127,20 @@ public final class AgentOrchestrator {
                         call.callId(), call.toolName(), call.arguments());
                 ToolResult result;
                 try {
-                    result = toolAccess.invoke(invocation);
+                    result = invokeToolWithTimeout(request.timeout(), invocation);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    result = ToolResult.failure(
+                            invocation.callId(),
+                            com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
+                            "Agent orchestration interrupted");
+                    observations.add(AgentStepTrace.ToolObservation.from(invocation, result));
+                    messages.add(LlmMessage.tool(call.callId(), call.toolName(), toolMessage(result)));
+                    steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                            messageCount, availableToolCount, !response.content().isBlank(),
+                            response.toolCalls().size(), observations, AgentStepOutcome.CANCELLED));
+                    return execution(request, runId, createdAt, AgentRunStatus.CANCELLED,
+                            AgentFailureReason.CANCELLED, "Agent orchestration interrupted", steps);
                 } catch (RuntimeException exception) {
                     result = ToolResult.failure(
                             invocation.callId(),
@@ -143,6 +156,38 @@ public final class AgentOrchestrator {
         }
         return execution(request, runId, createdAt, AgentRunStatus.FAILED,
                 AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
+    }
+
+    private ToolResult invokeToolWithTimeout(Duration timeout, ToolInvocation invocation)
+            throws InterruptedException {
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "easycode-agent-tool");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Future<ToolResult> future = executor.submit(() -> toolAccess.invoke(invocation));
+        try {
+            ToolResult result = future.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+            return result == null
+                    ? ToolResult.failure(invocation.callId(),
+                            com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
+                            "Tool access returned no result")
+                    : result;
+        } catch (TimeoutException exception) {
+            future.cancel(true);
+            return ToolResult.failure(
+                    invocation.callId(),
+                    com.easycode.tool.model.ToolFailureReason.TIMEOUT,
+                    "Tool invocation exceeded " + timeout.toMillis() + " ms");
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new RuntimeException(cause);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private LlmResponse generateWithTimeout(Duration timeout,
