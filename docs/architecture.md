@@ -267,7 +267,9 @@ memory, or a provider registry.
 can open a volatile, synchronous session with `openSession()`. The session has
 one UUID and correlates each completed `AgentPromptRequest` with its
 `AgentResult` and `AgentRunTrace`; callers can list the in-memory executions or
-find one by `runId`. It does not persist data, automatically append prior
+find one by `runId`. The session also exposes an `AgentTraceQuery` view backed
+by those completed runs, so a caller can look up a trace without rebuilding a
+separate index. It does not persist data, automatically append prior
 messages, or provide Agent memory: every call still supplies its complete
 provider-neutral prompt. There is no scheduler or asynchronous lifecycle.
 

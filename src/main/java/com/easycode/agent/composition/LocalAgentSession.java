@@ -1,8 +1,10 @@
 package com.easycode.agent.composition;
 
+import com.easycode.agent.api.AgentTraceQuery;
 import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
 import com.easycode.agent.model.AgentResult;
+import com.easycode.agent.model.AgentRunTrace;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -61,8 +63,32 @@ public final class LocalAgentSession {
         return Optional.ofNullable(executions.get(runId));
     }
 
+    /**
+     * Returns a read-only trace view backed by this session's completed runs.
+     * The view is live for subsequent runs, but it never exposes mutable
+     * session state or traces belonging to another session.
+     */
+    public AgentTraceQuery traceQuery() {
+        return new SessionTraceQuery();
+    }
+
     /** Returns a stable insertion-order snapshot of this session's executions. */
     public synchronized List<AgentExecution> executions() {
         return List.copyOf(new ArrayList<>(executions.values()));
+    }
+
+    private final class SessionTraceQuery implements AgentTraceQuery {
+        @Override
+        public Optional<AgentRunTrace> findByRunId(UUID runId) {
+            if (runId == null) {
+                return Optional.empty();
+            }
+            synchronized (LocalAgentSession.this) {
+                AgentExecution execution = executions.get(runId);
+                return execution == null
+                        ? Optional.empty()
+                        : Optional.of(execution.trace());
+            }
+        }
     }
 }

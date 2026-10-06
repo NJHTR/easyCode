@@ -2,6 +2,7 @@ package com.easycode.agent.integration;
 
 import com.easycode.agent.composition.LocalAgentComposition;
 import com.easycode.agent.composition.LocalAgentSession;
+import com.easycode.agent.api.AgentTraceQuery;
 import com.easycode.agent.model.AgentExecution;
 import com.easycode.agent.model.AgentPromptRequest;
 import com.easycode.llm.api.LlmProvider;
@@ -58,6 +59,34 @@ class LocalAgentSessionIntegrationTest {
         assertTrue(session.findByRunId(null).isEmpty());
         assertThrows(UnsupportedOperationException.class, () -> session.executions().clear());
         assertFalse(session.findByRunId(execution.result().run().runId()).isEmpty());
+    }
+
+    @Test
+    void sessionExposesTraceQueryBackedByItsCompletedRuns() {
+        LocalAgentSession session = session(new RecordingProvider(LlmResponse.text("done")));
+        AgentTraceQuery query = session.traceQuery();
+
+        AgentExecution execution = session.runWithTrace(prompt());
+
+        assertEquals(execution.trace(),
+                query.findByRunId(execution.result().run().runId()).orElseThrow());
+        assertTrue(query.findByRunId(UUID.randomUUID()).isEmpty());
+        assertTrue(query.findByRunId(null).isEmpty());
+    }
+
+    @Test
+    void sessionTraceQueryRemainsIsolatedAndReadOnly() {
+        LocalAgentSession first = session(new RecordingProvider(LlmResponse.text("first")));
+        LocalAgentSession second = session(new RecordingProvider(LlmResponse.text("second")));
+        AgentTraceQuery firstQuery = first.traceQuery();
+        AgentExecution execution = first.runWithTrace(prompt());
+
+        assertTrue(second.traceQuery().findByRunId(execution.result().run().runId()).isEmpty());
+        assertThrows(UnsupportedOperationException.class,
+                () -> firstQuery.findByRunId(execution.result().run().runId())
+                        .orElseThrow().steps().clear());
+        assertEquals(1, firstQuery.findByRunId(execution.result().run().runId())
+                .orElseThrow().steps().size());
     }
 
     @Test
