@@ -139,7 +139,8 @@ credentials or provider raw responses. `AgentExecution` keeps the final
 `AgentResult` and trace separate, while its construction enforces matching run
 and request identities, terminal status, and failure reason. The trace is
 in-memory structured data, not logging, persistence, an Event Store, or
-distributed telemetry.
+distributed telemetry. A trace also rejects duplicate step numbers so a
+querying caller cannot observe ambiguous generation history.
 
 Completed in-memory traces can be read through the narrow `AgentTraceQuery`
 contract. `InMemoryAgentTraceQuery` indexes existing `AgentRunTrace` values by

@@ -135,6 +135,15 @@ class AgentTraceQueryIntegrationTest {
     }
 
     @Test
+    void rejectsDuplicateStepNumbersInOneTrace() {
+        AgentStepTrace first = step(1, AgentStepOutcome.TOOL_CALLS);
+        AgentStepTrace duplicate = step(1, AgentStepOutcome.COMPLETED);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> successTrace(List.of(first, duplicate)));
+    }
+
+    @Test
     void rejectsResultAndTraceWithDifferentRunIds() {
         Instant now = Instant.now();
         UUID requestId = UUID.randomUUID();
