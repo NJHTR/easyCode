@@ -20,8 +20,10 @@ import com.easycode.tool.model.ToolResult;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -59,7 +61,6 @@ public final class AgentOrchestrator {
         UUID runId = UUID.randomUUID();
         List<LlmMessage> messages = new ArrayList<>(request.messages());
         List<AgentStepTrace> steps = new ArrayList<>();
-
         for (int step = 1; step <= maxSteps; step++) {
             Instant stepStartedAt = Instant.now();
             int messageCount = messages.size();
@@ -129,6 +130,14 @@ public final class AgentOrchestrator {
                         AgentFailureReason.MAX_TOOL_CALLS_REACHED,
                         "maximum Tool calls per step reached: " + MAX_TOOL_CALLS_PER_STEP, steps);
             }
+            if (containsDuplicateToolCallId(response.toolCalls())) {
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, availableToolCount, !response.content().isBlank(),
+                        response.toolCalls().size(), List.of(), AgentStepOutcome.INVALID_RESPONSE));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.INVALID_RESPONSE,
+                        "LLM response contained duplicate Tool call ids", steps);
+            }
 
             messages.add(LlmMessage.assistant(response.content(), response.toolCalls()));
             List<AgentStepTrace.ToolObservation> observations = new ArrayList<>();
@@ -166,6 +175,16 @@ public final class AgentOrchestrator {
         }
         return execution(request, runId, createdAt, AgentRunStatus.FAILED,
                 AgentFailureReason.MAX_STEPS_REACHED, "maximum Agent steps reached", steps);
+    }
+
+    private static boolean containsDuplicateToolCallId(List<LlmToolCall> calls) {
+        Set<UUID> responseIds = new HashSet<>();
+        for (LlmToolCall call : calls) {
+            if (!responseIds.add(call.callId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ToolResult invokeToolWithTimeout(Duration timeout, ToolInvocation invocation)

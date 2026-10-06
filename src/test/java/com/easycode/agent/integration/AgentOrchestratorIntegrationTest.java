@@ -24,6 +24,7 @@ import java.util.ArrayDeque;
 import java.time.Duration;
 import java.util.List;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -343,6 +344,30 @@ class AgentOrchestratorIntegrationTest {
         assertEquals(AgentFailureReason.MAX_TOOL_CALLS_REACHED,
                 execution.result().failureReason());
         assertEquals(AgentStepOutcome.MAX_TOOL_CALLS_REACHED,
+                execution.trace().steps().get(0).outcome());
+        assertEquals(0, toolCalls[0]);
+        assertEquals(1, provider.calls);
+    }
+
+    @Test
+    void duplicateToolCallIdsFailBeforeAnyToolExecution() {
+        UUID callId = UUID.randomUUID();
+        LlmToolCall first = new LlmToolCall(callId, "test.echo", "first");
+        LlmToolCall duplicate = new LlmToolCall(callId, "test.echo", "second");
+        int[] toolCalls = {0};
+        ToolRegistry registry = new ToolRegistry();
+        registry.register(new EchoTool(() -> toolCalls[0]++));
+        RecordingProvider provider = new RecordingProvider(
+                LlmResponse.withToolCalls("", List.of(first, duplicate)));
+
+        AgentExecution execution = new AgentOrchestrator(
+                provider, new RegistryAgentToolAccess(registry), 5)
+                .runWithTrace(prompt());
+
+        assertFalse(execution.result().succeeded());
+        assertEquals(AgentFailureReason.INVALID_RESPONSE,
+                execution.result().failureReason());
+        assertEquals(AgentStepOutcome.INVALID_RESPONSE,
                 execution.trace().steps().get(0).outcome());
         assertEquals(0, toolCalls[0]);
         assertEquals(1, provider.calls);

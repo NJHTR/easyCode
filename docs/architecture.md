@@ -95,8 +95,10 @@ can recover; provider failures, invalid empty responses, and a reached
 `maxSteps` boundary fail the Agent run. `maxSteps` counts model generations
 and is required to be positive. Each generation is also limited to 32 Tool
 Calls; exceeding that hard safety ceiling fails the run before any of those
-Tools execute. Together these bounds keep the synchronous loop bounded. The
-orchestrator also applies the `AgentPromptRequest.timeout()` wall-clock budget
+Tools execute. Tool call IDs must also be unique within one model response; a
+duplicate is treated as an invalid provider response before any Tool executes.
+Together these bounds keep the synchronous loop bounded. The orchestrator also
+applies the `AgentPromptRequest.timeout()` wall-clock budget
 to each provider generation. A timed-out generation is interrupted best-effort,
 records a `TIMEOUT` step, and terminates the run as `TIMED_OUT` with failure
 reason `TIMEOUT`; no Tool calls are made for that response. The default timeout
