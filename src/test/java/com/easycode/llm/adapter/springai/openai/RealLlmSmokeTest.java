@@ -25,10 +25,12 @@ class RealLlmSmokeTest {
         assumeTrue(isEnabled(), "EASYCODE_REAL_LLM_TEST is not true");
 
         String apiKey = environment("EASYCODE_LLM_API_KEY");
-        assumeTrue(apiKey != null, "EASYCODE_LLM_API_KEY is not configured");
+        assumeTrue(apiKey != null,
+                "REAL_LOCAL_E2E=PENDING_RETRY: EASYCODE_LLM_API_KEY is not configured");
 
         String model = environment("EASYCODE_LLM_MODEL");
-        assumeTrue(model != null, "EASYCODE_LLM_MODEL is not configured");
+        assumeTrue(model != null,
+                "REAL_LOCAL_E2E=PENDING_RETRY: EASYCODE_LLM_MODEL is not configured");
 
         String baseUrl = environment("EASYCODE_LLM_BASE_URL");
         if (baseUrl == null) {

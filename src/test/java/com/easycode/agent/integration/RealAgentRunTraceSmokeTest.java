@@ -37,7 +37,8 @@ class RealAgentRunTraceSmokeTest {
         assumeTrue(isEnabled(), "REAL_AGENT_TRACE_SMOKE=NOT_RUN");
         String apiKey = environment("EASYCODE_LLM_API_KEY");
         String model = environment("EASYCODE_LLM_MODEL");
-        assumeTrue(apiKey != null && model != null, "REAL_AGENT_TRACE_SMOKE=NOT_RUN");
+        assumeTrue(apiKey != null && model != null,
+                "REAL_AGENT_TRACE_SMOKE=PENDING_RETRY: provider configuration missing");
 
         String baseUrl = environment("EASYCODE_LLM_BASE_URL");
         if (baseUrl == null) {

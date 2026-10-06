@@ -258,8 +258,9 @@ calls are outside this slice.
 normal offline regression. It only runs when
 `EASYCODE_REAL_LLM_TEST=true`, `EASYCODE_LLM_API_KEY`, and
 `EASYCODE_LLM_MODEL` are present. `EASYCODE_LLM_BASE_URL` is optional and
-defaults to the configured OpenAI endpoint. Without these settings the smoke
-test is skipped and must be reported as `NOT_RUN`, never as a pass.
+defaults to the configured OpenAI endpoint. If the explicit smoke-test flag is
+disabled, the gate is `NOT_RUN`; if the flag is enabled but provider
+credentials are missing, the gate is `PENDING_RETRY`, never a pass.
 
 The smoke request is a short text-only prompt and succeeds only when the
 provider returns a non-empty `LlmResponse`. It does not expose credentials in

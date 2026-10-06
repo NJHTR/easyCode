@@ -41,7 +41,8 @@ class RealAgentToolCallingSmokeTest {
         assumeTrue(isEnabled(), "REAL_AGENT_TOOL_CALLING_SMOKE=NOT_RUN");
         String apiKey = environment("EASYCODE_LLM_API_KEY");
         String model = environment("EASYCODE_LLM_MODEL");
-        assumeTrue(apiKey != null && model != null, "REAL_AGENT_TOOL_CALLING_SMOKE=NOT_RUN");
+        assumeTrue(apiKey != null && model != null,
+                "REAL_AGENT_TOOL_CALLING_SMOKE=PENDING_RETRY: provider configuration missing");
 
         String baseUrl = environment("EASYCODE_LLM_BASE_URL");
         if (baseUrl == null) {
