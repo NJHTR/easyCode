@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +37,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
         thread.setDaemon(true);
         return thread;
     });
+    private final Set<Process> activeProcesses = ConcurrentHashMap.newKeySet();
     private volatile boolean closed;
 
     @Override
@@ -63,6 +65,14 @@ public final class HostExecutionBackend implements ExecutionBackend {
             removeInheritedAgentConfiguration(builder.environment());
             builder.environment().putAll(request.environmentVariables());
             process = builder.start();
+            activeProcesses.add(process);
+            if (closed) {
+                destroyProcessTree(process);
+                activeProcesses.remove(process);
+                return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
+                        ExecutionTerminationReason.START_FAILED,
+                        "HostExecutionBackend is closed");
+            }
         } catch (IOException | RuntimeException exception) {
             return result(request, startedAt, ExecutionStatus.FAILED, null, "", "",
                     ExecutionTerminationReason.START_FAILED, exception.getMessage());
@@ -124,6 +134,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
             return result(request, startedAt, ExecutionStatus.FAILED, null,
                     readQuietly(stdout), readQuietly(stderr), reason, cause.getMessage());
         } finally {
+            activeProcesses.remove(process);
             destroyProcessTree(process);
             closeProcessStreams(process);
         }
@@ -132,6 +143,7 @@ public final class HostExecutionBackend implements ExecutionBackend {
     @Override
     public void close() {
         closed = true;
+        activeProcesses.forEach(HostExecutionBackend::destroyProcessTree);
         outputReaders.shutdownNow();
     }
 

@@ -187,6 +187,9 @@ Host and sandbox process launchers remove inherited Agent/provider configuration
 variables, including API-key variables, before applying explicit request
 environment overrides. This prevents a child task from receiving the parent
 Agent credential implicitly; an explicitly supplied override remains deliberate.
+Closing a Host execution backend also terminates active process trees before
+its output-reader executor shuts down, matching the cleanup guarantee of the
+Sandbox execution path.
 
 ### Runtime
 

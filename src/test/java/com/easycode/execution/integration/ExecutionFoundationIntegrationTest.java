@@ -188,6 +188,37 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void closingHostBackendTerminatesActiveProcess(@TempDir Path workingDirectory) throws Exception {
+        Path childPidFile = workingDirectory.resolve("child.pid");
+        HostExecutionBackend backend = new HostExecutionBackend();
+        ExecutionService service = new ExecutionService(backend);
+        java.util.concurrent.atomic.AtomicReference<ExecutionResult> result =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Thread execution = new Thread(() -> result.set(service.execute(new ExecutionRequest(
+                UUID.randomUUID(),
+                SandboxTestProcess.command("spawn-child", childPidFile.toString(),
+                        "10000", "10000"),
+                workingDirectory,
+                Map.of(),
+                Duration.ofSeconds(30),
+                ExecutionEnvironment.HOST,
+                4096,
+                SandboxPolicy.defaults()))));
+        execution.start();
+        waitForFile(childPidFile);
+
+        backend.close();
+        execution.join(3000);
+        service.close();
+
+        assertFalse(execution.isAlive(), "execution should stop when backend closes");
+        assertTrue(result.get() != null, "execution should return a terminal result");
+        long childPid = Long.parseLong(Files.readString(childPidFile));
+        waitForProcessExit(childPid);
+        assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false));
+    }
+
+    @Test
     void sandboxBackendRejectsHostRequest() {
         try (SandboxService sandbox = new SandboxService(new ProcessSandboxManager());
              ExecutionService service = new ExecutionService(new SandboxExecutionBackend(sandbox))) {
@@ -399,6 +430,16 @@ class ExecutionFoundationIntegrationTest {
         return new ExecutionRequest(
                 java.util.UUID.randomUUID(), command, null, environment, timeout,
                 ExecutionEnvironment.HOST, 4096, SandboxPolicy.defaults());
+    }
+
+    private static void waitForFile(Path file) throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while ((!Files.exists(file) || Files.size(file) == 0)
+                && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+        }
+        assertTrue(Files.exists(file) && Files.size(file) > 0,
+                "child pid file was not populated");
     }
 
     private static void waitForProcessExit(long pid) throws InterruptedException {
