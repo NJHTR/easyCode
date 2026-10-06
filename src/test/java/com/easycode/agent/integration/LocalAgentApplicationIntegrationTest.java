@@ -150,6 +150,26 @@ class LocalAgentApplicationIntegrationTest {
     }
 
     @Test
+    void cliTraceSummaryReportsToolTimeoutReason() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ByteArrayOutputStream error = new ByteArrayOutputStream();
+        AgentExecution execution = executionWithStep(
+                AgentRunStatus.FAILED, AgentFailureReason.LLM_FAILURE,
+                new AgentStepTrace.ToolObservation(
+                        UUID.randomUUID(), "slow-tool", false,
+                        ToolFailureReason.TIMEOUT,
+                        true, true, 4, 6),
+                AgentStepOutcome.TOOL_CALLS);
+
+        int exitCode = LocalAgentApplication.reportTraceSummary(
+                execution, new PrintStream(output), new PrintStream(error));
+
+        assertEquals(1, exitCode);
+        assertTrue(output.toString().contains("step[1].toolFailureReasons=TIMEOUT:1"));
+        assertTrue(error.toString().isEmpty());
+    }
+
+    @Test
     void cliTraceSummaryReportsTimeoutWithoutResultMessage() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         ByteArrayOutputStream error = new ByteArrayOutputStream();
