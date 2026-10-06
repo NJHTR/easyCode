@@ -1,6 +1,7 @@
 package com.easycode.execution.integration;
 
 import com.easycode.execution.api.ExecutionService;
+import com.easycode.execution.api.ExecutionBackend;
 import com.easycode.execution.host.HostExecutionBackend;
 import com.easycode.execution.model.ExecutionEnvironment;
 import com.easycode.execution.model.ExecutionRequest;
@@ -252,6 +253,59 @@ class ExecutionFoundationIntegrationTest {
             assertEquals(ExecutionTerminationReason.START_FAILED, result.terminationReason());
             assertTrue(result.failureMessage().contains("no execution backend configured"));
             assertEquals(0, host.calls);
+        }
+    }
+
+    @Test
+    void normalizesBackendResultWithMismatchedExecutionId() {
+        ExecutionRequest request = request(
+                SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+        ExecutionBackend backend = new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest ignored) {
+                return new ExecutionResult(
+                        UUID.randomUUID(), ExecutionStatus.SUCCEEDED, 0, "wrong", "",
+                        Duration.ZERO, ExecutionTerminationReason.COMPLETED, "");
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        try (ExecutionService service = new ExecutionService(backend)) {
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(request.executionId(), result.executionId());
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("execution backend returned a mismatched execution id",
+                    result.failureMessage());
+        }
+    }
+
+    @Test
+    void normalizesBackendReturningNoResult() {
+        try (ExecutionService service = new ExecutionService(new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest request) {
+                return null;
+            }
+
+            @Override
+            public void close() {
+            }
+        })) {
+            ExecutionRequest request = request(
+                    SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(request.executionId(), result.executionId());
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("execution backend returned no result", result.failureMessage());
         }
     }
 

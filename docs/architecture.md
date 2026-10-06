@@ -171,6 +171,9 @@ exit code, output, duration, and termination reason. Output-limit termination is
 represented as `ExecutionTerminationReason.OUTPUT_LIMIT`, independent of the
 underlying process exit code. It does not know about Agent planning or Canvas
 concepts.
+`ExecutionService` verifies that every backend result preserves the request
+`executionId`; a null or mismatched result is normalized to a failed
+`INTERNAL_ERROR` result with the original request identity.
 
 Host and sandbox process launchers remove inherited Agent/provider configuration
 variables, including API-key variables, before applying explicit request
