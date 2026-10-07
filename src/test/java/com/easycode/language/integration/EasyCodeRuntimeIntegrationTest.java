@@ -12,6 +12,8 @@ import com.easycode.language.model.EasyCodeExecutionStatus;
 import com.easycode.language.model.EasyCodeInstructionTrace;
 import com.easycode.language.model.EasyCodeInstructionTraceStatus;
 import com.easycode.language.model.EasyCodeProgram;
+import com.easycode.language.parser.EasyCodeParseException;
+import com.easycode.language.parser.EasyCodeSourceParser;
 import com.easycode.language.runtime.EasyCodeExecutionContext;
 import com.easycode.language.runtime.InProcessEasyCodeRuntime;
 import org.junit.jupiter.api.Test;
@@ -212,5 +214,28 @@ class EasyCodeRuntimeIntegrationTest {
 
         assertThrows(UnsupportedOperationException.class,
                 () -> result.instructionTrace().clear());
+    }
+
+    @Test
+    void parsesAndExecutesEasyCodeSource() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(), new EasyCodeSourceParser().parse(""
+                        + "# a small easyCode source program\n"
+                        + "set name = \"easyCode\"\n"
+                        + "println \"hello ${name}\"\n"
+                        + "print !"));
+
+        assertTrue(result.succeeded(), result.toString());
+        assertEquals("hello easyCode" + System.lineSeparator() + "!", result.consoleOutput());
+        assertEquals("easyCode", result.variables().get("name"));
+        assertEquals(3, result.completedInstructionCount());
+    }
+
+    @Test
+    void parserReportsSourceLineForInvalidInstruction() {
+        EasyCodeParseException exception = assertThrows(EasyCodeParseException.class,
+                () -> new EasyCodeSourceParser().parse("set count = 1\nunknown value"));
+
+        assertTrue(exception.getMessage().contains("line 2"));
     }
 }

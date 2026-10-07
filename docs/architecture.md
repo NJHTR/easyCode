@@ -25,6 +25,13 @@ These are language instructions, not Canvas widgets. A future Canvas may edit
 the same program model, while a future Agent may create or transform programs
 through a validated language boundary.
 
+The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
+small line-oriented syntax (`set`, `print`, and `println`, with comments and
+basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing
+errors are reported with source line numbers. More syntax can be added behind
+this boundary without changing the runtime contract; this parser does not
+compile or execute another programming language.
+
 Each run also returns an immutable, in-memory `EasyCodeInstructionTrace`. It
 records the start and terminal outcome of every invocation routed through the
 execution context, including selected branch instructions and repeated body

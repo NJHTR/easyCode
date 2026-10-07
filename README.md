@@ -30,6 +30,20 @@ the instruction sequence and its runtime owns the execution semantics. A
 future canvas can edit the same program model, and an Agent can produce or
 modify validated instructions without calling UI classes directly.
 
+The current source entry point is intentionally small and deterministic:
+
+```text
+set name = "easyCode"
+println "hello ${name}"
+print !
+```
+
+`EasyCodeSourceParser` converts this line-oriented source into the same
+`EasyCodeProgram` used by the runtime. It currently supports comments, string,
+integer, boolean, and null literals, plus `set`, `print`, and `println`.
+Unsupported syntax is rejected with a source line number; this is a language
+front end, not a Java/C++/Python compiler.
+
 ## Start the headless local application
 
 The repository provides a small Windows PowerShell launcher for the current
