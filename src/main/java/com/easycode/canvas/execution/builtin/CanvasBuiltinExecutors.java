@@ -24,8 +24,8 @@ public final class CanvasBuiltinExecutors {
             }
             context.output("out", node.configuration().get("value"));
         });
-        executors.put(PRINT, (node, context) -> context.console(context.input("in")));
-        executors.put(PASSTHROUGH, (node, context) -> context.output("out", context.input("in")));
+        executors.put(PRINT, (node, context) -> context.console(requiredInput(context, "in")));
+        executors.put(PASSTHROUGH, (node, context) -> context.output("out", requiredInput(context, "in")));
         executors.put(ADD, (node, context) -> {
             BigDecimal left = numberInput(context, "left");
             BigDecimal right = numberInput(context, "right");
@@ -46,5 +46,13 @@ public final class CanvasBuiltinExecutors {
             throw new IllegalArgumentException("add node received an invalid numeric input on port: " + portName,
                     exception);
         }
+    }
+
+    private static Object requiredInput(com.easycode.canvas.execution.CanvasNodeExecutionContext context,
+                                        String portName) {
+        if (!context.hasInput(portName)) {
+            throw new IllegalArgumentException("node requires an input on port: " + portName);
+        }
+        return context.input(portName);
     }
 }

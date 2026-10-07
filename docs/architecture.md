@@ -68,6 +68,8 @@ output must be published by its source executor; if it is absent, the source
 node fails explicitly before downstream execution. Outputs without downstream
 connections remain optional. Executors may read only declared input ports;
 reading an output or unknown port fails the current node explicitly. This is
+also why built-in `print` and `passthrough` reject an unconnected `in` port
+while preserving a connected `null` as a real value. This is
 not a scheduler, process launcher, or
 Sandbox adapter; a later runtime adapter may use the result of this layer to
 request Host or Sandbox execution.

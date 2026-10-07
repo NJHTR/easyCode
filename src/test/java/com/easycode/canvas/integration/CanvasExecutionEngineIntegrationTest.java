@@ -261,6 +261,45 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void builtinPrintNodeFailsWhenItsInputIsUnconnected() {
+        Fixture print = fixture("print", false, true);
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all())
+                .execute(canvas(List.of(new CanvasNode(print.id(), "print", CanvasBuiltinExecutors.PRINT,
+                        Map.of(), print.node().ports())), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(print.id(), result.failedNodeId());
+        assertEquals("node requires an input on port: in", result.failureMessage());
+        assertEquals(List.of(), result.consoleOutput());
+    }
+
+    @Test
+    void builtinPassthroughNodePreservesConnectedNullButRejectsMissingInput() {
+        Fixture source = fixture("source", true, false);
+        Fixture passthrough = fixture("passthrough", true, true);
+        Map<String, Object> nullConfiguration = new java.util.LinkedHashMap<>();
+        nullConfiguration.put("value", null);
+        CanvasNode sourceNode = new CanvasNode(source.id(), "source", CanvasBuiltinExecutors.CONSTANT,
+                nullConfiguration, source.node().ports());
+        CanvasNode passthroughNode = new CanvasNode(passthrough.id(), "passthrough",
+                CanvasBuiltinExecutors.PASSTHROUGH, Map.of(), passthrough.node().ports());
+
+        CanvasExecutionResult connectedNull = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(sourceNode, passthroughNode), List.of(connection(source, passthrough))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, connectedNull.status());
+        assertEquals(true, connectedNull.nodeTraces().get(1).outputs().containsKey(passthrough.outputPort()));
+        assertEquals(null, connectedNull.nodeTraces().get(1).outputs().get(passthrough.outputPort()));
+
+        CanvasExecutionResult missing = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(passthroughNode), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, missing.status());
+        assertEquals("node requires an input on port: in", missing.failureMessage());
+    }
+
+    @Test
     void builtinAddNodeRejectsNonNumericInput() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);

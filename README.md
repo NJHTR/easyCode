@@ -63,6 +63,9 @@ The result includes immutable per-node traces with the observed inputs,
 outputs, duration, and failure message when applicable.
 Executors may read only declared input ports; attempting to read an output or
 unknown port fails the current node with an explicit execution error.
+Built-in `print` and `passthrough` nodes also require their `in` port to be
+connected; a connected `null` remains a valid value and is not treated as a
+missing connection.
 When an output port has a declared downstream connection, its executor must
 publish a value for that port; otherwise the source node fails explicitly
 instead of silently delivering a missing input. Unconnected output ports may

@@ -67,6 +67,14 @@ public final class CanvasNodeExecutionContext {
         return inputs.containsKey(requiredPortId);
     }
 
+    public boolean hasInput(String portName) {
+        UUID portId = inputPortsByName.get(Objects.requireNonNull(portName, "portName"));
+        if (portId == null) {
+            throw new IllegalArgumentException("node has no input port named: " + portName);
+        }
+        return hasInput(portId);
+    }
+
     public Map<UUID, Object> inputs() {
         return inputs;
     }
