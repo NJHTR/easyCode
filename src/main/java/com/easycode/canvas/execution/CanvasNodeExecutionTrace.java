@@ -31,6 +31,9 @@ public record CanvasNodeExecutionTrace(
             throw new IllegalArgumentException("duration cannot be negative");
         }
         failureMessage = failureMessage == null ? "" : failureMessage;
+        if (status == CanvasExecutionStatus.SUCCEEDED && !failureMessage.isBlank()) {
+            throw new IllegalArgumentException("successful trace cannot have a failure message");
+        }
         if (status == CanvasExecutionStatus.FAILED && failureMessage.isBlank()) {
             throw new IllegalArgumentException("failed trace must contain a failure message");
         }

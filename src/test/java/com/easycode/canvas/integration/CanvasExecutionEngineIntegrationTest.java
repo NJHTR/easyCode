@@ -3,6 +3,7 @@ package com.easycode.canvas.integration;
 import com.easycode.canvas.execution.CanvasExecutionEngine;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasExecutionStatus;
+import com.easycode.canvas.execution.CanvasNodeExecutionTrace;
 import com.easycode.canvas.execution.builtin.CanvasBuiltinExecutors;
 import com.easycode.canvas.model.CanvasConnection;
 import com.easycode.canvas.model.CanvasDefinition;
@@ -12,12 +13,14 @@ import com.easycode.canvas.model.CanvasPortDirection;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CanvasExecutionEngineIntegrationTest {
     @Test
@@ -287,6 +290,16 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
         assertEquals(List.of(), result.completedNodeIds());
         assertEquals(List.of(), result.nodeTraces());
+    }
+
+    @Test
+    void successfulResultAndTraceCannotCarryFailureMessages() {
+        assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionResult(
+                UUID.randomUUID(), CanvasExecutionStatus.SUCCEEDED, List.of(), List.of(), List.of(),
+                null, "unexpected failure", Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionTrace(
+                UUID.randomUUID(), "test", CanvasExecutionStatus.SUCCEEDED, Map.of(), Map.of(), List.of(),
+                Duration.ZERO, "unexpected failure"));
     }
 
     private static CanvasDefinition canvas(List<CanvasNode> nodes, List<CanvasConnection> connections) {

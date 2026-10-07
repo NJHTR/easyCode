@@ -38,6 +38,9 @@ public record CanvasExecutionResult(
         if (status == CanvasExecutionStatus.SUCCEEDED && failedNodeId != null) {
             throw new IllegalArgumentException("successful execution cannot have a failed node");
         }
+        if (status == CanvasExecutionStatus.SUCCEEDED && !failureMessage.isBlank()) {
+            throw new IllegalArgumentException("successful execution cannot have a failure message");
+        }
         if (status == CanvasExecutionStatus.FAILED
                 && (failedNodeId == null || failureMessage.isBlank())) {
             throw new IllegalArgumentException("failed execution must identify a node and failure");
