@@ -33,6 +33,8 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
         assertEquals(List.of(source.id(), target.id()), result.completedNodeIds());
         assertEquals("hello", received.get());
+        assertEquals("hello", result.nodeTraces().get(0).outputs().get(source.outputPort()));
+        assertEquals("hello", result.nodeTraces().get(1).inputs().get(target.inputPort()));
     }
 
     @Test
@@ -45,6 +47,7 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(CanvasExecutionStatus.FAILED, result.status());
         assertEquals(node.id(), result.failedNodeId());
         assertEquals(List.of(), result.completedNodeIds());
+        assertEquals(CanvasExecutionStatus.FAILED, result.nodeTraces().get(0).status());
     }
 
     @Test
@@ -61,6 +64,18 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(second.id(), result.failedNodeId());
         assertEquals(List.of(first.id()), result.completedNodeIds());
         assertEquals("bad node", result.failureMessage());
+        assertEquals("bad node", result.nodeTraces().get(1).failureMessage());
+    }
+
+    @Test
+    void rejectsExecutorWritesToAnInputPort() {
+        Fixture node = fixture("writer", true, true);
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "writer", (current, context) -> context.output(node.inputPort(), "invalid")))
+                .execute(canvas(List.of(node.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(node.id(), result.failedNodeId());
     }
 
     @Test
@@ -71,6 +86,7 @@ class CanvasExecutionEngineIntegrationTest {
 
         assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
         assertEquals(List.of(), result.completedNodeIds());
+        assertEquals(List.of(), result.nodeTraces());
     }
 
     private static CanvasDefinition canvas(List<CanvasNode> nodes, List<CanvasConnection> connections) {

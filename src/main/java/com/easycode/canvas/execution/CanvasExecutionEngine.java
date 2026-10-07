@@ -52,13 +52,15 @@ public final class CanvasExecutionEngine {
         Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
         Map<UUID, Object> inputValues = new HashMap<>();
         List<UUID> completed = new ArrayList<>();
+        List<CanvasNodeExecutionTrace> traces = new ArrayList<>();
 
         for (UUID nodeId : plan.orderedNodeIds()) {
             CanvasNode node = nodes.get(nodeId);
             CanvasNodeExecutor executor = executors.get(node.nodeType());
             if (executor == null) {
-                return failed(canvas, completed, nodeId, "no executor registered for node type: " + node.nodeType(),
-                        startedAt);
+                String message = "no executor registered for node type: " + node.nodeType();
+                traces.add(failedTrace(node, Map.of(), message, startedAt));
+                return failed(canvas, completed, traces, nodeId, message, startedAt);
             }
             Map<UUID, Object> nodeInputs = new LinkedHashMap<>();
             for (CanvasPort port : node.ports()) {
@@ -66,12 +68,18 @@ public final class CanvasExecutionEngine {
                     nodeInputs.put(port.portId(), inputValues.get(port.portId()));
                 }
             }
-            CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(nodeInputs);
+            CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs);
+            Instant nodeStartedAt = Instant.now();
             try {
                 executor.execute(node, context);
             } catch (Exception exception) {
-                return failed(canvas, completed, nodeId, messageOf(exception), startedAt);
+                String message = messageOf(exception);
+                traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.FAILED,
+                        nodeInputs, context.outputsSnapshot(), Duration.between(nodeStartedAt, Instant.now()), message));
+                return failed(canvas, completed, traces, nodeId, message, startedAt);
             }
+            traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.SUCCEEDED,
+                    nodeInputs, context.outputsSnapshot(), Duration.between(nodeStartedAt, Instant.now()), ""));
             completed.add(nodeId);
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
                 Map<UUID, Object> outputs = context.outputsSnapshot();
@@ -80,8 +88,8 @@ public final class CanvasExecutionEngine {
                 }
             }
         }
-        return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.SUCCEEDED, completed, null, "",
-                Duration.between(startedAt, Instant.now()));
+        return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.SUCCEEDED, completed, traces, null,
+                "", Duration.between(startedAt, Instant.now()));
     }
 
     private static Map<UUID, CanvasNode> indexNodes(List<CanvasNode> nodes) {
@@ -99,11 +107,18 @@ public final class CanvasExecutionEngine {
         return outgoing;
     }
 
-    private static CanvasExecutionResult failed(CanvasDefinition canvas, List<UUID> completed, UUID nodeId,
+    private static CanvasExecutionResult failed(CanvasDefinition canvas, List<UUID> completed,
+                                                List<CanvasNodeExecutionTrace> traces, UUID nodeId,
                                                 String message, Instant startedAt) {
-        return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.FAILED, completed, nodeId,
+        return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.FAILED, completed, traces, nodeId,
                 message == null || message.isBlank() ? "node execution failed" : message,
                 Duration.between(startedAt, Instant.now()));
+    }
+
+    private static CanvasNodeExecutionTrace failedTrace(CanvasNode node, Map<UUID, Object> inputs,
+                                                        String message, Instant startedAt) {
+        return new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.FAILED,
+                inputs, Map.of(), Duration.between(startedAt, Instant.now()), message);
     }
 
     private static String messageOf(Exception exception) {

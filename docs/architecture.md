@@ -59,9 +59,10 @@ semantics require a later slice with an explicit node execution contract.
 in-memory nodes. A `CanvasNodeExecutor` is selected by `nodeType`, receives a
 `CanvasNodeExecutionContext`, and may publish values by output port. The engine
 transfers those values along validated connections and returns a terminal
-`CanvasExecutionResult`. This is not a scheduler, process launcher, or
-Sandbox adapter; a later runtime adapter may use the result of this layer to
-request Host or Sandbox execution.
+`CanvasExecutionResult` with immutable per-node traces. The traces are a
+post-run observation, not a realtime debugger or persistent log. This is not a
+scheduler, process launcher, or Sandbox adapter; a later runtime adapter may
+use the result of this layer to request Host or Sandbox execution.
 
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and

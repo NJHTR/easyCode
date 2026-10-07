@@ -59,6 +59,8 @@ not a node executor and does not invoke the Execution or Sandbox layers.
 `CanvasExecutionEngine` is the first small synchronous consumer of that plan.
 It dispatches a registered executor by `CanvasNode.nodeType`, passes in-memory
 values across connected ports, and returns a terminal `CanvasExecutionResult`.
+The result includes immutable per-node traces with the observed inputs,
+outputs, duration, and failure message when applicable.
 It deliberately does not start processes, schedule work, or choose Host versus
 Sandbox; those concerns remain behind the separate Execution boundary.
 
