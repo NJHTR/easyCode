@@ -1,6 +1,7 @@
 package com.easycode.canvas.integration;
 
 import com.easycode.canvas.execution.CanvasExecutionEngine;
+import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasExecutionStatus;
 import com.easycode.canvas.execution.CanvasNodeExecutionTrace;
@@ -352,6 +353,74 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(node.id(), result.failedNodeId());
         assertEquals("node cannot read from undeclared input port: " + node.outputPort(),
                 result.failureMessage());
+    }
+
+    @Test
+    void explicitEntryExecutesOnlyItsReachableSubgraph() {
+        Fixture selected = fixture("selected", true, false);
+        Fixture print = fixture("print", false, true);
+        Fixture excluded = fixture("excluded", false, false);
+        CanvasNode selectedNode = constantNode(selected, "selected");
+        CanvasNode printNode = new CanvasNode(print.id(), "print", CanvasBuiltinExecutors.PRINT,
+                Map.of(), print.node().ports());
+        CanvasNode excludedNode = new CanvasNode(excluded.id(), "excluded", "unknown",
+                Map.of(), excluded.node().ports());
+        CanvasDefinition canvas = canvas(List.of(selectedNode, printNode, excludedNode),
+                List.of(connection(selected, print)));
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all())
+                .execute(CanvasExecutionRequest.fromEntries(canvas, List.of(selected.id())));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(List.of(selected.id(), print.id()), result.completedNodeIds());
+        assertEquals(List.of("selected"), result.consoleOutput());
+    }
+
+    @Test
+    void explicitEntriesKeepDeclarationOrder() {
+        Fixture first = fixture("first", false, false);
+        Fixture second = fixture("second", false, false);
+        CanvasDefinition canvas = canvas(List.of(first.node(), second.node()), List.of());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "first", (node, context) -> { },
+                "second", (node, context) -> { }))
+                .execute(CanvasExecutionRequest.fromEntries(canvas, List.of(second.id(), first.id())));
+
+        assertEquals(List.of(first.id(), second.id()), result.completedNodeIds());
+    }
+
+    @Test
+    void explicitEntryMustExistAndHaveNoIncomingConnection() {
+        Fixture source = fixture("source", true, false);
+        Fixture target = fixture("target", false, true);
+        CanvasDefinition canvas = canvas(List.of(source.node(), target.node()),
+                List.of(connection(source, target)));
+        CanvasExecutionEngine engine = new CanvasExecutionEngine(Map.of(
+                "source", (node, context) -> context.output(source.outputPort(), "value"),
+                "target", (node, context) -> { }));
+
+        assertThrows(IllegalArgumentException.class, () -> engine.execute(
+                CanvasExecutionRequest.fromEntries(canvas, List.of(UUID.randomUUID()))));
+        assertThrows(IllegalArgumentException.class, () -> engine.execute(
+                CanvasExecutionRequest.fromEntries(canvas, List.of(target.id()))));
+    }
+
+    @Test
+    void explicitEntryRejectsReachableNodeWithExcludedDependency() {
+        Fixture excludedSource = fixture("excludedSource", true, false);
+        Fixture selectedSource = fixture("selectedSource", true, false);
+        Fixture merge = fixture("merge", false, true);
+        UUID secondInput = UUID.randomUUID();
+        CanvasNode mergeNode = new CanvasNode(merge.id(), "merge", "merge", Map.of(), List.of(
+                new CanvasPort(merge.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(secondInput, "right", CanvasPortDirection.INPUT)));
+        CanvasDefinition canvas = canvas(List.of(excludedSource.node(), selectedSource.node(), mergeNode),
+                List.of(connection(excludedSource, merge, merge.inputPort()),
+                        connection(selectedSource, merge, secondInput)));
+
+        assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionEngine(Map.of())
+                .execute(CanvasExecutionRequest.fromEntries(canvas, List.of(selectedSource.id()))));
     }
 
     private static CanvasDefinition canvas(List<CanvasNode> nodes, List<CanvasConnection> connections) {

@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -45,9 +46,14 @@ public final class CanvasExecutionEngine {
     }
 
     public CanvasExecutionResult execute(CanvasDefinition canvas) {
-        Objects.requireNonNull(canvas, "canvas");
+        return execute(CanvasExecutionRequest.forCanvas(canvas));
+    }
+
+    public CanvasExecutionResult execute(CanvasExecutionRequest request) {
+        Objects.requireNonNull(request, "request");
+        CanvasDefinition canvas = request.canvas();
         Instant startedAt = Instant.now();
-        CanvasExecutionPlan plan = planner.plan(canvas);
+        CanvasExecutionPlan plan = planner.plan(canvas, Set.copyOf(request.entryNodeIds()));
         Map<UUID, CanvasNode> nodes = indexNodes(canvas.nodes());
         Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
         Map<UUID, Object> inputValues = new HashMap<>();

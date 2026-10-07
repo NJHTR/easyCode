@@ -73,6 +73,14 @@ remain unpublished.
 It deliberately does not start processes, schedule work, or choose Host versus
 Sandbox; those concerns remain behind the separate Execution boundary.
 
+`CanvasExecutionRequest` is the minimal launch contract for one synchronous
+run. Its optional `entryNodeIds` selects one or more root nodes and executes
+only their reachable subgraph. An empty list preserves the original behavior:
+all implicit root nodes are planned. An explicit entry must exist and cannot
+have an incoming connection; external input injection is intentionally not part
+of this slice. A future Run command or trigger may construct this request, but
+the request itself is not a trigger or scheduler.
+
 `CanvasBuiltinExecutors` provides a deliberately small in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. `add` consumes explicit `left`
 and `right` numeric input ports and produces a decimal sum, demonstrating
