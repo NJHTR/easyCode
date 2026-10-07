@@ -88,7 +88,8 @@ environment when a task is intentionally authorized to use it.
 
 The sandbox layer is intentionally independent from Java project/JDK
 management. It accepts a generic Windows process command and owns its
-lifecycle. A Java worker will be just one future caller of this API.
+lifecycle. Java runtimes are callers of this API; they do not change the
+sandbox contract.
 
 ## Execution Foundation / Runtime Boundary
 
@@ -107,10 +108,14 @@ ExecutionRequest
 `ExecutionResult` provides the same status, exit code, stdout, stderr, duration,
 and termination reason for both environments. Output exceeding the configured
 limit is reported as `OUTPUT_LIMIT` rather than a successful process exit.
-`JvmWorkerRuntime` adapts the
-existing short-lived JVM worker to this contract. `SandboxRunner` remains the
-older runtime-specific convenience API and is not required by the execution
-layer.
+`JvmWorkerRuntime` adapts the existing short-lived JVM worker to this contract
+for compatibility with the original demo. For real user-provided Java code,
+`JdkRuntime` builds requests for the installed JDK's `javac` and `java`
+executables from caller-supplied source files, output directory, main class,
+classpath, program arguments, environment, and working directory. The caller
+executes those requests through `ExecutionService`, so the same Java request
+can target the Host or Sandbox backend. `SandboxRunner` remains the older
+runtime-specific convenience API and is not required by the execution layer.
 
 The current `ProcessSandboxManager` is the first lifecycle backend:
 
@@ -171,6 +176,13 @@ This project contains a small desktop-oriented sandbox baseline:
 - the worker gets heap and stack settings, a CPU-count hint, timeout, and output-size limits;
 - a temporary working directory is used for `user.dir`, `user.home`, and Java temp files;
 - the worker is killed on timeout and the temporary directory is cleaned recursively.
+
+The worker above is a legacy compatibility demo and intentionally supports
+only its small operation protocol. It is not the general Java execution path.
+Use `JdkRuntime` with `JavaCompilationSpec` and `JavaLaunchSpec` when the
+application needs to compile and run real Java source with the installed JDK;
+IDEA is not required. IDEA's `-javaagent` option is only a debugger/launcher
+integration and is not needed for ordinary compilation or execution.
 
 The project root remains `C:\Users\NJHTR\IdeaProjects\easyCode`. The
 `com.easycode.sandbox` part is only the Java package namespace; it does not

@@ -202,10 +202,19 @@ Sandbox execution path.
 
 ### Runtime
 
-Describes what is being run. The current runtime adapter is
-`JvmWorkerRuntime`, which turns a small JVM Worker operation into an
-`ExecutionRequest`. The older `SandboxRunner` remains a runtime-specific
-convenience API and is not the Agent API.
+Describes what is being run. `JvmWorkerRuntime` turns a small JVM Worker
+operation into an `ExecutionRequest` for compatibility with the original demo;
+the older `SandboxRunner` is another runtime-specific convenience API and is
+not the Agent API. These are not the general Java project runner.
+
+For real user-provided Java source, `JdkRuntime` builds ordinary process
+requests for the installed JDK's `javac` and `java` executables. The caller
+provides `JavaCompilationSpec` (source files, output directory, classpath) and
+`JavaLaunchSpec` (main class, classpath, arguments); `ExecutionService` then
+executes the resulting requests on `HOST` or `SANDBOX`. No IntelliJ runtime or
+IDE-specific agent is required. Compilation failures, application exceptions,
+non-zero exits, output limits, and timeouts remain ordinary
+`ExecutionResult` outcomes instead of being mapped to a fixed operation list.
 
 ### Execution Environment
 
