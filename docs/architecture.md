@@ -25,6 +25,29 @@ These are language instructions, not Canvas widgets. A future Canvas may edit
 the same program model, while a future Agent may create or transform programs
 through a validated language boundary.
 
+## Canvas Graph Foundation
+
+The visual product model is a graph document, independent of UI technology and
+operating-system sandbox details:
+
+```text
+CanvasDefinition
+  -> CanvasNode[]
+      -> CanvasPort[]
+  -> CanvasConnection[]
+      -> CanvasGraphValidator
+```
+
+`CanvasDefinition`, `CanvasNode`, `CanvasPort`, and `CanvasConnection` are
+immutable declarations with UUID identities. A node's display name is separate
+from its identity. `CanvasGraphValidator` verifies graph-wide identity
+uniqueness, that connection endpoints belong to their declared nodes, and that
+connections run from an output port to an input port without duplicate
+endpoints. This slice intentionally stops at a validated graph model: it does
+not render a UI, execute nodes, define triggers, schedule work, persist
+canvases, or implement workflow semantics. Future execution layers may consume
+this model without making the Canvas package depend on Sandbox or Windows APIs.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing

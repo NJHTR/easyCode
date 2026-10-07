@@ -30,6 +30,27 @@ the instruction sequence and its runtime owns the execution semantics. A
 future canvas can edit the same program model, and an Agent can produce or
 modify validated instructions without calling UI classes directly.
 
+## Canvas Graph Foundation
+
+The product's visual foundation is a graph of canvases, nodes, ports, and
+connections. The current slice is deliberately UI-independent:
+
+```text
+CanvasDefinition
+    -> CanvasNode[]
+        -> CanvasPort[]
+    -> CanvasConnection[]
+        -> CanvasGraphValidator
+```
+
+`CanvasDefinition` and its nested records use UUID identities, so a display
+name can change without changing the identity used by connections. The graph
+validator checks unique identities, port ownership, output-to-input direction,
+and duplicate connection endpoints. The model does not yet render a canvas,
+execute a graph, persist documents, or implement triggers, scheduling, or
+workflow semantics. Those concerns must be layered above this stable graph
+contract.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text
