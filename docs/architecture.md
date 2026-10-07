@@ -63,9 +63,12 @@ in-memory nodes. A `CanvasNodeExecutor` is selected by `nodeType`, receives a
 `CanvasNodeExecutionContext`, and may publish values by output port. The engine
 transfers those values along validated connections and returns a terminal
 `CanvasExecutionResult` with immutable per-node traces. The traces are a
-post-run observation, not a realtime debugger or persistent log. This is not a
-scheduler, process launcher, or Sandbox adapter; a later runtime adapter may
-use the result of this layer to request Host or Sandbox execution.
+post-run observation, not a realtime debugger or persistent log. A connected
+output must be published by its source executor; if it is absent, the source
+node fails explicitly before downstream execution. Outputs without downstream
+connections remain optional. This is not a scheduler, process launcher, or
+Sandbox adapter; a later runtime adapter may use the result of this layer to
+request Host or Sandbox execution.
 
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit

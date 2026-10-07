@@ -118,6 +118,22 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void failsAtNodeWhenConnectedOutputWasNotPublished() {
+        Fixture source = fixture("source", true, false);
+        Fixture target = fixture("target", false, true);
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "source", (node, context) -> { },
+                "target", (node, context) -> { }))
+                .execute(canvas(List.of(source.node(), target.node()), List.of(connection(source, target))));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(source.id(), result.failedNodeId());
+        assertEquals("node did not produce connected output port: " + source.outputPort(),
+                result.failureMessage());
+        assertEquals(List.of(), result.completedNodeIds());
+    }
+
+    @Test
     void builtinAddNodeCombinesExplicitInputPorts() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);

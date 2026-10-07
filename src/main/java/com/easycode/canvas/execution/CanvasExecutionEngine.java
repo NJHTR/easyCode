@@ -81,16 +81,24 @@ public final class CanvasExecutionEngine {
                 consoleOutput.addAll(context.consoleOutputSnapshot());
                 return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
             }
+            Map<UUID, Object> outputs = context.outputsSnapshot();
+            for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
+                if (!outputs.containsKey(connection.fromPortId())) {
+                    String message = "node did not produce connected output port: " + connection.fromPortId();
+                    traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.FAILED,
+                            nodeInputs, outputs, context.consoleOutputSnapshot(),
+                            Duration.between(nodeStartedAt, Instant.now()), message));
+                    consoleOutput.addAll(context.consoleOutputSnapshot());
+                    return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
+                }
+            }
             traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.SUCCEEDED,
-                    nodeInputs, context.outputsSnapshot(), context.consoleOutputSnapshot(),
+                    nodeInputs, outputs, context.consoleOutputSnapshot(),
                     Duration.between(nodeStartedAt, Instant.now()), ""));
             consoleOutput.addAll(context.consoleOutputSnapshot());
             completed.add(nodeId);
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
-                Map<UUID, Object> outputs = context.outputsSnapshot();
-                if (outputs.containsKey(connection.fromPortId())) {
-                    inputValues.put(connection.toPortId(), outputs.get(connection.fromPortId()));
-                }
+                inputValues.put(connection.toPortId(), outputs.get(connection.fromPortId()));
             }
         }
         return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.SUCCEEDED, completed, traces,
