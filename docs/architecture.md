@@ -16,7 +16,8 @@ EasyCodeProgram
 `InProcessEasyCodeRuntime` is the first small interpreter. It executes trusted
 instructions synchronously, exposes console output and variable snapshots, and
 identifies the instruction that failed while preserving completed state. The
-initial built-ins are `SetVariableInstruction` and `PrintInstruction`.
+initial built-ins are `SetVariableInstruction`, `PrintInstruction`,
+`ConditionalInstruction`, and bounded `RepeatInstruction`.
 These are language instructions, not Canvas widgets. A future Canvas may edit
 the same program model, while a future Agent may create or transform programs
 through a validated language boundary.

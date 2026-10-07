@@ -4,6 +4,7 @@ import com.easycode.language.api.EasyCodeInstruction;
 import com.easycode.language.builtin.PrintInstruction;
 import com.easycode.language.builtin.SetVariableInstruction;
 import com.easycode.language.builtin.ConditionalInstruction;
+import com.easycode.language.builtin.RepeatInstruction;
 import com.easycode.language.model.EasyCodeExecutionResult;
 import com.easycode.language.model.EasyCodeExecutionStatus;
 import com.easycode.language.model.EasyCodeProgram;
@@ -104,5 +105,38 @@ class EasyCodeRuntimeIntegrationTest {
         assertFalse(result.succeeded());
         assertEquals("if-missing", result.failedInstructionId());
         assertFalse(result.failureMessage().isBlank());
+    }
+
+    @Test
+    void repeatInstructionExecutesItsBodyTheRequestedNumberOfTimes() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(
+                        RepeatInstruction.times(
+                                "repeat-greeting",
+                                3,
+                                EasyCodeProgram.of(List.of(
+                                        PrintInstruction.line("print-greeting", "hello")))))));
+
+        assertTrue(result.succeeded(), result.toString());
+        assertEquals("hello" + System.lineSeparator()
+                        + "hello" + System.lineSeparator()
+                        + "hello" + System.lineSeparator(),
+                result.consoleOutput());
+        assertEquals(1, result.completedInstructionCount());
+    }
+
+    @Test
+    void repeatInstructionRejectsAnUnsafeCountAsTheInstructionFailure() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(new RepeatInstruction(
+                        "repeat-invalid",
+                        ignored -> -1,
+                        EasyCodeProgram.of(List.of())))));
+
+        assertFalse(result.succeeded());
+        assertEquals("repeat-invalid", result.failedInstructionId());
+        assertTrue(result.failureMessage().contains("negative"));
     }
 }
