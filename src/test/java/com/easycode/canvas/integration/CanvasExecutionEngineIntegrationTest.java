@@ -174,6 +174,33 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void oneOutputCanDriveMultipleInputsOnTheSameNode() {
+        Fixture source = fixture("source", true, false);
+        Fixture add = fixture("add", true, true);
+        UUID addRightInputId = UUID.randomUUID();
+        CanvasNode addNode = new CanvasNode(add.id(), "add", CanvasBuiltinExecutors.ADD, Map.of(), List.of(
+                new CanvasPort(add.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(addRightInputId, "right", CanvasPortDirection.INPUT),
+                new CanvasPort(add.outputPort(), "out", CanvasPortDirection.OUTPUT)));
+        Fixture print = fixture("print", false, true);
+        CanvasNode sourceNode = constantNode(source, 2.25);
+        CanvasNode printNode = new CanvasNode(print.id(), "print", CanvasBuiltinExecutors.PRINT, Map.of(),
+                print.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(sourceNode, addNode, printNode), List.of(
+                        connection(source, add, add.inputPort()),
+                        connection(source, add, addRightInputId),
+                        connection(add, print))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(2.25, result.nodeTraces().get(1).inputs().get(add.inputPort()));
+        assertEquals(2.25, result.nodeTraces().get(1).inputs().get(addRightInputId));
+        assertEquals(new BigDecimal("4.5"), result.nodeTraces().get(1).outputs().get(add.outputPort()));
+        assertEquals(List.of("4.5"), result.consoleOutput());
+    }
+
+    @Test
     void builtinAddNodeRejectsNonNumericInput() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);
