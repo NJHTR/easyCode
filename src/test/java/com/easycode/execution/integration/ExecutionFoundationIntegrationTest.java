@@ -477,6 +477,30 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void normalizesBackendReturningSucceededWithNonZeroExitCode() {
+        ExecutionRequest request = request(
+                SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+        try (ExecutionService service = new ExecutionService(new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest ignored) {
+                return new ExecutionResult(
+                        request.executionId(), ExecutionStatus.SUCCEEDED, 7, "wrong", "",
+                        Duration.ZERO, ExecutionTerminationReason.COMPLETED, "");
+            }
+
+            @Override
+            public void close() {
+            }
+        })) {
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+        }
+    }
+
+    @Test
     @EnabledOnOs(OS.WINDOWS)
     void sandboxExecutionUsesExistingSandboxService() throws Exception {
         try (SandboxService sandboxService = new SandboxService(new WindowsJobObjectSandboxManager());

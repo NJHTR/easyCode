@@ -39,12 +39,18 @@ public final class ExecutionService implements AutoCloseable {
 
     private static boolean isConsistent(ExecutionResult result) {
         return switch (result.status()) {
-            case SUCCEEDED -> result.terminationReason() == ExecutionTerminationReason.COMPLETED;
-            case TIMED_OUT -> result.terminationReason() == ExecutionTerminationReason.TIMED_OUT;
-            case CANCELLED -> result.terminationReason() == ExecutionTerminationReason.CANCELLED;
-            case FAILED -> result.terminationReason() != ExecutionTerminationReason.COMPLETED
-                    && result.terminationReason() != ExecutionTerminationReason.TIMED_OUT
-                    && result.terminationReason() != ExecutionTerminationReason.CANCELLED;
+            case SUCCEEDED -> result.terminationReason() == ExecutionTerminationReason.COMPLETED
+                    && Integer.valueOf(0).equals(result.exitCode());
+            case TIMED_OUT -> result.terminationReason() == ExecutionTerminationReason.TIMED_OUT
+                    && result.exitCode() == null;
+            case CANCELLED -> result.terminationReason() == ExecutionTerminationReason.CANCELLED
+                    && result.exitCode() == null;
+            case FAILED -> switch (result.terminationReason()) {
+                case NON_ZERO_EXIT -> result.exitCode() != null && result.exitCode() != 0;
+                case OUTPUT_LIMIT -> true;
+                case START_FAILED, INTERNAL_ERROR -> result.exitCode() == null;
+                default -> false;
+            };
             case CREATED, RUNNING -> false;
         };
     }
