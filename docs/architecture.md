@@ -16,8 +16,11 @@ EasyCodeProgram
 `InProcessEasyCodeRuntime` is the first small interpreter. It executes trusted
 instructions synchronously, exposes console output and variable snapshots, and
 identifies the instruction that failed while preserving completed state. The
-initial built-ins are `SetVariableInstruction`, `PrintInstruction`,
-`ConditionalInstruction`, and bounded `RepeatInstruction`.
+initial built-ins are `SetVariableInstruction`, `ComputeVariableInstruction`,
+`PrintInstruction`, `ConditionalInstruction`, and bounded
+`RepeatInstruction`. `EasyCodeExpressions` provides small composable
+language expressions for constants, typed variable reads, integer addition,
+and equality without coupling the language runtime to Java application code.
 These are language instructions, not Canvas widgets. A future Canvas may edit
 the same program model, while a future Agent may create or transform programs
 through a validated language boundary.

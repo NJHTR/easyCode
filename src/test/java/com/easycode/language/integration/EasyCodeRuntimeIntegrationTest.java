@@ -4,7 +4,9 @@ import com.easycode.language.api.EasyCodeInstruction;
 import com.easycode.language.builtin.PrintInstruction;
 import com.easycode.language.builtin.SetVariableInstruction;
 import com.easycode.language.builtin.ConditionalInstruction;
+import com.easycode.language.builtin.ComputeVariableInstruction;
 import com.easycode.language.builtin.RepeatInstruction;
+import com.easycode.language.expression.EasyCodeExpressions;
 import com.easycode.language.model.EasyCodeExecutionResult;
 import com.easycode.language.model.EasyCodeExecutionStatus;
 import com.easycode.language.model.EasyCodeProgram;
@@ -138,5 +140,31 @@ class EasyCodeRuntimeIntegrationTest {
         assertFalse(result.succeeded());
         assertEquals("repeat-invalid", result.failedInstructionId());
         assertTrue(result.failureMessage().contains("negative"));
+    }
+
+    @Test
+    void composedExpressionsReadAndComputeProgramVariables() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(
+                        new SetVariableInstruction("set-count", "count", 2),
+                        new ComputeVariableInstruction(
+                                "compute-total",
+                                "total",
+                                EasyCodeExpressions.add(
+                                        EasyCodeExpressions.variable("count", Integer.class),
+                                        EasyCodeExpressions.constant(3))),
+                        new ConditionalInstruction(
+                                "if-total",
+                                EasyCodeExpressions.equalTo(
+                                        EasyCodeExpressions.variable("total", Integer.class),
+                                        EasyCodeExpressions.constant(5)),
+                                EasyCodeProgram.of(List.of(PrintInstruction.line("print-ok", "ok"))),
+                                EasyCodeProgram.of(List.of(PrintInstruction.line("print-bad", "bad")))))));
+
+        assertTrue(result.succeeded(), result.toString());
+        assertEquals(5, result.variables().get("total"));
+        assertEquals("ok" + System.lineSeparator(), result.consoleOutput());
+        assertEquals(3, result.completedInstructionCount());
     }
 }
