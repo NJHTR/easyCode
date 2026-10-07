@@ -15,6 +15,7 @@ import java.util.List;
 /** In-memory port values for one node invocation. */
 public final class CanvasNodeExecutionContext {
     private final Map<UUID, Object> inputs;
+    private final Set<UUID> inputPortIds;
     private final Set<UUID> outputPortIds;
     private final Map<String, UUID> outputPortsByName;
     private final Map<String, UUID> inputPortsByName;
@@ -24,6 +25,10 @@ public final class CanvasNodeExecutionContext {
     CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs) {
         Objects.requireNonNull(node, "node");
         this.inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
+        this.inputPortIds = node.ports().stream()
+                .filter(port -> port.direction() == CanvasPortDirection.INPUT)
+                .map(port -> port.portId())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         this.outputPortIds = node.ports().stream()
                 .filter(port -> port.direction() == CanvasPortDirection.OUTPUT)
                 .map(port -> port.portId())
@@ -39,7 +44,10 @@ public final class CanvasNodeExecutionContext {
     }
 
     public Object input(UUID portId) {
-        Objects.requireNonNull(portId, "portId");
+        UUID requiredPortId = Objects.requireNonNull(portId, "portId");
+        if (!inputPortIds.contains(requiredPortId)) {
+            throw new IllegalArgumentException("node cannot read from undeclared input port: " + requiredPortId);
+        }
         return inputs.get(portId);
     }
 
@@ -52,8 +60,11 @@ public final class CanvasNodeExecutionContext {
     }
 
     public boolean hasInput(UUID portId) {
-        Objects.requireNonNull(portId, "portId");
-        return inputs.containsKey(portId);
+        UUID requiredPortId = Objects.requireNonNull(portId, "portId");
+        if (!inputPortIds.contains(requiredPortId)) {
+            throw new IllegalArgumentException("node cannot read from undeclared input port: " + requiredPortId);
+        }
+        return inputs.containsKey(requiredPortId);
     }
 
     public Map<UUID, Object> inputs() {

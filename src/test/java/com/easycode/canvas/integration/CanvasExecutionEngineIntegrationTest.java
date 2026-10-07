@@ -302,6 +302,19 @@ class CanvasExecutionEngineIntegrationTest {
                 Duration.ZERO, "unexpected failure"));
     }
 
+    @Test
+    void executorCannotReadAnUndeclaredInputPort() {
+        Fixture node = fixture("reader", true, true);
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "reader", (current, context) -> context.input(node.outputPort())))
+                .execute(canvas(List.of(node.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(node.id(), result.failedNodeId());
+        assertEquals("node cannot read from undeclared input port: " + node.outputPort(),
+                result.failureMessage());
+    }
+
     private static CanvasDefinition canvas(List<CanvasNode> nodes, List<CanvasConnection> connections) {
         return new CanvasDefinition(UUID.randomUUID(), "test", nodes, connections);
     }
