@@ -39,6 +39,7 @@ public final class CanvasGraphValidator {
 
         Set<UUID> connectionIds = new HashSet<>();
         Set<ConnectionKey> connectionKeys = new HashSet<>();
+        Set<UUID> drivenInputPorts = new HashSet<>();
         for (CanvasConnection connection : canvas.connections()) {
             if (!connectionIds.add(connection.connectionId())) {
                 throw invalid("duplicate connection id: " + connection.connectionId());
@@ -57,6 +58,10 @@ public final class CanvasGraphValidator {
                     || toPort.direction() != CanvasPortDirection.INPUT) {
                 throw invalid("connection must go from an output port to an input port: "
                         + connection.connectionId());
+            }
+            if (!drivenInputPorts.add(connection.toPortId())) {
+                throw invalid("input port cannot have multiple incoming connections: "
+                        + connection.toPortId());
             }
             if (!connectionKeys.add(new ConnectionKey(
                     connection.fromNodeId(), connection.fromPortId(),

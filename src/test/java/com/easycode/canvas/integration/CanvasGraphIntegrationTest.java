@@ -76,6 +76,32 @@ class CanvasGraphIntegrationTest {
     }
 
     @Test
+    void rejectsMultipleConnectionsDrivingTheSameInputPort() {
+        UUID firstSourceNodeId = UUID.randomUUID();
+        UUID secondSourceNodeId = UUID.randomUUID();
+        UUID targetNodeId = UUID.randomUUID();
+        UUID firstOutputPortId = UUID.randomUUID();
+        UUID secondOutputPortId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+        CanvasDefinition canvas = new CanvasDefinition(
+                UUID.randomUUID(), "multiple-input-drivers", List.of(
+                        new CanvasNode(firstSourceNodeId, "first", "value", Map.of(),
+                                List.of(new CanvasPort(firstOutputPortId, "out", CanvasPortDirection.OUTPUT))),
+                        new CanvasNode(secondSourceNodeId, "second", "value", Map.of(),
+                                List.of(new CanvasPort(secondOutputPortId, "out", CanvasPortDirection.OUTPUT))),
+                        new CanvasNode(targetNodeId, "target", "print", Map.of(),
+                                List.of(new CanvasPort(inputPortId, "in", CanvasPortDirection.INPUT)))),
+                List.of(
+                        new CanvasConnection(UUID.randomUUID(), firstSourceNodeId, firstOutputPortId,
+                                targetNodeId, inputPortId),
+                        new CanvasConnection(UUID.randomUUID(), secondSourceNodeId, secondOutputPortId,
+                                targetNodeId, inputPortId)));
+
+        assertThrows(CanvasValidationException.class,
+                () -> new CanvasGraphValidator().validate(canvas));
+    }
+
+    @Test
     void canvasCollectionsAreImmutable() {
         CanvasDefinition canvas = CanvasDefinition.empty(UUID.randomUUID(), "empty");
 

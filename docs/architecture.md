@@ -43,7 +43,10 @@ immutable declarations with UUID identities. A node's display name is separate
 from its identity. `CanvasGraphValidator` verifies graph-wide identity
 uniqueness, that connection endpoints belong to their declared nodes, and that
 connections run from an output port to an input port without duplicate
-endpoints. This slice intentionally stops at a validated graph model: it does
+endpoints. An input port has at most one incoming connection, while an output
+port may fan out to multiple downstream inputs. This makes value propagation
+deterministic and leaves future merge semantics explicit instead of silently
+overwriting an input value. This slice intentionally stops at a validated graph model: it does
 not render a UI, execute nodes, define triggers, schedule work, persist
 canvases, or implement workflow semantics. Future execution layers may consume
 this model without making the Canvas package depend on Sandbox or Windows APIs.

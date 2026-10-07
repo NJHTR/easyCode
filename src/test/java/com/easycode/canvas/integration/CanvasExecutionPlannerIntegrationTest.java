@@ -47,11 +47,17 @@ class CanvasExecutionPlannerIntegrationTest {
         NodeFixture source = node("source", true, false);
         NodeFixture left = node("left", true, true);
         NodeFixture right = node("right", true, true);
-        NodeFixture merge = node("merge", false, true);
+        UUID mergeNodeId = UUID.randomUUID();
+        UUID mergeLeftInputId = UUID.randomUUID();
+        UUID mergeRightInputId = UUID.randomUUID();
+        NodeFixture merge = new NodeFixture(mergeNodeId, UUID.randomUUID(), mergeLeftInputId,
+                new CanvasNode(mergeNodeId, "merge", "test", Map.of(), List.of(
+                        new CanvasPort(mergeLeftInputId, "left", CanvasPortDirection.INPUT),
+                        new CanvasPort(mergeRightInputId, "right", CanvasPortDirection.INPUT))));
         CanvasExecutionPlan plan = planner.plan(canvas(
                 List.of(source.node(), left.node(), right.node(), merge.node()),
                 List.of(connection(source, left), connection(source, right), connection(left, merge),
-                        connection(right, merge))));
+                        connection(right, merge, mergeRightInputId))));
 
         assertEquals(source.id(), plan.orderedNodeIds().get(0));
         assertEquals(merge.id(), plan.orderedNodeIds().get(3));
@@ -116,6 +122,11 @@ class CanvasExecutionPlannerIntegrationTest {
 
     private static CanvasConnection connection(NodeFixture from, NodeFixture to) {
         return new CanvasConnection(UUID.randomUUID(), from.id(), from.outputPortId(), to.id(), to.inputPortId());
+    }
+
+    private static CanvasConnection connection(NodeFixture from, NodeFixture to, UUID targetInputPortId) {
+        return new CanvasConnection(UUID.randomUUID(), from.id(), from.outputPortId(),
+                to.id(), targetInputPortId);
     }
 
     private record NodeFixture(UUID id, UUID outputPortId, UUID inputPortId, CanvasNode node) {
