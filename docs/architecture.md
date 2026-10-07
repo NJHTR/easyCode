@@ -55,6 +55,14 @@ identities. The planner rejects cycles, but it does not execute nodes, resolve
 node handlers, carry port values, or call `ExecutionService`. Those runtime
 semantics require a later slice with an explicit node execution contract.
 
+`CanvasExecutionEngine` now provides that minimal contract for synchronous
+in-memory nodes. A `CanvasNodeExecutor` is selected by `nodeType`, receives a
+`CanvasNodeExecutionContext`, and may publish values by output port. The engine
+transfers those values along validated connections and returns a terminal
+`CanvasExecutionResult`. This is not a scheduler, process launcher, or
+Sandbox adapter; a later runtime adapter may use the result of this layer to
+request Host or Sandbox execution.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing

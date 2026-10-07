@@ -56,6 +56,12 @@ deterministic, immutable topological order of node IDs produced by
 `CanvasExecutionPlanner`; it validates the graph and rejects cycles, but it is
 not a node executor and does not invoke the Execution or Sandbox layers.
 
+`CanvasExecutionEngine` is the first small synchronous consumer of that plan.
+It dispatches a registered executor by `CanvasNode.nodeType`, passes in-memory
+values across connected ports, and returns a terminal `CanvasExecutionResult`.
+It deliberately does not start processes, schedule work, or choose Host versus
+Sandbox; those concerns remain behind the separate Execution boundary.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text

@@ -1,0 +1,101 @@
+package com.easycode.canvas.integration;
+
+import com.easycode.canvas.execution.CanvasExecutionEngine;
+import com.easycode.canvas.execution.CanvasExecutionResult;
+import com.easycode.canvas.execution.CanvasExecutionStatus;
+import com.easycode.canvas.model.CanvasConnection;
+import com.easycode.canvas.model.CanvasDefinition;
+import com.easycode.canvas.model.CanvasNode;
+import com.easycode.canvas.model.CanvasPort;
+import com.easycode.canvas.model.CanvasPortDirection;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class CanvasExecutionEngineIntegrationTest {
+    @Test
+    void dispatchesNodesInPlanOrderAndTransfersPortValues() {
+        Fixture source = fixture("source", true, false);
+        Fixture target = fixture("target", false, true);
+        AtomicReference<Object> received = new AtomicReference<>();
+        CanvasExecutionEngine engine = new CanvasExecutionEngine(Map.of(
+                "source", (node, context) -> context.output(source.outputPort(), "hello"),
+                "target", (node, context) -> received.set(context.input(target.inputPort()))));
+
+        CanvasExecutionResult result = engine.execute(canvas(List.of(source.node(), target.node()),
+                List.of(connection(source, target))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(List.of(source.id(), target.id()), result.completedNodeIds());
+        assertEquals("hello", received.get());
+    }
+
+    @Test
+    void reportsUnknownNodeTypeWithoutExecutingIt() {
+        Fixture node = fixture("unknown", false, false);
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of())
+                .execute(canvas(List.of(node.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(node.id(), result.failedNodeId());
+        assertEquals(List.of(), result.completedNodeIds());
+    }
+
+    @Test
+    void reportsExecutorFailureAndPreservesCompletedPrefix() {
+        Fixture first = fixture("first", false, false);
+        Fixture second = fixture("second", false, false);
+        CanvasExecutionEngine engine = new CanvasExecutionEngine(Map.of(
+                "first", (node, context) -> { },
+                "second", (node, context) -> { throw new IllegalStateException("bad node"); }));
+
+        CanvasExecutionResult result = engine.execute(canvas(List.of(first.node(), second.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(second.id(), result.failedNodeId());
+        assertEquals(List.of(first.id()), result.completedNodeIds());
+        assertEquals("bad node", result.failureMessage());
+    }
+
+    @Test
+    void executesEmptyCanvasSuccessfully() {
+        CanvasDefinition canvas = CanvasDefinition.empty(UUID.randomUUID(), "empty");
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of()).execute(canvas);
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(List.of(), result.completedNodeIds());
+    }
+
+    private static CanvasDefinition canvas(List<CanvasNode> nodes, List<CanvasConnection> connections) {
+        return new CanvasDefinition(UUID.randomUUID(), "test", nodes, connections);
+    }
+
+    private static CanvasConnection connection(Fixture from, Fixture to) {
+        return new CanvasConnection(UUID.randomUUID(), from.id(), from.outputPort(), to.id(), to.inputPort());
+    }
+
+    private static Fixture fixture(String type, boolean output, boolean input) {
+        UUID nodeId = UUID.randomUUID();
+        UUID outputId = UUID.randomUUID();
+        UUID inputId = UUID.randomUUID();
+        List<CanvasPort> ports = new java.util.ArrayList<>();
+        if (output) {
+            ports.add(new CanvasPort(outputId, "out", CanvasPortDirection.OUTPUT));
+        }
+        if (input) {
+            ports.add(new CanvasPort(inputId, "in", CanvasPortDirection.INPUT));
+        }
+        return new Fixture(nodeId, outputId, inputId,
+                new CanvasNode(nodeId, type, type, Map.of(), ports));
+    }
+
+    private record Fixture(UUID id, UUID outputPort, UUID inputPort, CanvasNode node) {
+    }
+}
