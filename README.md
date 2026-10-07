@@ -51,6 +51,11 @@ execute a graph, persist documents, or implement triggers, scheduling, or
 workflow semantics. Those concerns must be layered above this stable graph
 contract.
 
+The graph can also be converted into a `CanvasExecutionPlan`. This is a
+deterministic, immutable topological order of node IDs produced by
+`CanvasExecutionPlanner`; it validates the graph and rejects cycles, but it is
+not a node executor and does not invoke the Execution or Sandbox layers.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text

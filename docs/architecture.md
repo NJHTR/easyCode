@@ -48,6 +48,13 @@ not render a UI, execute nodes, define triggers, schedule work, persist
 canvases, or implement workflow semantics. Future execution layers may consume
 this model without making the Canvas package depend on Sandbox or Windows APIs.
 
+`CanvasExecutionPlanner` is the next structural boundary above the graph
+model. It validates a `CanvasDefinition` and returns an immutable
+`CanvasExecutionPlan` containing a deterministic topological order of node
+identities. The planner rejects cycles, but it does not execute nodes, resolve
+node handlers, carry port values, or call `ExecutionService`. Those runtime
+semantics require a later slice with an explicit node execution contract.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing
