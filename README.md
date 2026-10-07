@@ -65,10 +65,11 @@ It deliberately does not start processes, schedule work, or choose Host versus
 Sandbox; those concerns remain behind the separate Execution boundary.
 
 `CanvasBuiltinExecutors` provides a deliberately small in-memory baseline:
-`constant`, `passthrough`, and `print`. They demonstrate value transfer and
-console output without making the Canvas layer depend on a foreign language,
-JVM process, or operating-system sandbox. Applications can register their own
-node types through the same `CanvasNodeExecutor` contract.
+`constant`, `passthrough`, `print`, and `add`. `add` consumes explicit `left`
+and `right` numeric input ports and produces a decimal sum, demonstrating
+multi-input node semantics without making the Canvas layer depend on a foreign
+language, JVM process, or operating-system sandbox. Applications can register
+their own node types through the same `CanvasNodeExecutor` contract.
 
 The current source entry point is intentionally small and deterministic:
 

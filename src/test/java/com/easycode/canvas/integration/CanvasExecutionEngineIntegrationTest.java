@@ -11,6 +11,7 @@ import com.easycode.canvas.model.CanvasPort;
 import com.easycode.canvas.model.CanvasPortDirection;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -96,6 +97,54 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void builtinAddNodeCombinesExplicitInputPorts() {
+        Fixture left = fixture("left", true, false);
+        Fixture right = fixture("right", true, false);
+        Fixture add = fixture("add", true, true);
+        UUID addRightInputId = UUID.randomUUID();
+        CanvasNode addNode = new CanvasNode(add.id(), "add", CanvasBuiltinExecutors.ADD, Map.of(), List.of(
+                new CanvasPort(add.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(addRightInputId, "right", CanvasPortDirection.INPUT),
+                new CanvasPort(add.outputPort(), "out", CanvasPortDirection.OUTPUT)));
+        Fixture print = fixture("print", false, true);
+        CanvasNode leftNode = constantNode(left, 1);
+        CanvasNode rightNode = constantNode(right, 2.25);
+        CanvasNode printNode = new CanvasNode(print.id(), "print", CanvasBuiltinExecutors.PRINT, Map.of(),
+                print.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(leftNode, rightNode, addNode, printNode), List.of(
+                        connection(left, add, add.inputPort()),
+                        connection(right, add, addRightInputId),
+                        connection(add, print))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(new BigDecimal("3.25"), result.nodeTraces().get(2).outputs().get(add.outputPort()));
+        assertEquals(List.of("3.25"), result.consoleOutput());
+    }
+
+    @Test
+    void builtinAddNodeRejectsNonNumericInput() {
+        Fixture left = fixture("left", true, false);
+        Fixture right = fixture("right", true, false);
+        Fixture add = fixture("add", true, true);
+        UUID addRightInputId = UUID.randomUUID();
+        CanvasNode addNode = new CanvasNode(add.id(), "add", CanvasBuiltinExecutors.ADD, Map.of(), List.of(
+                new CanvasPort(add.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(addRightInputId, "right", CanvasPortDirection.INPUT),
+                new CanvasPort(add.outputPort(), "out", CanvasPortDirection.OUTPUT)));
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(constantNode(left, "not-a-number"), constantNode(right, 2), addNode), List.of(
+                        connection(left, add, add.inputPort()),
+                        connection(right, add, addRightInputId))));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(add.id(), result.failedNodeId());
+        assertEquals("add node requires a numeric input on port: left", result.failureMessage());
+    }
+
+    @Test
     void executesEmptyCanvasSuccessfully() {
         CanvasDefinition canvas = CanvasDefinition.empty(UUID.randomUUID(), "empty");
 
@@ -112,6 +161,15 @@ class CanvasExecutionEngineIntegrationTest {
 
     private static CanvasConnection connection(Fixture from, Fixture to) {
         return new CanvasConnection(UUID.randomUUID(), from.id(), from.outputPort(), to.id(), to.inputPort());
+    }
+
+    private static CanvasConnection connection(Fixture from, Fixture to, UUID targetInputPortId) {
+        return new CanvasConnection(UUID.randomUUID(), from.id(), from.outputPort(), to.id(), targetInputPortId);
+    }
+
+    private static CanvasNode constantNode(Fixture fixture, Object value) {
+        return new CanvasNode(fixture.id(), fixture.node().name(), CanvasBuiltinExecutors.CONSTANT,
+                Map.of("value", value), fixture.node().ports());
     }
 
     private static Fixture fixture(String type, boolean output, boolean input) {
