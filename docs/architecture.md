@@ -3,6 +3,24 @@
 easyCode is being built as a local, general-purpose Agent system. The current
 repository contains infrastructure slices, not the complete product.
 
+easyCode also has its own executable instruction language. Its program model is
+independent of Java or any other implementation language:
+
+```text
+EasyCodeProgram
+  -> EasyCodeInstruction[]
+      -> EasyCodeRuntime
+          -> EasyCodeExecutionResult
+```
+
+`InProcessEasyCodeRuntime` is the first small interpreter. It executes trusted
+instructions synchronously, exposes console output and variable snapshots, and
+identifies the instruction that failed while preserving completed state. The
+initial built-ins are `SetVariableInstruction` and `PrintInstruction`.
+These are language instructions, not Canvas widgets. A future Canvas may edit
+the same program model, while a future Agent may create or transform programs
+through a validated language boundary.
+
 ## Current chain
 
 ```text
@@ -25,6 +43,11 @@ Agent capabilities are parallel boundaries:
              |
        Host / Sandbox
 ```
+
+The language runtime is a separate execution concern below future Agent and
+Canvas layers. It may request the existing Execution boundary when a language
+instruction needs an external process, but it does not directly depend on
+Windows APIs or a specific foreign language runtime.
 
 The Agent-facing Tool boundary is intentionally narrower than the application
 owned registry:

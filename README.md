@@ -1,13 +1,34 @@
 # easyCode
 
-easyCode is a local Agent system under construction. The current repository
-contains the Windows Sandbox Infrastructure, Execution Foundation / Runtime
-Boundary, and Agent Core slices. Agent Core supports both deterministic local
-tests and a bounded LLM/Tool Calling path through the local application. Canvas
-and workflow layers are future slices.
+easyCode is a local Agent system and an executable instruction language under
+construction. The current repository contains the Windows Sandbox
+Infrastructure, Execution Foundation / Runtime Boundary, a minimal easyCode
+instruction runtime, and Agent Core slices. Agent Core supports both
+deterministic local tests and a bounded LLM/Tool Calling path through the local
+application. Canvas and workflow layers are future visual representations of
+the language, not a separate execution model.
 
 The layer responsibilities and dependency direction are documented in
 [`docs/architecture.md`](docs/architecture.md).
+
+## easyCode language runtime
+
+The language runtime executes an immutable `EasyCodeProgram` made of
+`EasyCodeInstruction` values. The first built-in instructions are variable
+assignment and console output with `${variable}` interpolation:
+
+```text
+EasyCodeProgram
+    -> EasyCodeInstruction[]
+        -> InProcessEasyCodeRuntime
+            -> console output + variable snapshot + failure instruction
+```
+
+This is intentionally separate from Java, C++, or Python. Those are possible
+implementation tools for future integrations, but easyCode's own program is
+the instruction sequence and its runtime owns the execution semantics. A
+future canvas can edit the same program model, and an Agent can produce or
+modify validated instructions without calling UI classes directly.
 
 ## Start the headless local application
 
