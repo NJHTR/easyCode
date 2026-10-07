@@ -64,6 +64,24 @@ class CanvasExecutionPlannerIntegrationTest {
     }
 
     @Test
+    void countsOneSourceToMultipleTargetInputsAsOneNodeDependency() {
+        NodeFixture source = node("source", true, false);
+        UUID targetNodeId = UUID.randomUUID();
+        UUID targetLeftInputId = UUID.randomUUID();
+        UUID targetRightInputId = UUID.randomUUID();
+        NodeFixture target = new NodeFixture(targetNodeId, UUID.randomUUID(), targetLeftInputId,
+                new CanvasNode(targetNodeId, "target", "test", Map.of(), List.of(
+                        new CanvasPort(targetLeftInputId, "left", CanvasPortDirection.INPUT),
+                        new CanvasPort(targetRightInputId, "right", CanvasPortDirection.INPUT))));
+
+        CanvasExecutionPlan plan = planner.plan(canvas(List.of(source.node(), target.node()), List.of(
+                connection(source, target, targetLeftInputId),
+                connection(source, target, targetRightInputId))));
+
+        assertEquals(List.of(source.id(), target.id()), plan.orderedNodeIds());
+    }
+
+    @Test
     void rejectsCycles() {
         NodeFixture first = node("first", true, true);
         NodeFixture second = node("second", true, true);
