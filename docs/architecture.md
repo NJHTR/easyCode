@@ -89,7 +89,9 @@ AgentService
 
 `AgentOrchestrator` accepts a provider-neutral `AgentPromptRequest`, exposes
 only `ToolDefinition` values to the model, and converts each model
-`LlmToolCall` into a separate `ToolInvocation`. Tool execution is always
+`LlmToolCall` into a separate `ToolInvocation`. It snapshots the available Tool
+definitions once per generation so the request capability list and trace count
+describe the same view. Tool execution is always
 sequential. Tool failures and unknown tools become TOOL messages so the model
 can recover; provider failures, invalid empty responses, and a reached
 `maxSteps` boundary fail the Agent run. `maxSteps` counts model generations

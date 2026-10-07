@@ -64,11 +64,13 @@ public final class AgentOrchestrator {
         for (int step = 1; step <= maxSteps; step++) {
             Instant stepStartedAt = Instant.now();
             int messageCount = messages.size();
-            int availableToolCount = toolAccess.listTools().size();
+            List<com.easycode.tool.model.ToolDefinition> availableTools =
+                    List.copyOf(toolAccess.listTools());
+            int availableToolCount = availableTools.size();
             LlmResponse response;
             try {
                 response = generateWithTimeout(request.timeout(), new com.easycode.llm.model.LlmRequest(
-                        request.model(), messages, toolAccess.listTools()));
+                        request.model(), messages, availableTools));
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
                 steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),

@@ -47,6 +47,42 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void snapshotsToolDefinitionsOncePerGeneration() {
+        RecordingProvider provider = new RecordingProvider(LlmResponse.text("hello"));
+        AtomicReference<Integer> listCalls = new AtomicReference<>(0);
+        AgentToolAccess access = new AgentToolAccess() {
+            @Override
+            public List<ToolDefinition> listTools() {
+                int call = listCalls.updateAndGet(value -> value + 1);
+                return call == 1
+                        ? List.of(new ToolDefinition("test.echo", "Echo", "{}"))
+                        : List.of(new ToolDefinition("test.other", "Other", "{}"));
+            }
+
+            @Override
+            public java.util.Optional<ToolDefinition> resolveTool(String toolName) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public ToolResult invoke(ToolInvocation invocation) {
+                return ToolResult.failure(invocation.callId(),
+                        com.easycode.tool.model.ToolFailureReason.INTERNAL_ERROR,
+                        "not used");
+            }
+        };
+
+        AgentExecution execution = new AgentOrchestrator(provider, access, 5)
+                .runWithTrace(prompt());
+
+        assertTrue(execution.result().succeeded(), execution.result().toString());
+        assertEquals(1, listCalls.get());
+        assertEquals(1, provider.requests.get(0).tools().size());
+        assertEquals(1, execution.trace().steps().get(0).availableToolCount());
+        assertEquals("test.echo", provider.requests.get(0).tools().get(0).name());
+    }
+
+    @Test
     void toolTraceContainsInvocationAndResultBeforeFinalStep() {
         LlmToolCall call = LlmToolCall.create("test.echo", "input");
         RecordingProvider provider = new RecordingProvider(
