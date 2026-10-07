@@ -97,6 +97,27 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void oneOutputPortFansOutToMultipleDownstreamInputs() {
+        Fixture source = fixture("source", true, false);
+        Fixture first = fixture("first", true, true);
+        Fixture second = fixture("second", false, true);
+        CanvasNode sourceNode = new CanvasNode(source.id(), "source", CanvasBuiltinExecutors.CONSTANT,
+                Map.of("value", "fan-out"), source.node().ports());
+        CanvasNode firstNode = new CanvasNode(first.id(), "first", CanvasBuiltinExecutors.PASSTHROUGH,
+                Map.of(), first.node().ports());
+        CanvasNode secondNode = new CanvasNode(second.id(), "second", CanvasBuiltinExecutors.PRINT,
+                Map.of(), second.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(sourceNode, firstNode, secondNode), List.of(
+                        connection(source, first), connection(source, second))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals("fan-out", result.nodeTraces().get(1).inputs().get(first.inputPort()));
+        assertEquals(List.of("fan-out"), result.consoleOutput());
+    }
+
+    @Test
     void builtinAddNodeCombinesExplicitInputPorts() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);
