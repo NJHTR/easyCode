@@ -201,6 +201,27 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void propagatesNullAsAValueAcrossAConnection() {
+        Fixture constant = fixture("constant", true, false);
+        Fixture print = fixture("print", false, true);
+        Map<String, Object> configuration = new java.util.LinkedHashMap<>();
+        configuration.put("value", null);
+        CanvasNode constantNode = new CanvasNode(constant.id(), "constant", CanvasBuiltinExecutors.CONSTANT,
+                configuration, constant.node().ports());
+        CanvasNode printNode = new CanvasNode(print.id(), "print", CanvasBuiltinExecutors.PRINT, Map.of(),
+                print.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(constantNode, printNode), List.of(connection(constant, print))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(1, result.nodeTraces().get(1).inputs().size());
+        assertEquals(true, result.nodeTraces().get(1).inputs().containsKey(print.inputPort()));
+        assertEquals(null, result.nodeTraces().get(1).inputs().get(print.inputPort()));
+        assertEquals(List.of("null"), result.consoleOutput());
+    }
+
+    @Test
     void builtinAddNodeFailsWhenAnInputPortIsUnconnected() {
         Fixture left = fixture("left", true, false);
         Fixture add = fixture("add", true, true);
