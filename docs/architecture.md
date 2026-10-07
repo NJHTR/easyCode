@@ -66,7 +66,9 @@ transfers those values along validated connections and returns a terminal
 post-run observation, not a realtime debugger or persistent log. A connected
 output must be published by its source executor; if it is absent, the source
 node fails explicitly before downstream execution. Outputs without downstream
-connections remain optional. This is not a scheduler, process launcher, or
+connections remain optional. Executors may read only declared input ports;
+reading an output or unknown port fails the current node explicitly. This is
+not a scheduler, process launcher, or
 Sandbox adapter; a later runtime adapter may use the result of this layer to
 request Host or Sandbox execution.
 
