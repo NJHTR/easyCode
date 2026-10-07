@@ -30,7 +30,7 @@ public record ConditionalInstruction(
         }
         EasyCodeProgram branch = result ? whenTrue : whenFalse;
         for (EasyCodeInstruction instruction : branch.instructions()) {
-            instruction.execute(context);
+            context.execute(instruction);
         }
     }
 }

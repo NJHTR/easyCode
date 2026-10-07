@@ -25,6 +25,14 @@ These are language instructions, not Canvas widgets. A future Canvas may edit
 the same program model, while a future Agent may create or transform programs
 through a validated language boundary.
 
+Each run also returns an immutable, in-memory `EasyCodeInstructionTrace`. It
+records the start and terminal outcome of every invocation routed through the
+execution context, including selected branch instructions and repeated body
+instructions. The trace is ordered by invocation sequence and is intended for
+post-run inspection; it is not a realtime log stream, debugger, persistence
+format, or Agent trace. `completedInstructionCount` and `failedInstructionId`
+retain their existing top-level program semantics.
+
 ## Current chain
 
 ```text

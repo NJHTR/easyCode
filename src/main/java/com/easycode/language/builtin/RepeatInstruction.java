@@ -40,7 +40,7 @@ public record RepeatInstruction(
         }
         for (int iteration = 0; iteration < count; iteration++) {
             for (EasyCodeInstruction instruction : body.instructions()) {
-                instruction.execute(context);
+                context.execute(instruction);
             }
         }
     }

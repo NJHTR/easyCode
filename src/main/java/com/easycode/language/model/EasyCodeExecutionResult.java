@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /** Observable result of one easyCode program run. */
 public record EasyCodeExecutionResult(
@@ -16,7 +17,21 @@ public record EasyCodeExecutionResult(
         int completedInstructionCount,
         String failedInstructionId,
         String failureMessage,
-        Duration duration) {
+        Duration duration,
+        List<EasyCodeInstructionTrace> instructionTrace) {
+
+    public EasyCodeExecutionResult(
+            UUID programId,
+            EasyCodeExecutionStatus status,
+            String consoleOutput,
+            Map<String, Object> variables,
+            int completedInstructionCount,
+            String failedInstructionId,
+            String failureMessage,
+            Duration duration) {
+        this(programId, status, consoleOutput, variables, completedInstructionCount,
+                failedInstructionId, failureMessage, duration, List.of());
+    }
 
     public EasyCodeExecutionResult {
         Objects.requireNonNull(programId, "programId");
@@ -39,6 +54,8 @@ public record EasyCodeExecutionResult(
         if (duration.isNegative()) {
             throw new IllegalArgumentException("duration cannot be negative");
         }
+        instructionTrace = instructionTrace == null
+                ? List.of() : List.copyOf(instructionTrace);
     }
 
     public boolean succeeded() {

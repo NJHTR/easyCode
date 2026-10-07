@@ -1,6 +1,14 @@
 package com.easycode.language.runtime;
 
+import com.easycode.language.api.EasyCodeInstruction;
+import com.easycode.language.model.EasyCodeInstructionTrace;
+import com.easycode.language.model.EasyCodeInstructionTraceStatus;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Collections;
@@ -9,6 +17,8 @@ import java.util.Collections;
 public final class EasyCodeExecutionContext {
     private final Map<String, Object> variables = new LinkedHashMap<>();
     private final StringBuilder consoleOutput = new StringBuilder();
+    private final List<EasyCodeInstructionTrace> instructionTrace = new ArrayList<>();
+    private int nextTraceSequence = 1;
 
     public void setVariable(String name, Object value) {
         validateName(name);
@@ -39,6 +49,38 @@ public final class EasyCodeExecutionContext {
         return consoleOutput.toString();
     }
 
+    /** Executes one instruction and records its terminal outcome in this run's trace. */
+    public void execute(EasyCodeInstruction instruction) throws Exception {
+        Objects.requireNonNull(instruction, "instruction");
+        int sequence = nextTraceSequence++;
+        Instant startedAt = Instant.now();
+        try {
+            instruction.execute(this);
+            instructionTrace.add(new EasyCodeInstructionTrace(
+                    sequence,
+                    instruction.id(),
+                    startedAt,
+                    Instant.now(),
+                    EasyCodeInstructionTraceStatus.SUCCEEDED,
+                    ""));
+        } catch (Exception exception) {
+            instructionTrace.add(new EasyCodeInstructionTrace(
+                    sequence,
+                    instruction.id(),
+                    startedAt,
+                    Instant.now(),
+                    EasyCodeInstructionTraceStatus.FAILED,
+                    messageOf(exception)));
+            throw exception;
+        }
+    }
+
+    public List<EasyCodeInstructionTrace> instructionTraceSnapshot() {
+        return instructionTrace.stream()
+                .sorted(Comparator.comparingInt(EasyCodeInstructionTrace::sequence))
+                .toList();
+    }
+
     public String interpolate(String template) {
         Objects.requireNonNull(template, "template");
         StringBuilder result = new StringBuilder();
@@ -65,5 +107,10 @@ public final class EasyCodeExecutionContext {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("variable name must not be blank");
         }
+    }
+
+    private static String messageOf(Exception exception) {
+        return exception.getMessage() == null || exception.getMessage().isBlank()
+                ? exception.getClass().getSimpleName() : exception.getMessage();
     }
 }

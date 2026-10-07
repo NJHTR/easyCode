@@ -9,6 +9,8 @@ import com.easycode.language.builtin.RepeatInstruction;
 import com.easycode.language.expression.EasyCodeExpressions;
 import com.easycode.language.model.EasyCodeExecutionResult;
 import com.easycode.language.model.EasyCodeExecutionStatus;
+import com.easycode.language.model.EasyCodeInstructionTrace;
+import com.easycode.language.model.EasyCodeInstructionTraceStatus;
 import com.easycode.language.model.EasyCodeProgram;
 import com.easycode.language.runtime.EasyCodeExecutionContext;
 import com.easycode.language.runtime.InProcessEasyCodeRuntime;
@@ -20,6 +22,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EasyCodeRuntimeIntegrationTest {
     @Test
@@ -36,6 +39,12 @@ class EasyCodeRuntimeIntegrationTest {
         assertEquals("hello easyCode" + System.lineSeparator(), result.consoleOutput());
         assertEquals("easyCode", result.variables().get("name"));
         assertEquals(2, result.completedInstructionCount());
+        assertEquals(List.of("set-name", "print-name"), result.instructionTrace().stream()
+                .map(EasyCodeInstructionTrace::instructionId).toList());
+        assertEquals(List.of(1, 2), result.instructionTrace().stream()
+                .map(EasyCodeInstructionTrace::sequence).toList());
+        assertTrue(result.instructionTrace().stream()
+                .allMatch(trace -> trace.status() == EasyCodeInstructionTraceStatus.SUCCEEDED));
     }
 
     @Test
@@ -51,6 +60,8 @@ class EasyCodeRuntimeIntegrationTest {
         assertEquals(1, result.completedInstructionCount());
         assertEquals(3, result.variables().get("count"));
         assertFalse(result.failureMessage().isBlank());
+        assertEquals(EasyCodeInstructionTraceStatus.FAILED,
+                result.instructionTrace().get(1).status());
     }
 
     @Test
@@ -92,6 +103,8 @@ class EasyCodeRuntimeIntegrationTest {
         assertTrue(result.succeeded(), result.toString());
         assertEquals("enabled" + System.lineSeparator(), result.consoleOutput());
         assertEquals(2, result.completedInstructionCount());
+        assertEquals(List.of("set-enabled", "if-enabled", "print-on"),
+                result.instructionTrace().stream().map(EasyCodeInstructionTrace::instructionId).toList());
     }
 
     @Test
@@ -126,6 +139,10 @@ class EasyCodeRuntimeIntegrationTest {
                         + "hello" + System.lineSeparator(),
                 result.consoleOutput());
         assertEquals(1, result.completedInstructionCount());
+        assertEquals(List.of("repeat-greeting", "print-greeting", "print-greeting", "print-greeting"),
+                result.instructionTrace().stream().map(EasyCodeInstructionTrace::instructionId).toList());
+        assertEquals(List.of(1, 2, 3, 4), result.instructionTrace().stream()
+                .map(EasyCodeInstructionTrace::sequence).toList());
     }
 
     @Test
@@ -140,6 +157,8 @@ class EasyCodeRuntimeIntegrationTest {
         assertFalse(result.succeeded());
         assertEquals("repeat-invalid", result.failedInstructionId());
         assertTrue(result.failureMessage().contains("negative"));
+        assertEquals(List.of("repeat-invalid"), result.instructionTrace().stream()
+                .map(EasyCodeInstructionTrace::instructionId).toList());
     }
 
     @Test
@@ -166,5 +185,32 @@ class EasyCodeRuntimeIntegrationTest {
         assertEquals(5, result.variables().get("total"));
         assertEquals("ok" + System.lineSeparator(), result.consoleOutput());
         assertEquals(3, result.completedInstructionCount());
+    }
+
+    @Test
+    void nestedFailureRecordsChildAndParentInstructionOutcomes() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(new ConditionalInstruction(
+                        "if-fails",
+                        EasyCodeExpressions.constant(true),
+                        EasyCodeProgram.of(List.of(PrintInstruction.line("print-missing", "${missing}"))),
+                        EasyCodeProgram.of(List.of())))));
+
+        assertFalse(result.succeeded());
+        assertEquals("if-fails", result.failedInstructionId());
+        assertEquals(List.of("if-fails", "print-missing"), result.instructionTrace().stream()
+                .map(EasyCodeInstructionTrace::instructionId).toList());
+        assertEquals(EasyCodeInstructionTraceStatus.FAILED, result.instructionTrace().get(0).status());
+        assertEquals(EasyCodeInstructionTraceStatus.FAILED, result.instructionTrace().get(1).status());
+    }
+
+    @Test
+    void executionTraceIsImmutable() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(), EasyCodeProgram.of(List.of(PrintInstruction.line("print", "ok"))));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> result.instructionTrace().clear());
     }
 }

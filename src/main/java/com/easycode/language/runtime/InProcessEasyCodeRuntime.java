@@ -22,7 +22,7 @@ public final class InProcessEasyCodeRuntime implements EasyCodeRuntime {
         int completed = 0;
         for (EasyCodeInstruction instruction : program.instructions()) {
             try {
-                instruction.execute(context);
+                context.execute(instruction);
                 completed++;
             } catch (Exception exception) {
                 return new EasyCodeExecutionResult(
@@ -33,7 +33,8 @@ public final class InProcessEasyCodeRuntime implements EasyCodeRuntime {
                         completed,
                         instruction.id(),
                         messageOf(exception),
-                        Duration.between(startedAt, Instant.now()));
+                        Duration.between(startedAt, Instant.now()),
+                        context.instructionTraceSnapshot());
             }
         }
         return new EasyCodeExecutionResult(
@@ -44,7 +45,8 @@ public final class InProcessEasyCodeRuntime implements EasyCodeRuntime {
                 completed,
                 null,
                 "",
-                Duration.between(startedAt, Instant.now()));
+                Duration.between(startedAt, Instant.now()),
+                context.instructionTraceSnapshot());
     }
 
     private static String messageOf(Exception exception) {
