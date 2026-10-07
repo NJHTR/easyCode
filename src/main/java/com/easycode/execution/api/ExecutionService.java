@@ -18,7 +18,16 @@ public final class ExecutionService implements AutoCloseable {
 
     public ExecutionResult execute(ExecutionRequest request) {
         Objects.requireNonNull(request, "request");
-        ExecutionResult result = backend.execute(request);
+        ExecutionResult result;
+        try {
+            result = backend.execute(request);
+        } catch (RuntimeException exception) {
+            String message = exception.getMessage();
+            result = invalidResult(request,
+                    message == null || message.isBlank()
+                            ? "execution backend failed"
+                            : message);
+        }
         if (result == null) {
             return invalidResult(request, "execution backend returned no result");
         }

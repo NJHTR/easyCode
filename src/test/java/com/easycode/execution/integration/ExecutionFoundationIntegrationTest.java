@@ -424,6 +424,30 @@ class ExecutionFoundationIntegrationTest {
     }
 
     @Test
+    void normalizesBackendRuntimeFailure() {
+        try (ExecutionService service = new ExecutionService(new ExecutionBackend() {
+            @Override
+            public ExecutionResult execute(ExecutionRequest request) {
+                throw new IllegalStateException("backend crashed");
+            }
+
+            @Override
+            public void close() {
+            }
+        })) {
+            ExecutionRequest request = request(
+                    SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
+            ExecutionResult result = service.execute(request);
+
+            assertEquals(request.executionId(), result.executionId());
+            assertEquals(ExecutionStatus.FAILED, result.status());
+            assertEquals(ExecutionTerminationReason.INTERNAL_ERROR,
+                    result.terminationReason());
+            assertEquals("backend crashed", result.failureMessage());
+        }
+    }
+
+    @Test
     void normalizesBackendReturningNonTerminalStatus() {
         ExecutionRequest request = request(
                 SandboxTestProcess.command("stdout-stderr"), Duration.ofSeconds(5), Map.of());
