@@ -70,7 +70,19 @@ public final class AgentOrchestrator {
                 if (listedTools == null) {
                     throw new IllegalStateException("Tool access returned no definitions");
                 }
-                availableTools = List.copyOf(listedTools);
+                Set<String> toolNames = new HashSet<>();
+                List<com.easycode.tool.model.ToolDefinition> snapshot = new ArrayList<>();
+                for (com.easycode.tool.model.ToolDefinition tool : listedTools) {
+                    if (tool == null) {
+                        throw new IllegalStateException("Tool access returned a null definition");
+                    }
+                    if (!toolNames.add(tool.name())) {
+                        throw new IllegalStateException(
+                                "Tool access returned duplicate definition: " + tool.name());
+                    }
+                    snapshot.add(tool);
+                }
+                availableTools = List.copyOf(snapshot);
             } catch (RuntimeException exception) {
                 steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
                         messageCount, 0, false, 0, List.of(),

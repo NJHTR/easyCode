@@ -175,6 +175,38 @@ class AgentOrchestratorIntegrationTest {
     }
 
     @Test
+    void duplicateToolDefinitionSnapshotBecomesAgentFailure() {
+        ToolDefinition definition = new ToolDefinition("test.echo", "Echo", "{}");
+        AgentToolAccess access = new AgentToolAccess() {
+            @Override
+            public List<ToolDefinition> listTools() {
+                return List.of(definition, definition);
+            }
+
+            @Override
+            public java.util.Optional<ToolDefinition> resolveTool(String toolName) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public ToolResult invoke(ToolInvocation invocation) {
+                return ToolResult.failure(invocation.callId(), ToolFailureReason.INTERNAL_ERROR,
+                        "not used");
+            }
+        };
+
+        AgentExecution execution = new AgentOrchestrator(
+                new RecordingProvider(LlmResponse.text("unreachable")), access, 5)
+                .runWithTrace(prompt());
+
+        assertEquals(AgentFailureReason.EXECUTION_FAILURE,
+                execution.result().failureReason());
+        assertEquals(AgentStepOutcome.TOOL_ACCESS_FAILURE,
+                execution.trace().steps().get(0).outcome());
+        assertTrue(execution.result().message().contains("duplicate definition"));
+    }
+
+    @Test
     void toolTraceContainsInvocationAndResultBeforeFinalStep() {
         LlmToolCall call = LlmToolCall.create("test.echo", "input");
         RecordingProvider provider = new RecordingProvider(
