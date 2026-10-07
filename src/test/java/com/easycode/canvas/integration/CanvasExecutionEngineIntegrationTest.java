@@ -3,6 +3,7 @@ package com.easycode.canvas.integration;
 import com.easycode.canvas.execution.CanvasExecutionEngine;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasExecutionStatus;
+import com.easycode.canvas.execution.builtin.CanvasBuiltinExecutors;
 import com.easycode.canvas.model.CanvasConnection;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
@@ -76,6 +77,22 @@ class CanvasExecutionEngineIntegrationTest {
 
         assertEquals(CanvasExecutionStatus.FAILED, result.status());
         assertEquals(node.id(), result.failedNodeId());
+    }
+
+    @Test
+    void builtinNodesProduceConsoleOutputAndTransferConfigurationValue() {
+        Fixture constant = fixture("constant", true, false);
+        Fixture print = fixture("print", false, true);
+        CanvasNode constantNode = new CanvasNode(constant.id(), "constant", "constant", Map.of("value", "hello"),
+                constant.node().ports());
+        CanvasNode printNode = new CanvasNode(print.id(), "print", "print", Map.of(), print.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all())
+                .execute(canvas(List.of(constantNode, printNode), List.of(connection(constant, print))));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(List.of("hello"), result.consoleOutput());
+        assertEquals(List.of("hello"), result.nodeTraces().get(1).consoleOutput());
     }
 
     @Test

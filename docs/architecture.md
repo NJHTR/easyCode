@@ -64,6 +64,12 @@ post-run observation, not a realtime debugger or persistent log. This is not a
 scheduler, process launcher, or Sandbox adapter; a later runtime adapter may
 use the result of this layer to request Host or Sandbox execution.
 
+`CanvasBuiltinExecutors` contains only three deterministic in-memory examples:
+`constant`, `passthrough`, and `print`. They prove that a graph can transfer a
+value and produce console output while keeping node behavior behind the
+executor registry. They are not a complete standard library or a replacement
+for the separate easyCode language runtime.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing

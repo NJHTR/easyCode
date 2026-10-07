@@ -14,6 +14,7 @@ public record CanvasNodeExecutionTrace(
         CanvasExecutionStatus status,
         Map<UUID, Object> inputs,
         Map<UUID, Object> outputs,
+        java.util.List<String> consoleOutput,
         Duration duration,
         String failureMessage) {
     public CanvasNodeExecutionTrace {
@@ -24,6 +25,7 @@ public record CanvasNodeExecutionTrace(
         Objects.requireNonNull(status, "status");
         inputs = immutableValues(inputs, "inputs");
         outputs = immutableValues(outputs, "outputs");
+        consoleOutput = consoleOutput == null ? java.util.List.of() : java.util.List.copyOf(consoleOutput);
         Objects.requireNonNull(duration, "duration");
         if (duration.isNegative()) {
             throw new IllegalArgumentException("duration cannot be negative");

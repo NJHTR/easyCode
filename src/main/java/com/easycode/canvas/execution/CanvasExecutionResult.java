@@ -11,6 +11,7 @@ public record CanvasExecutionResult(
         CanvasExecutionStatus status,
         List<UUID> completedNodeIds,
         List<CanvasNodeExecutionTrace> nodeTraces,
+        List<String> consoleOutput,
         UUID failedNodeId,
         String failureMessage,
         Duration duration) {
@@ -24,6 +25,10 @@ public record CanvasExecutionResult(
         nodeTraces = nodeTraces == null ? List.of() : List.copyOf(nodeTraces);
         if (nodeTraces.stream().anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("node traces cannot contain null");
+        }
+        consoleOutput = consoleOutput == null ? List.of() : List.copyOf(consoleOutput);
+        if (consoleOutput.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("console output cannot contain null");
         }
         Objects.requireNonNull(duration, "duration");
         if (duration.isNegative()) {
