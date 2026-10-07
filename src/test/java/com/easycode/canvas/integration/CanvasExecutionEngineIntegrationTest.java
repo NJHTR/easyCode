@@ -134,6 +134,19 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void allowsUnconnectedOutputToRemainUnpublished() {
+        Fixture terminal = fixture("terminal", true, false);
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "terminal", (node, context) -> { }))
+                .execute(canvas(List.of(terminal.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(List.of(terminal.id()), result.completedNodeIds());
+        assertEquals(Map.of(), result.nodeTraces().get(0).outputs());
+    }
+
+    @Test
     void builtinAddNodeCombinesExplicitInputPorts() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);
