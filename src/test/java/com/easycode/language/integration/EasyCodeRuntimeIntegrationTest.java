@@ -3,6 +3,7 @@ package com.easycode.language.integration;
 import com.easycode.language.api.EasyCodeInstruction;
 import com.easycode.language.builtin.PrintInstruction;
 import com.easycode.language.builtin.SetVariableInstruction;
+import com.easycode.language.builtin.ConditionalInstruction;
 import com.easycode.language.model.EasyCodeExecutionResult;
 import com.easycode.language.model.EasyCodeExecutionStatus;
 import com.easycode.language.model.EasyCodeProgram;
@@ -69,5 +70,39 @@ class EasyCodeRuntimeIntegrationTest {
 
         assertTrue(result.succeeded(), result.toString());
         assertEquals("42" + System.lineSeparator(), result.consoleOutput());
+    }
+
+    @Test
+    void conditionalInstructionSelectsBranchFromProgramState() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(
+                        new SetVariableInstruction("set-enabled", "enabled", true),
+                        new ConditionalInstruction(
+                                "if-enabled",
+                                context -> Boolean.TRUE.equals(context.variable("enabled")),
+                                EasyCodeProgram.of(List.of(
+                                        PrintInstruction.line("print-on", "enabled"))),
+                                EasyCodeProgram.of(List.of(
+                                        PrintInstruction.line("print-off", "disabled")))))));
+
+        assertTrue(result.succeeded(), result.toString());
+        assertEquals("enabled" + System.lineSeparator(), result.consoleOutput());
+        assertEquals(2, result.completedInstructionCount());
+    }
+
+    @Test
+    void conditionalExpressionFailureIdentifiesTheConditionalInstruction() {
+        EasyCodeExecutionResult result = new InProcessEasyCodeRuntime().execute(
+                UUID.randomUUID(),
+                EasyCodeProgram.of(List.of(new ConditionalInstruction(
+                        "if-missing",
+                        context -> Boolean.TRUE.equals(context.variable("missing")),
+                        EasyCodeProgram.of(List.of()),
+                        EasyCodeProgram.of(List.of())))));
+
+        assertFalse(result.succeeded());
+        assertEquals("if-missing", result.failedInstructionId());
+        assertFalse(result.failureMessage().isBlank());
     }
 }
