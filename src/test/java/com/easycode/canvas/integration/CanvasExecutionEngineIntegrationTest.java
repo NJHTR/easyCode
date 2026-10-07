@@ -163,7 +163,7 @@ class CanvasExecutionEngineIntegrationTest {
                 print.node().ports());
 
         CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
-                canvas(List.of(leftNode, rightNode, addNode, printNode), List.of(
+                canvas(List.of(addNode, printNode, leftNode, rightNode), List.of(
                         connection(left, add, add.inputPort()),
                         connection(right, add, addRightInputId),
                         connection(add, print))));
