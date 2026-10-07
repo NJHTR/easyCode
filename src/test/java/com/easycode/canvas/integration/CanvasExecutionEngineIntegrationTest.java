@@ -201,6 +201,26 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void builtinAddNodeFailsWhenAnInputPortIsUnconnected() {
+        Fixture left = fixture("left", true, false);
+        Fixture add = fixture("add", true, true);
+        UUID addRightInputId = UUID.randomUUID();
+        CanvasNode addNode = new CanvasNode(add.id(), "add", CanvasBuiltinExecutors.ADD, Map.of(), List.of(
+                new CanvasPort(add.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(addRightInputId, "right", CanvasPortDirection.INPUT),
+                new CanvasPort(add.outputPort(), "out", CanvasPortDirection.OUTPUT)));
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                canvas(List.of(constantNode(left, 2.25), addNode), List.of(
+                        connection(left, add, add.inputPort()))));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(add.id(), result.failedNodeId());
+        assertEquals("add node requires a numeric input on port: right", result.failureMessage());
+        assertEquals(2.25, result.nodeTraces().get(1).inputs().get(add.inputPort()));
+    }
+
+    @Test
     void builtinAddNodeRejectsNonNumericInput() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);
