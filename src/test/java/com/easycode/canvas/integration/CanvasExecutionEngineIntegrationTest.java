@@ -53,6 +53,22 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void unknownNodeTracePreservesInputsAlreadyDeliveredByUpstreamNodes() {
+        Fixture source = fixture("source", true, false);
+        Fixture unknown = fixture("unknown", false, true);
+        CanvasNode sourceNode = new CanvasNode(source.id(), "source", CanvasBuiltinExecutors.CONSTANT,
+                Map.of("value", "available"), source.node().ports());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all())
+                .execute(canvas(List.of(sourceNode, unknown.node()), List.of(connection(source, unknown))));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals(unknown.id(), result.failedNodeId());
+        assertEquals("available", result.nodeTraces().get(1).inputs().get(unknown.inputPort()));
+        assertEquals("no executor registered for node type: unknown", result.failureMessage());
+    }
+
+    @Test
     void reportsExecutorFailureAndPreservesCompletedPrefix() {
         Fixture first = fixture("first", false, false);
         Fixture second = fixture("second", false, false);

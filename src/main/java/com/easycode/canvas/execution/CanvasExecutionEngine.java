@@ -57,20 +57,20 @@ public final class CanvasExecutionEngine {
 
         for (UUID nodeId : plan.orderedNodeIds()) {
             CanvasNode node = nodes.get(nodeId);
-            CanvasNodeExecutor executor = executors.get(node.nodeType());
-            if (executor == null) {
-                String message = "no executor registered for node type: " + node.nodeType();
-                traces.add(failedTrace(node, Map.of(), message, startedAt));
-                return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
-            }
+            Instant nodeStartedAt = Instant.now();
             Map<UUID, Object> nodeInputs = new LinkedHashMap<>();
             for (CanvasPort port : node.ports()) {
                 if (inputValues.containsKey(port.portId())) {
                     nodeInputs.put(port.portId(), inputValues.get(port.portId()));
                 }
             }
+            CanvasNodeExecutor executor = executors.get(node.nodeType());
+            if (executor == null) {
+                String message = "no executor registered for node type: " + node.nodeType();
+                traces.add(failedTrace(node, nodeInputs, message, nodeStartedAt));
+                return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
+            }
             CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs);
-            Instant nodeStartedAt = Instant.now();
             try {
                 executor.execute(node, context);
             } catch (Exception exception) {
