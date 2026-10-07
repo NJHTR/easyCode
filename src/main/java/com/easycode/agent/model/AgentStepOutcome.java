@@ -4,6 +4,7 @@ package com.easycode.agent.model;
 public enum AgentStepOutcome {
     TOOL_CALLS,
     COMPLETED,
+    TOOL_ACCESS_FAILURE,
     LLM_FAILURE,
     CANCELLED,
     TIMEOUT,

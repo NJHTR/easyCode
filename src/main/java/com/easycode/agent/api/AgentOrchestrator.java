@@ -64,8 +64,21 @@ public final class AgentOrchestrator {
         for (int step = 1; step <= maxSteps; step++) {
             Instant stepStartedAt = Instant.now();
             int messageCount = messages.size();
-            List<com.easycode.tool.model.ToolDefinition> availableTools =
-                    List.copyOf(toolAccess.listTools());
+            List<com.easycode.tool.model.ToolDefinition> availableTools;
+            try {
+                List<com.easycode.tool.model.ToolDefinition> listedTools = toolAccess.listTools();
+                if (listedTools == null) {
+                    throw new IllegalStateException("Tool access returned no definitions");
+                }
+                availableTools = List.copyOf(listedTools);
+            } catch (RuntimeException exception) {
+                steps.add(new AgentStepTrace(step, stepStartedAt, Instant.now(), request.model(),
+                        messageCount, 0, false, 0, List.of(),
+                        AgentStepOutcome.TOOL_ACCESS_FAILURE));
+                return execution(request, runId, createdAt, AgentRunStatus.FAILED,
+                        AgentFailureReason.EXECUTION_FAILURE,
+                        messageOf(exception, "Tool definition discovery failed"), steps);
+            }
             int availableToolCount = availableTools.size();
             LlmResponse response;
             try {
