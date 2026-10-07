@@ -44,6 +44,10 @@ integer, boolean, and null literals, plus `set`, `print`, and `println`.
 Unsupported syntax is rejected with a source line number; this is a language
 front end, not a Java/C++/Python compiler.
 
+For a direct source-to-result call, use `EasyCodeSourceRuntime`; it composes
+the parser with the existing in-process runtime and keeps parsing failures
+separate from execution failures.
+
 ## Start the headless local application
 
 The repository provides a small Windows PowerShell launcher for the current

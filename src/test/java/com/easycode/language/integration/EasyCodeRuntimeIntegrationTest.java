@@ -15,6 +15,7 @@ import com.easycode.language.model.EasyCodeProgram;
 import com.easycode.language.parser.EasyCodeParseException;
 import com.easycode.language.parser.EasyCodeSourceParser;
 import com.easycode.language.runtime.EasyCodeExecutionContext;
+import com.easycode.language.runtime.EasyCodeSourceRuntime;
 import com.easycode.language.runtime.InProcessEasyCodeRuntime;
 import org.junit.jupiter.api.Test;
 
@@ -237,5 +238,14 @@ class EasyCodeRuntimeIntegrationTest {
                 () -> new EasyCodeSourceParser().parse("set count = 1\nunknown value"));
 
         assertTrue(exception.getMessage().contains("line 2"));
+    }
+
+    @Test
+    void sourceRuntimeCombinesParsingAndExecution() {
+        EasyCodeExecutionResult result = new EasyCodeSourceRuntime().execute(
+                UUID.randomUUID(), "set count = 2\nprintln count=${count}");
+
+        assertTrue(result.succeeded(), result.toString());
+        assertEquals("count=2" + System.lineSeparator(), result.consoleOutput());
     }
 }
