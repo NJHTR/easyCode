@@ -106,6 +106,12 @@ multi-input merge behavior is represented by named ports rather than by
 silently overwriting one input. These nodes are not a complete standard
 library or a replacement for the separate easyCode language runtime.
 
+`CanvasService` is the application-facing facade over `CanvasExecutionEngine`.
+It provides default built-in executors, named-input convenience methods,
+selected-entry execution, and prepared-request execution. It deliberately
+performs no scheduling or persistence and contains no second graph algorithm;
+callers that need lower-level control may continue using the engine directly.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing

@@ -104,6 +104,12 @@ multi-input node semantics without making the Canvas layer depend on a foreign
 language, JVM process, or operating-system sandbox. Applications can register
 their own node types through the same `CanvasNodeExecutor` contract.
 
+`CanvasService` is the simple application facade for this synchronous Canvas
+execution contract. Its default constructor uses the built-in executors, and
+callers can also inject a custom executor set or a prepared
+`CanvasExecutionRequest`. It does not add scheduling, triggers, persistence, or
+another execution algorithm; it keeps those concerns outside the Canvas slice.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text
