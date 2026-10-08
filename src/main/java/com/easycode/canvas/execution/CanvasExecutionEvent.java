@@ -8,10 +8,21 @@ public record CanvasExecutionEvent(
         UUID executionId,
         CanvasExecutionEventType type,
         UUID nodeId,
-        String message) {
+        String message,
+        long sequence) {
+    public CanvasExecutionEvent(UUID executionId,
+                                CanvasExecutionEventType type,
+                                UUID nodeId,
+                                String message) {
+        this(executionId, type, nodeId, message, 0L);
+    }
+
     public CanvasExecutionEvent {
         Objects.requireNonNull(executionId, "executionId");
         Objects.requireNonNull(type, "type");
+        if (sequence < 0) {
+            throw new IllegalArgumentException("event sequence cannot be negative");
+        }
         message = message == null ? "" : message;
         boolean nodeEvent = type == CanvasExecutionEventType.NODE_STARTED
                 || type == CanvasExecutionEventType.NODE_SUCCEEDED

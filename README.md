@@ -129,8 +129,9 @@ Callers that need lightweight run observation can pass a
 `CanvasExecutionObserver` to the request-based `execute` method. The observer
 receives `STARTED`, per-node started/succeeded or failed events, and a terminal
 `SUCCEEDED` or `FAILED` event synchronously on the execution thread. Events use
-the request's `executionId` and are not retained by the application. This is a
-small in-process observation hook, not a realtime log stream, event bus,
+the request's `executionId` and a zero-based, monotonically increasing
+`sequence` within that execution; they are not retained by the application.
+This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
 

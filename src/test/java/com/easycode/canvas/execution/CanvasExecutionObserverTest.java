@@ -43,6 +43,8 @@ class CanvasExecutionObserverTest {
                 CanvasExecutionEventType.NODE_STARTED,
                 CanvasExecutionEventType.NODE_SUCCEEDED,
                 CanvasExecutionEventType.SUCCEEDED), events.stream().map(CanvasExecutionEvent::type).toList());
+        assertEquals(List.of(0L, 1L, 2L, 3L, 4L, 5L),
+                events.stream().map(CanvasExecutionEvent::sequence).toList());
         assertEquals(first.nodeId(), events.get(1).nodeId());
         assertEquals(first.nodeId(), events.get(2).nodeId());
         assertEquals(second.nodeId(), events.get(3).nodeId());
@@ -70,6 +72,8 @@ class CanvasExecutionObserverTest {
         assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
                 CanvasExecutionEventType.NODE_FAILED, CanvasExecutionEventType.FAILED),
                 events.stream().map(CanvasExecutionEvent::type).toList());
+        assertEquals(List.of(0L, 1L, 2L, 3L),
+                events.stream().map(CanvasExecutionEvent::sequence).toList());
         assertEquals(nodeId, events.get(2).nodeId());
         assertEquals("expected failure", events.get(2).message());
         assertEquals("expected failure", events.get(3).message());
