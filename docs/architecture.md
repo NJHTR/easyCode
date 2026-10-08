@@ -128,6 +128,16 @@ selected-entry execution, and prepared-request execution. It deliberately
 performs no scheduling or persistence and contains no second graph algorithm;
 callers that need lower-level control may continue using the engine directly.
 
+The request-based execution overload also accepts a `CanvasExecutionObserver`.
+It reports `STARTED`, node-level started/succeeded or failed events, and one
+terminal success or failure event inline on the synchronous execution thread.
+Every event carries the request's execution ID. The observer is a callback only:
+events are neither queued nor retained, and observer exceptions are allowed to
+propagate to the caller. Preflight or planning rejection happens before
+`STARTED`, so rejected requests produce no lifecycle events. This deliberately
+does not create realtime logs, an event bus, a debugger session, a scheduler,
+or persistence.
+
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's
 display metadata and port shape; creating from it generates fresh node and port

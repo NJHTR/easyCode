@@ -3,6 +3,7 @@ package com.easycode.canvas.api;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
+import com.easycode.canvas.execution.CanvasExecutionObserver;
 import com.easycode.canvas.execution.builtin.CanvasBuiltinLibrary;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
@@ -62,6 +63,11 @@ public final class CanvasApplication {
 
     public CanvasExecutionResult execute(CanvasExecutionRequest request) {
         return service.execute(request);
+    }
+
+    public CanvasExecutionResult execute(CanvasExecutionRequest request,
+                                         CanvasExecutionObserver observer) {
+        return service.execute(request, observer);
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {

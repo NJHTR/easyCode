@@ -125,6 +125,15 @@ callers can also inject a custom executor set or a prepared
 `CanvasExecutionRequest`. It does not add scheduling, triggers, persistence, or
 another execution algorithm; it keeps those concerns outside the Canvas slice.
 
+Callers that need lightweight run observation can pass a
+`CanvasExecutionObserver` to the request-based `execute` method. The observer
+receives `STARTED`, per-node started/succeeded or failed events, and a terminal
+`SUCCEEDED` or `FAILED` event synchronously on the execution thread. Events use
+the request's `executionId` and are not retained by the application. This is a
+small in-process observation hook, not a realtime log stream, event bus,
+debugger, scheduler, or persistence layer. Invalid requests rejected during
+preflight emit no lifecycle events.
+
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is
 available through `CanvasBuiltinNodes.catalog()`. It describes node shape only;

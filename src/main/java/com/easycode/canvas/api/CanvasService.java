@@ -1,6 +1,7 @@
 package com.easycode.canvas.api;
 
 import com.easycode.canvas.execution.CanvasExecutionEngine;
+import com.easycode.canvas.execution.CanvasExecutionObserver;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
@@ -56,6 +57,12 @@ public final class CanvasService {
     /** Executes an already prepared request for advanced callers. */
     public CanvasExecutionResult execute(CanvasExecutionRequest request) {
         return engine.execute(request);
+    }
+
+    /** Executes a request and observes its synchronous lifecycle events. */
+    public CanvasExecutionResult execute(CanvasExecutionRequest request,
+                                         CanvasExecutionObserver observer) {
+        return engine.execute(request, observer);
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {
