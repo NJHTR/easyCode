@@ -119,6 +119,12 @@ UUIDs. `CanvasBuiltinNodes.catalog()` describes the built-in types, while the
 existing executor map remains responsible for behavior. The catalog therefore
 does not become a second execution registry or introduce plugin loading.
 
+`CanvasNodeRegistration` joins one descriptor to one executor, and
+`CanvasNodeRegistry` derives its catalog and executor map from those
+registrations. `CanvasBuiltinLibrary.registry()` is the canonical built-in
+source; `CanvasBuiltinNodes` and `CanvasBuiltinExecutors` delegate to it for
+compatibility. The graph model remains independent of executable behavior.
+
 `CanvasBuilder` is the matching assembly helper. It accepts created nodes,
 resolves named ports when connecting nodes or declaring public bindings, and
 produces an immutable `CanvasDefinition`. Its `build()` method reuses

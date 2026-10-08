@@ -4,7 +4,7 @@ import com.easycode.canvas.execution.CanvasExecutionEngine;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasNodeExecutor;
-import com.easycode.canvas.execution.builtin.CanvasBuiltinExecutors;
+import com.easycode.canvas.execution.builtin.CanvasBuiltinLibrary;
 import com.easycode.canvas.model.CanvasDefinition;
 
 import java.util.List;
@@ -18,7 +18,12 @@ public final class CanvasService {
 
     /** Creates a service with the small built-in node library. */
     public CanvasService() {
-        this(CanvasBuiltinExecutors.all());
+        this(CanvasBuiltinLibrary.registry());
+    }
+
+    /** Creates a service from one registry containing both node shape and behavior. */
+    public CanvasService(CanvasNodeRegistry registry) {
+        this(Objects.requireNonNull(registry, "registry").executors());
     }
 
     /** Creates a service with the exact executor set supplied by the caller. */

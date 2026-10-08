@@ -116,6 +116,13 @@ available through `CanvasBuiltinNodes.catalog()`. It describes node shape only;
 execution still resolves the matching `CanvasNodeExecutor` through the existing
 `CanvasExecutionEngine`.
 
+`CanvasNodeRegistry` is the unified registration boundary when a node type must
+be both discoverable and executable. One `CanvasNodeRegistration` supplies its
+descriptor and executor together; the registry derives the catalog and executor
+map and rejects duplicate types. `CanvasBuiltinLibrary.registry()` is the
+canonical built-in registration, while the older built-in entry points remain
+compatibility views.
+
 `CanvasBuilder` assembles those nodes into an immutable validated canvas. It
 connects nodes and exposes public inputs or outputs by port name, so callers do
 not need to copy generated port UUIDs by hand. `build()` delegates graph-wide
