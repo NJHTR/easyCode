@@ -116,6 +116,12 @@ available through `CanvasBuiltinNodes.catalog()`. It describes node shape only;
 execution still resolves the matching `CanvasNodeExecutor` through the existing
 `CanvasExecutionEngine`.
 
+`CanvasBuilder` assembles those nodes into an immutable validated canvas. It
+connects nodes and exposes public inputs or outputs by port name, so callers do
+not need to copy generated port UUIDs by hand. `build()` delegates graph-wide
+checks to the existing validator; the builder does not execute the canvas or
+define when a run should start.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text

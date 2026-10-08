@@ -119,6 +119,12 @@ UUIDs. `CanvasBuiltinNodes.catalog()` describes the built-in types, while the
 existing executor map remains responsible for behavior. The catalog therefore
 does not become a second execution registry or introduce plugin loading.
 
+`CanvasBuilder` is the matching assembly helper. It accepts created nodes,
+resolves named ports when connecting nodes or declaring public bindings, and
+produces an immutable `CanvasDefinition`. Its `build()` method reuses
+`CanvasGraphValidator`, so builder convenience does not create a second set of
+graph rules. It has no execution, trigger, scheduling, or persistence behavior.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing
