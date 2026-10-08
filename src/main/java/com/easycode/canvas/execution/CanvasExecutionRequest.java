@@ -42,6 +42,32 @@ public record CanvasExecutionRequest(CanvasDefinition canvas, List<UUID> entryNo
         return new CanvasExecutionRequest(canvas, entryNodeIds, initialInputs);
     }
 
+    public static CanvasExecutionRequest withNamedInputs(CanvasDefinition canvas,
+                                                         List<UUID> entryNodeIds,
+                                                         Map<String, Object> namedInputs) {
+        Objects.requireNonNull(canvas, "canvas");
+        if (namedInputs == null || namedInputs.isEmpty()) {
+            return new CanvasExecutionRequest(canvas, entryNodeIds);
+        }
+        Map<UUID, Object> values = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> input : namedInputs.entrySet()) {
+            if (input.getKey() == null || input.getKey().isBlank()) {
+                throw new IllegalArgumentException("named input must not be blank");
+            }
+            UUID portId = canvas.inputBindings().get(input.getKey());
+            if (portId == null) {
+                throw new IllegalArgumentException("unknown canvas input: " + input.getKey());
+            }
+            values.put(portId, input.getValue());
+        }
+        return new CanvasExecutionRequest(canvas, entryNodeIds, values);
+    }
+
+    public static CanvasExecutionRequest withNamedInputs(CanvasDefinition canvas,
+                                                         Map<String, Object> namedInputs) {
+        return withNamedInputs(canvas, List.of(), namedInputs);
+    }
+
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values) {
         if (values == null || values.isEmpty()) {
             return Map.of();

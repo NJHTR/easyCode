@@ -444,6 +444,77 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void executesCanvasWithNamedInputsAndReturnsNamedOutputs() {
+        Fixture add = fixture("add", true, true);
+        UUID rightInput = UUID.randomUUID();
+        CanvasNode addNode = new CanvasNode(add.id(), "add", CanvasBuiltinExecutors.ADD, Map.of(), List.of(
+                new CanvasPort(add.inputPort(), "left", CanvasPortDirection.INPUT),
+                new CanvasPort(rightInput, "right", CanvasPortDirection.INPUT),
+                new CanvasPort(add.outputPort(), "out", CanvasPortDirection.OUTPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "named-add", List.of(addNode),
+                List.of(), Map.of("left", add.inputPort(), "right", rightInput),
+                Map.of("sum", add.outputPort()));
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                CanvasExecutionRequest.withNamedInputs(canvas, List.of(add.id()),
+                        Map.of("left", 10, "right", 20)));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(0, new BigDecimal("30")
+                .compareTo((BigDecimal) result.namedOutputValues().get("sum")));
+        assertThrows(UnsupportedOperationException.class,
+                () -> result.namedOutputValues().put("other", 1));
+    }
+
+    @Test
+    void namedInputRejectsAnUnknownCanvasInput() {
+        Fixture passthrough = fixture("passthrough", true, true);
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "named-input",
+                List.of(passthrough.node()), List.of(), Map.of("value", passthrough.inputPort()), Map.of());
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> CanvasExecutionRequest.withNamedInputs(canvas, List.of(passthrough.id()),
+                        Map.of("missing", "value")));
+
+        assertEquals("unknown canvas input: missing", failure.getMessage());
+    }
+
+    @Test
+    void namedCanvasOutputPreservesAnExplicitNull() {
+        Fixture passthrough = fixture("passthrough", true, true);
+        CanvasNode node = new CanvasNode(passthrough.id(), "passthrough",
+                CanvasBuiltinExecutors.PASSTHROUGH, Map.of(), passthrough.node().ports());
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "named-null",
+                List.of(node), List.of(), Map.of("value", passthrough.inputPort()),
+                Map.of("result", passthrough.outputPort()));
+        Map<String, Object> inputs = new java.util.LinkedHashMap<>();
+        inputs.put("value", null);
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                CanvasExecutionRequest.withNamedInputs(canvas, inputs));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(true, result.namedOutputValues().containsKey("result"));
+        assertEquals(null, result.namedOutputValues().get("result"));
+    }
+
+    @Test
+    void declaredCanvasOutputMustBePublished() {
+        Fixture node = fixture("optional-output", true, false);
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "declared-output",
+                List.of(node.node()), List.of(), Map.of(), Map.of("result", node.outputPort()));
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "optional-output", (current, context) -> { }))
+                .execute(canvas);
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals("node did not produce declared output port: " + node.outputPort(),
+                result.failureMessage());
+        assertEquals(false, result.namedOutputValues().containsKey("result"));
+    }
+
+    @Test
     void executorCannotReadAnUndeclaredInputPort() {
         Fixture node = fixture("reader", true, true);
         CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(

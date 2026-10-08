@@ -88,6 +88,15 @@ values published by successfully completed nodes, keyed by output-port ID. It
 allows a caller to consume a canvas result without scanning node traces. Values
 published by a node that fails are not included in this aggregate snapshot.
 
+A canvas may optionally expose public `inputBindings` and `outputBindings`.
+Each stable external name maps to an internal port UUID, so callers can provide
+`left=10` rather than knowing a generated port identity. Public inputs must map
+to unconnected input ports, and declared public outputs must be published when
+their node runs. `CanvasExecutionRequest.withNamedInputs` resolves public input
+names, while `CanvasExecutionResult.namedOutputValues` returns the declared
+results by name. The original UUID-based request and result APIs remain
+available for lower-level callers.
+
 `CanvasBuiltinExecutors` provides a deliberately small in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. `add` consumes explicit `left`
 and `right` numeric input ports and produces a decimal sum, demonstrating

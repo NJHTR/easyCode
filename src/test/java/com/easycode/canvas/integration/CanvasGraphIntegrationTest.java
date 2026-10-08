@@ -108,4 +108,49 @@ class CanvasGraphIntegrationTest {
         assertThrows(UnsupportedOperationException.class,
                 () -> canvas.nodes().add(null));
     }
+
+    @Test
+    void validatesNamedCanvasInputAndOutputBindings() {
+        UUID nodeId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        CanvasDefinition canvas = new CanvasDefinition(
+                UUID.randomUUID(), "callable",
+                List.of(new CanvasNode(nodeId, "value", "passthrough", Map.of(), List.of(
+                        new CanvasPort(inputPortId, "in", CanvasPortDirection.INPUT),
+                        new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)))),
+                List.of(),
+                Map.of("value", inputPortId),
+                Map.of("result", outputPortId));
+
+        assertDoesNotThrow(() -> new CanvasGraphValidator().validate(canvas));
+        assertEquals(inputPortId, canvas.inputBindings().get("value"));
+        assertEquals(outputPortId, canvas.outputBindings().get("result"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> canvas.inputBindings().put("other", UUID.randomUUID()));
+    }
+
+    @Test
+    void rejectsBindingsWithWrongDirectionUnknownPortOrConnectedInput() {
+        UUID sourceId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+        CanvasNode source = new CanvasNode(sourceId, "source", "constant", Map.of(),
+                List.of(new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
+        CanvasNode target = new CanvasNode(targetId, "target", "print", Map.of(),
+                List.of(new CanvasPort(inputPortId, "in", CanvasPortDirection.INPUT)));
+        CanvasConnection connection = new CanvasConnection(UUID.randomUUID(), sourceId, outputPortId,
+                targetId, inputPortId);
+
+        assertThrows(CanvasValidationException.class, () -> new CanvasGraphValidator().validate(
+                new CanvasDefinition(UUID.randomUUID(), "wrong-direction", List.of(source, target), List.of(),
+                        Map.of("input", outputPortId), Map.of())));
+        assertThrows(CanvasValidationException.class, () -> new CanvasGraphValidator().validate(
+                new CanvasDefinition(UUID.randomUUID(), "unknown", List.of(source, target), List.of(),
+                        Map.of(), Map.of("output", UUID.randomUUID()))));
+        assertThrows(CanvasValidationException.class, () -> new CanvasGraphValidator().validate(
+                new CanvasDefinition(UUID.randomUUID(), "connected", List.of(source, target),
+                        List.of(connection), Map.of("input", inputPortId), Map.of())));
+    }
 }

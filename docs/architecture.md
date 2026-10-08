@@ -90,6 +90,15 @@ values published by successfully completed nodes. It preserves explicit `null`
 values and provides a direct result boundary for callers that should not parse
 node traces. Partial output from a failing node is intentionally excluded.
 
+`CanvasDefinition.inputBindings` and `outputBindings` form the optional public
+boundary of a callable canvas. They map stable external names to internal port
+UUIDs without changing graph connection identity. A public input can target
+only an unconnected input port. A declared public output must be published when
+its node participates in the run. Named request values are resolved to the
+existing UUID-based execution contract, and named result values are projected
+from its immutable output snapshot. This is a call boundary only; it does not
+add triggers, scheduling, persistence, or nested-canvas execution.
+
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit
 `left` and `right` numeric input ports and emits a decimal sum, proving that

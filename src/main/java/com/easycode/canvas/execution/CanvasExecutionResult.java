@@ -16,6 +16,7 @@ public record CanvasExecutionResult(
         List<CanvasNodeExecutionTrace> nodeTraces,
         List<String> consoleOutput,
         Map<UUID, Object> outputValues,
+        Map<String, Object> namedOutputValues,
         UUID failedNodeId,
         String failureMessage,
         Duration duration) {
@@ -27,7 +28,20 @@ public record CanvasExecutionResult(
                                  UUID failedNodeId,
                                  String failureMessage,
                                  Duration duration) {
-        this(canvasId, status, completedNodeIds, nodeTraces, consoleOutput, Map.of(),
+        this(canvasId, status, completedNodeIds, nodeTraces, consoleOutput, Map.of(), Map.of(),
+                failedNodeId, failureMessage, duration);
+    }
+
+    public CanvasExecutionResult(UUID canvasId,
+                                 CanvasExecutionStatus status,
+                                 List<UUID> completedNodeIds,
+                                 List<CanvasNodeExecutionTrace> nodeTraces,
+                                 List<String> consoleOutput,
+                                 Map<UUID, Object> outputValues,
+                                 UUID failedNodeId,
+                                 String failureMessage,
+                                 Duration duration) {
+        this(canvasId, status, completedNodeIds, nodeTraces, consoleOutput, outputValues, Map.of(),
                 failedNodeId, failureMessage, duration);
     }
 
@@ -47,6 +61,7 @@ public record CanvasExecutionResult(
             throw new IllegalArgumentException("console output cannot contain null");
         }
         outputValues = immutableValues(outputValues);
+        namedOutputValues = immutableNamedValues(namedOutputValues);
         Objects.requireNonNull(duration, "duration");
         if (duration.isNegative()) {
             throw new IllegalArgumentException("duration cannot be negative");
@@ -70,6 +85,16 @@ public record CanvasExecutionResult(
         }
         if (values.entrySet().stream().anyMatch(entry -> entry.getKey() == null)) {
             throw new IllegalArgumentException("output values cannot contain a null port id");
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(values));
+    }
+
+    private static Map<String, Object> immutableNamedValues(Map<String, Object> values) {
+        if (values == null) {
+            return Map.of();
+        }
+        if (values.keySet().stream().anyMatch(name -> name == null || name.isBlank())) {
+            throw new IllegalArgumentException("named output values cannot contain a blank name");
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }

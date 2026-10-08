@@ -58,6 +58,7 @@ public final class CanvasExecutionEngine {
         CanvasExecutionPlan plan = planner.plan(canvas, Set.copyOf(request.entryNodeIds()));
         Map<UUID, CanvasNode> nodes = indexNodes(canvas.nodes());
         Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
+        Set<UUID> declaredOutputPorts = Set.copyOf(canvas.outputBindings().values());
         validateInitialInputs(canvas, plan, request.initialInputs());
         Map<UUID, Object> inputValues = new LinkedHashMap<>(request.initialInputs());
         Map<UUID, Object> outputValues = new LinkedHashMap<>();
@@ -105,6 +106,17 @@ public final class CanvasExecutionEngine {
                             nodeId, message, startedAt);
                 }
             }
+            for (CanvasPort port : node.ports()) {
+                if (declaredOutputPorts.contains(port.portId()) && !outputs.containsKey(port.portId())) {
+                    String message = "node did not produce declared output port: " + port.portId();
+                    traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(),
+                            CanvasExecutionStatus.FAILED, nodeInputs, outputs, context.consoleOutputSnapshot(),
+                            Duration.between(nodeStartedAt, Instant.now()), message));
+                    consoleOutput.addAll(context.consoleOutputSnapshot());
+                    return failed(canvas, completed, traces, consoleOutput, outputValues,
+                            nodeId, message, startedAt);
+                }
+            }
             outputValues.putAll(outputs);
             traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.SUCCEEDED,
                     nodeInputs, outputs, context.consoleOutputSnapshot(),
@@ -116,7 +128,8 @@ public final class CanvasExecutionEngine {
             }
         }
         return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.SUCCEEDED, completed, traces,
-                consoleOutput, outputValues, null, "", Duration.between(startedAt, Instant.now()));
+                consoleOutput, outputValues, namedOutputValues(canvas, outputValues),
+                null, "", Duration.between(startedAt, Instant.now()));
     }
 
     private static Map<UUID, CanvasNode> indexNodes(List<CanvasNode> nodes) {
@@ -177,9 +190,20 @@ public final class CanvasExecutionEngine {
                                                 UUID nodeId,
                                                 String message, Instant startedAt) {
         return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.FAILED, completed, traces,
-                consoleOutput, outputValues, nodeId,
+                consoleOutput, outputValues, namedOutputValues(canvas, outputValues), nodeId,
                 message == null || message.isBlank() ? "node execution failed" : message,
                 Duration.between(startedAt, Instant.now()));
+    }
+
+    private static Map<String, Object> namedOutputValues(CanvasDefinition canvas,
+                                                          Map<UUID, Object> outputValues) {
+        Map<String, Object> named = new LinkedHashMap<>();
+        for (Map.Entry<String, UUID> binding : canvas.outputBindings().entrySet()) {
+            if (outputValues.containsKey(binding.getValue())) {
+                named.put(binding.getKey(), outputValues.get(binding.getValue()));
+            }
+        }
+        return named;
     }
 
     private static CanvasNodeExecutionTrace failedTrace(CanvasNode node, Map<UUID, Object> inputs,

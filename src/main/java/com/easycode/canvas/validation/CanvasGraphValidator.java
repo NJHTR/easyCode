@@ -69,6 +69,28 @@ public final class CanvasGraphValidator {
                 throw invalid("duplicate connection endpoints: " + connection.connectionId());
             }
         }
+        validateBindings(canvas.inputBindings(), CanvasPortDirection.INPUT, ports, drivenInputPorts);
+        validateBindings(canvas.outputBindings(), CanvasPortDirection.OUTPUT, ports, Set.of());
+    }
+
+    private static void validateBindings(Map<String, UUID> bindings,
+                                         CanvasPortDirection direction,
+                                         Map<UUID, CanvasPort> ports,
+                                         Set<UUID> connectedInputs) {
+        String kind = direction == CanvasPortDirection.INPUT ? "input" : "output";
+        for (Map.Entry<String, UUID> binding : bindings.entrySet()) {
+            CanvasPort port = ports.get(binding.getValue());
+            if (port == null) {
+                throw invalid(kind + " binding references an unknown port: " + binding.getKey());
+            }
+            if (port.direction() != direction) {
+                throw invalid(kind + " binding must reference an " + kind + " port: "
+                        + binding.getKey());
+            }
+            if (direction == CanvasPortDirection.INPUT && connectedInputs.contains(binding.getValue())) {
+                throw invalid("input binding cannot reference a connected port: " + binding.getKey());
+            }
+        }
     }
 
     private static CanvasPort requirePort(Map<UUID, CanvasPort> ports, UUID portId, UUID connectionId) {
