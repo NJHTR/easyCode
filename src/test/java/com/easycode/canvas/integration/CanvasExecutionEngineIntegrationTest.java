@@ -301,6 +301,76 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void requestCanProvideAnInitialInputToAnUnconnectedPort() {
+        Fixture passthrough = fixture("passthrough", true, true);
+        CanvasNode passthroughNode = new CanvasNode(passthrough.id(), "passthrough",
+                CanvasBuiltinExecutors.PASSTHROUGH, Map.of(), passthrough.node().ports());
+        CanvasDefinition canvas = canvas(List.of(passthroughNode), List.of());
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                CanvasExecutionRequest.withInputs(canvas, List.of(passthrough.id()),
+                        Map.of(passthrough.inputPort(), "runtime-value")));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals("runtime-value", result.nodeTraces().get(0).inputs().get(passthrough.inputPort()));
+        assertEquals("runtime-value", result.nodeTraces().get(0).outputs().get(passthrough.outputPort()));
+    }
+
+    @Test
+    void requestCanProvideNullAsAnInitialInput() {
+        Fixture passthrough = fixture("passthrough", true, true);
+        CanvasNode passthroughNode = new CanvasNode(passthrough.id(), "passthrough",
+                CanvasBuiltinExecutors.PASSTHROUGH, Map.of(), passthrough.node().ports());
+        Map<UUID, Object> initialInputs = new java.util.LinkedHashMap<>();
+        initialInputs.put(passthrough.inputPort(), null);
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all()).execute(
+                CanvasExecutionRequest.withInputs(canvas(List.of(passthroughNode), List.of()),
+                        List.of(passthrough.id()), initialInputs));
+
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(true, result.nodeTraces().get(0).inputs().containsKey(passthrough.inputPort()));
+        assertEquals(null, result.nodeTraces().get(0).outputs().get(passthrough.outputPort()));
+    }
+
+    @Test
+    void requestRejectsUnknownOrConnectedInitialInputPorts() {
+        Fixture source = fixture("source", true, false);
+        Fixture target = fixture("target", true, true);
+        CanvasDefinition canvas = canvas(List.of(source.node(), target.node()), List.of(connection(source, target)));
+        CanvasExecutionEngine engine = new CanvasExecutionEngine(Map.of(
+                "source", (node, context) -> context.output(source.outputPort(), "source"),
+                "target", (node, context) -> { }));
+
+        assertThrows(IllegalArgumentException.class, () -> engine.execute(CanvasExecutionRequest.withInputs(
+                canvas, List.of(source.id()), Map.of(UUID.randomUUID(), "unknown"))));
+        assertThrows(IllegalArgumentException.class, () -> engine.execute(CanvasExecutionRequest.withInputs(
+                canvas, List.of(source.id()), Map.of(target.inputPort(), "conflict"))));
+    }
+
+    @Test
+    void requestRejectsOutputAndOutOfScopeInitialInputPorts() {
+        Fixture selected = fixture("selected", true, true);
+        Fixture excluded = fixture("excluded", false, true);
+        CanvasDefinition canvas = canvas(List.of(selected.node(), excluded.node()), List.of());
+        CanvasExecutionEngine engine = new CanvasExecutionEngine(Map.of(
+                "selected", (node, context) -> { },
+                "excluded", (node, context) -> { }));
+
+        IllegalArgumentException outputFailure = assertThrows(IllegalArgumentException.class,
+                () -> engine.execute(CanvasExecutionRequest.withInputs(canvas, List.of(selected.id()),
+                        Map.of(selected.outputPort(), "invalid"))));
+        assertEquals("initial input must target an input port: " + selected.outputPort(),
+                outputFailure.getMessage());
+
+        IllegalArgumentException scopeFailure = assertThrows(IllegalArgumentException.class,
+                () -> engine.execute(CanvasExecutionRequest.withInputs(canvas, List.of(selected.id()),
+                        Map.of(excluded.inputPort(), "excluded"))));
+        assertEquals("initial input targets a node outside the execution scope: " + excluded.id(),
+                scopeFailure.getMessage());
+    }
+
+    @Test
     void builtinAddNodeRejectsNonNumericInput() {
         Fixture left = fixture("left", true, false);
         Fixture right = fixture("right", true, false);

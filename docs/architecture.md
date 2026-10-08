@@ -75,12 +75,15 @@ Sandbox adapter; a later runtime adapter may use the result of this layer to
 request Host or Sandbox execution.
 
 `CanvasExecutionRequest` adds the smallest explicit launch boundary. A request
-contains a canvas and optionally one or more entry node IDs. An empty entry list
-keeps the compatibility behavior of executing from all implicit roots. When
-entries are supplied, the planner validates that they exist, have no incoming
-connections, and that every reachable node has all of its required upstream
-paths inside the selected subgraph. The request describes one run; it does not
-introduce a trigger, scheduler, persistence, or a special `MainNode` type.
+contains a canvas, optionally one or more entry node IDs, and optionally a map
+of initial values keyed by input-port ID. An empty entry list keeps the
+compatibility behavior of executing from all implicit roots. When entries are
+supplied, the planner validates that they exist, have no incoming connections,
+and that every reachable node has all of its required upstream paths inside the
+selected subgraph. Initial values may target only unconnected input ports in
+that execution scope, and a map entry can deliberately carry `null`. The
+request describes one run; it does not introduce a trigger, scheduler,
+persistence, or a special `MainNode` type.
 
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit
