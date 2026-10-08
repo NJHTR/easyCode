@@ -129,6 +129,11 @@ not need to copy generated port UUIDs by hand. `build()` delegates graph-wide
 checks to the existing validator; the builder does not execute the canvas or
 define when a run should start.
 
+`CanvasApplication` is the smallest end-to-end application facade. It uses one
+`CanvasNodeRegistry` for both node creation and execution, creates matching
+`CanvasBuilder` instances, and delegates runs to `CanvasService`. It adds no new
+graph algorithm, lifecycle, scheduling, trigger, persistence, or UI behavior.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text

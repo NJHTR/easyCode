@@ -131,6 +131,12 @@ produces an immutable `CanvasDefinition`. Its `build()` method reuses
 `CanvasGraphValidator`, so builder convenience does not create a second set of
 graph rules. It has no execution, trigger, scheduling, or persistence behavior.
 
+`CanvasApplication` composes the registry, builder creation, and synchronous
+`CanvasService` behind one application-facing object. The same registry supplies
+the node instances and their executors, preventing composition mistakes while
+leaving all graph validation and execution rules in their existing components.
+It is a convenience boundary, not a second Canvas engine.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing
