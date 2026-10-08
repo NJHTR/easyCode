@@ -85,6 +85,11 @@ that execution scope, and a map entry can deliberately carry `null`. The
 request describes one run; it does not introduce a trigger, scheduler,
 persistence, or a special `MainNode` type.
 
+`CanvasExecutionResult.outputValues` is the immutable aggregate of output-port
+values published by successfully completed nodes. It preserves explicit `null`
+values and provides a direct result boundary for callers that should not parse
+node traces. Partial output from a failing node is intentionally excluded.
+
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit
 `left` and `right` numeric input ports and emits a decimal sum, proving that

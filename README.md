@@ -83,6 +83,11 @@ out-of-scope ports are rejected. An explicit entry must exist and cannot have
 an incoming connection. A future Run command or trigger may construct this
 request, but the request itself is not a trigger or scheduler.
 
+The returned `CanvasExecutionResult.outputValues` is an immutable snapshot of
+values published by successfully completed nodes, keyed by output-port ID. It
+allows a caller to consume a canvas result without scanning node traces. Values
+published by a node that fails are not included in this aggregate snapshot.
+
 `CanvasBuiltinExecutors` provides a deliberately small in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. `add` consumes explicit `left`
 and `right` numeric input ports and produces a decimal sum, demonstrating

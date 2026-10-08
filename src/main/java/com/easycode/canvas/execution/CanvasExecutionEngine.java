@@ -60,6 +60,7 @@ public final class CanvasExecutionEngine {
         Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
         validateInitialInputs(canvas, plan, request.initialInputs());
         Map<UUID, Object> inputValues = new LinkedHashMap<>(request.initialInputs());
+        Map<UUID, Object> outputValues = new LinkedHashMap<>();
         List<UUID> completed = new ArrayList<>();
         List<CanvasNodeExecutionTrace> traces = new ArrayList<>();
         List<String> consoleOutput = new ArrayList<>();
@@ -77,7 +78,8 @@ public final class CanvasExecutionEngine {
             if (executor == null) {
                 String message = "no executor registered for node type: " + node.nodeType();
                 traces.add(failedTrace(node, nodeInputs, message, nodeStartedAt));
-                return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
+                return failed(canvas, completed, traces, consoleOutput, outputValues,
+                        nodeId, message, startedAt);
             }
             CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs);
             try {
@@ -88,7 +90,8 @@ public final class CanvasExecutionEngine {
                         nodeInputs, context.outputsSnapshot(), context.consoleOutputSnapshot(),
                         Duration.between(nodeStartedAt, Instant.now()), message));
                 consoleOutput.addAll(context.consoleOutputSnapshot());
-                return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
+                return failed(canvas, completed, traces, consoleOutput, outputValues,
+                        nodeId, message, startedAt);
             }
             Map<UUID, Object> outputs = context.outputsSnapshot();
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
@@ -98,9 +101,11 @@ public final class CanvasExecutionEngine {
                             nodeInputs, outputs, context.consoleOutputSnapshot(),
                             Duration.between(nodeStartedAt, Instant.now()), message));
                     consoleOutput.addAll(context.consoleOutputSnapshot());
-                    return failed(canvas, completed, traces, consoleOutput, nodeId, message, startedAt);
+                    return failed(canvas, completed, traces, consoleOutput, outputValues,
+                            nodeId, message, startedAt);
                 }
             }
+            outputValues.putAll(outputs);
             traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.SUCCEEDED,
                     nodeInputs, outputs, context.consoleOutputSnapshot(),
                     Duration.between(nodeStartedAt, Instant.now()), ""));
@@ -111,7 +116,7 @@ public final class CanvasExecutionEngine {
             }
         }
         return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.SUCCEEDED, completed, traces,
-                consoleOutput, null, "", Duration.between(startedAt, Instant.now()));
+                consoleOutput, outputValues, null, "", Duration.between(startedAt, Instant.now()));
     }
 
     private static Map<UUID, CanvasNode> indexNodes(List<CanvasNode> nodes) {
@@ -168,10 +173,11 @@ public final class CanvasExecutionEngine {
 
     private static CanvasExecutionResult failed(CanvasDefinition canvas, List<UUID> completed,
                                                 List<CanvasNodeExecutionTrace> traces, List<String> consoleOutput,
+                                                Map<UUID, Object> outputValues,
                                                 UUID nodeId,
                                                 String message, Instant startedAt) {
         return new CanvasExecutionResult(canvas.canvasId(), CanvasExecutionStatus.FAILED, completed, traces,
-                consoleOutput, nodeId,
+                consoleOutput, outputValues, nodeId,
                 message == null || message.isBlank() ? "node execution failed" : message,
                 Duration.between(startedAt, Instant.now()));
     }

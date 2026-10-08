@@ -90,6 +90,21 @@ class CanvasExecutionEngineIntegrationTest {
     }
 
     @Test
+    void excludesOutputsPublishedByTheFailingNode() {
+        Fixture failing = fixture("failing", true, false);
+        CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
+                "failing", (node, context) -> {
+                    context.output(failing.outputPort(), "partial");
+                    throw new IllegalStateException("failed after output");
+                }))
+                .execute(canvas(List.of(failing.node()), List.of()));
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals("partial", result.nodeTraces().get(0).outputs().get(failing.outputPort()));
+        assertEquals(false, result.outputValues().containsKey(failing.outputPort()));
+    }
+
+    @Test
     void rejectsExecutorWritesToAnInputPort() {
         Fixture node = fixture("writer", true, true);
         CanvasExecutionResult result = new CanvasExecutionEngine(Map.of(
@@ -190,6 +205,7 @@ class CanvasExecutionEngineIntegrationTest {
 
         assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
         assertEquals(new BigDecimal("3.25"), result.nodeTraces().get(2).outputs().get(add.outputPort()));
+        assertEquals(new BigDecimal("3.25"), result.outputValues().get(add.outputPort()));
         assertEquals(List.of("3.25"), result.consoleOutput());
     }
 
@@ -238,6 +254,8 @@ class CanvasExecutionEngineIntegrationTest {
         assertEquals(1, result.nodeTraces().get(1).inputs().size());
         assertEquals(true, result.nodeTraces().get(1).inputs().containsKey(print.inputPort()));
         assertEquals(null, result.nodeTraces().get(1).inputs().get(print.inputPort()));
+        assertEquals(true, result.outputValues().containsKey(constant.outputPort()));
+        assertEquals(null, result.outputValues().get(constant.outputPort()));
         assertEquals(List.of("null"), result.consoleOutput());
     }
 
@@ -410,6 +428,19 @@ class CanvasExecutionEngineIntegrationTest {
         assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionTrace(
                 UUID.randomUUID(), "test", CanvasExecutionStatus.SUCCEEDED, Map.of(), Map.of(), List.of(),
                 Duration.ZERO, "unexpected failure"));
+    }
+
+    @Test
+    void executionResultExposesImmutablePublishedOutputValues() {
+        Fixture constant = fixture("constant", true, false);
+        CanvasNode constantNode = constantNode(constant, "value");
+
+        CanvasExecutionResult result = new CanvasExecutionEngine(CanvasBuiltinExecutors.all())
+                .execute(canvas(List.of(constantNode), List.of()));
+
+        assertEquals("value", result.outputValues().get(constant.outputPort()));
+        assertThrows(UnsupportedOperationException.class,
+                () -> result.outputValues().put(UUID.randomUUID(), "not-allowed"));
     }
 
     @Test
