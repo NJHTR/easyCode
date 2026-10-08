@@ -110,6 +110,12 @@ callers can also inject a custom executor set or a prepared
 `CanvasExecutionRequest`. It does not add scheduling, triggers, persistence, or
 another execution algorithm; it keeps those concerns outside the Canvas slice.
 
+`CanvasNodeCatalog` exposes the available node type descriptions and can
+create a node with generated node and port identities. The built-in catalog is
+available through `CanvasBuiltinNodes.catalog()`. It describes node shape only;
+execution still resolves the matching `CanvasNodeExecutor` through the existing
+`CanvasExecutionEngine`.
+
 The current source entry point is intentionally small and deterministic:
 
 ```text

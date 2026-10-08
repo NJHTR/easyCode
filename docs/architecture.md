@@ -112,6 +112,13 @@ selected-entry execution, and prepared-request execution. It deliberately
 performs no scheduling or persistence and contains no second graph algorithm;
 callers that need lower-level control may continue using the engine directly.
 
+`CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
+creation boundary above the raw graph model. A descriptor defines a node type's
+display metadata and port shape; creating from it generates fresh node and port
+UUIDs. `CanvasBuiltinNodes.catalog()` describes the built-in types, while the
+existing executor map remains responsible for behavior. The catalog therefore
+does not become a second execution registry or introduce plugin loading.
+
 The first source front end is `EasyCodeSourceParser`. It accepts a deliberately
 small line-oriented syntax (`set`, `print`, and `println`, with comments and
 basic literals) and produces the existing immutable `EasyCodeProgram`. Parsing
