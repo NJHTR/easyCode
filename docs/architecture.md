@@ -99,6 +99,12 @@ existing UUID-based execution contract, and named result values are projected
 from its immutable output snapshot. This is a call boundary only; it does not
 add triggers, scheduling, persistence, or nested-canvas execution.
 
+Post-run query helpers expose output values and node traces without changing
+the immutable snapshot model. `CanvasValueLookup` represents both presence and
+the stored value, because `null` is a valid explicit Canvas value and cannot be
+used to mean that a port or public output was absent. These helpers do not add
+live inspection, breakpoints, or a mutable debugger session.
+
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit
 `left` and `right` numeric input ports and emits a decimal sum, proving that

@@ -97,6 +97,12 @@ names, while `CanvasExecutionResult.namedOutputValues` returns the declared
 results by name. The original UUID-based request and result APIs remain
 available for lower-level callers.
 
+Execution snapshots also provide query helpers. `CanvasExecutionResult` can
+look up an output by port ID, a public output by name, or a node trace by node
+ID. `CanvasNodeExecutionTrace` can query captured inputs and outputs by port.
+`CanvasValueLookup` keeps a `present` flag separate from its value so an
+explicitly published `null` remains different from a missing value.
+
 `CanvasBuiltinExecutors` provides a deliberately small in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. `add` consumes explicit `left`
 and `right` numeric input ports and produces a decimal sum, demonstrating

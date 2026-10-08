@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Immutable summary of one synchronous canvas run. */
@@ -77,6 +78,27 @@ public record CanvasExecutionResult(
                 && (failedNodeId == null || failureMessage.isBlank())) {
             throw new IllegalArgumentException("failed execution must identify a node and failure");
         }
+    }
+
+    public CanvasValueLookup output(UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return outputValues.containsKey(portId)
+                ? CanvasValueLookup.present(outputValues.get(portId))
+                : CanvasValueLookup.missing();
+    }
+
+    public CanvasValueLookup namedOutput(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("output name must not be blank");
+        }
+        return namedOutputValues.containsKey(name)
+                ? CanvasValueLookup.present(namedOutputValues.get(name))
+                : CanvasValueLookup.missing();
+    }
+
+    public Optional<CanvasNodeExecutionTrace> trace(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return nodeTraces.stream().filter(trace -> trace.nodeId().equals(nodeId)).findFirst();
     }
 
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values) {

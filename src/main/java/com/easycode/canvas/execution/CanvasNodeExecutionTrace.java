@@ -39,6 +39,21 @@ public record CanvasNodeExecutionTrace(
         }
     }
 
+    public CanvasValueLookup input(UUID portId) {
+        return lookup(inputs, portId);
+    }
+
+    public CanvasValueLookup output(UUID portId) {
+        return lookup(outputs, portId);
+    }
+
+    private static CanvasValueLookup lookup(Map<UUID, Object> values, UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return values.containsKey(portId)
+                ? CanvasValueLookup.present(values.get(portId))
+                : CanvasValueLookup.missing();
+    }
+
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values, String name) {
         if (values == null) {
             return Map.of();
