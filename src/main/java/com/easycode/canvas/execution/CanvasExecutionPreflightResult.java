@@ -6,10 +6,18 @@ import java.util.UUID;
 
 /** Immutable report describing whether one prepared canvas request can start. */
 public record CanvasExecutionPreflightResult(
+        UUID executionId,
         UUID canvasId,
         List<UUID> plannedNodeIds,
         List<CanvasExecutionDiagnostic> diagnostics) {
+    public CanvasExecutionPreflightResult(UUID canvasId,
+                                          List<UUID> plannedNodeIds,
+                                          List<CanvasExecutionDiagnostic> diagnostics) {
+        this(UUID.randomUUID(), canvasId, plannedNodeIds, diagnostics);
+    }
+
     public CanvasExecutionPreflightResult {
+        Objects.requireNonNull(executionId, "executionId");
         Objects.requireNonNull(canvasId, "canvasId");
         plannedNodeIds = plannedNodeIds == null ? List.of() : List.copyOf(plannedNodeIds);
         if (plannedNodeIds.stream().anyMatch(Objects::isNull)) {
@@ -25,8 +33,8 @@ public record CanvasExecutionPreflightResult(
         return diagnostics.isEmpty();
     }
 
-    public static CanvasExecutionPreflightResult invalidRequest(UUID canvasId, String message) {
-        return new CanvasExecutionPreflightResult(canvasId, List.of(), List.of(
+    public static CanvasExecutionPreflightResult invalidRequest(UUID executionId, UUID canvasId, String message) {
+        return new CanvasExecutionPreflightResult(executionId, canvasId, List.of(), List.of(
                 new CanvasExecutionDiagnostic(CanvasExecutionDiagnosticCode.INVALID_REQUEST, message, null, null)));
     }
 }

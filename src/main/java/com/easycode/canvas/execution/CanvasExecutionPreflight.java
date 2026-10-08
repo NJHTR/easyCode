@@ -58,9 +58,10 @@ public final class CanvasExecutionPreflight {
                             node.nodeId(), node.nodeType()));
                 }
             }
-            return new CanvasExecutionPreflightResult(canvas.canvasId(), plan.orderedNodeIds(), diagnostics);
+            return new CanvasExecutionPreflightResult(request.executionId(), canvas.canvasId(),
+                    plan.orderedNodeIds(), diagnostics);
         } catch (CanvasValidationException exception) {
-            return new CanvasExecutionPreflightResult(canvas.canvasId(), List.of(), List.of(
+            return new CanvasExecutionPreflightResult(request.executionId(), canvas.canvasId(), List.of(), List.of(
                     new CanvasExecutionDiagnostic(CanvasExecutionDiagnosticCode.INVALID_GRAPH,
                             exception.getMessage(), null, null)));
         }

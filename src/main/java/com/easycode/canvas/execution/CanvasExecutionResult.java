@@ -11,6 +11,7 @@ import java.util.UUID;
 
 /** Immutable summary of one synchronous canvas run. */
 public record CanvasExecutionResult(
+        UUID executionId,
         UUID canvasId,
         CanvasExecutionStatus status,
         List<UUID> completedNodeIds,
@@ -21,6 +22,20 @@ public record CanvasExecutionResult(
         UUID failedNodeId,
         String failureMessage,
         Duration duration) {
+    public CanvasExecutionResult(UUID canvasId,
+                                 CanvasExecutionStatus status,
+                                 List<UUID> completedNodeIds,
+                                 List<CanvasNodeExecutionTrace> nodeTraces,
+                                 List<String> consoleOutput,
+                                 Map<UUID, Object> outputValues,
+                                 Map<String, Object> namedOutputValues,
+                                 UUID failedNodeId,
+                                 String failureMessage,
+                                 Duration duration) {
+        this(UUID.randomUUID(), canvasId, status, completedNodeIds, nodeTraces, consoleOutput,
+                outputValues, namedOutputValues, failedNodeId, failureMessage, duration);
+    }
+
     public CanvasExecutionResult(UUID canvasId,
                                  CanvasExecutionStatus status,
                                  List<UUID> completedNodeIds,
@@ -47,6 +62,7 @@ public record CanvasExecutionResult(
     }
 
     public CanvasExecutionResult {
+        Objects.requireNonNull(executionId, "executionId");
         Objects.requireNonNull(canvasId, "canvasId");
         Objects.requireNonNull(status, "status");
         completedNodeIds = completedNodeIds == null ? List.of() : List.copyOf(completedNodeIds);

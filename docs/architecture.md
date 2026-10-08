@@ -75,8 +75,10 @@ Sandbox adapter; a later runtime adapter may use the result of this layer to
 request Host or Sandbox execution.
 
 `CanvasExecutionRequest` adds the smallest explicit launch boundary. A request
-contains a canvas, optionally one or more entry node IDs, and optionally a map
-of initial values keyed by input-port ID. An empty entry list keeps the
+contains an `executionId`, a canvas, optionally one or more entry node IDs, and
+optionally a map of initial values keyed by input-port ID. Convenience factories
+generate the ID; advanced callers can provide one to correlate a preflight and
+its eventual result. An empty entry list keeps the
 compatibility behavior of executing from all implicit roots. When entries are
 supplied, the planner validates that they exist, have no incoming connections,
 and that every reachable node has all of its required upstream paths inside the
@@ -86,11 +88,12 @@ request describes one run; it does not introduce a trigger, scheduler,
 persistence, or a special `MainNode` type.
 
 `CanvasExecutionPreflight` is the non-executing preparation boundary for the
-same request. It reuses the planner and input-scope checks, reports the planned
-node IDs, and returns stable diagnostics for invalid requests, invalid graphs,
-or missing executors. `CanvasService` and `CanvasApplication` expose the check
-without invoking a node executor; a successful preflight is readiness evidence,
-not a run or a debugger session.
+same request. It reuses the planner and input-scope checks, reports the same
+execution ID and planned node IDs, and returns stable diagnostics for invalid
+requests, invalid graphs, or missing executors. `CanvasService` and
+`CanvasApplication` expose the check without invoking a node executor; a
+successful preflight is readiness evidence, not a run or a debugger session.
+The eventual `CanvasExecutionResult` preserves the request's execution ID.
 
 `CanvasExecutionResult.outputValues` is the immutable aggregate of output-port
 values published by successfully completed nodes. It preserves explicit `null`

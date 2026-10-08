@@ -74,9 +74,11 @@ It deliberately does not start processes, schedule work, or choose Host versus
 Sandbox; those concerns remain behind the separate Execution boundary.
 
 `CanvasExecutionRequest` is the minimal launch contract for one synchronous
-run. Its optional `entryNodeIds` selects one or more root nodes and executes
-only their reachable subgraph. An empty list preserves the original behavior:
-all implicit root nodes are planned. Its optional `initialInputs` map supplies
+run. Each request carries an `executionId` so repeated runs of the same canvas
+can be correlated; convenience factories generate one, while advanced callers
+may provide one explicitly. Its optional `entryNodeIds` selects one or more
+root nodes and executes only their reachable subgraph. An empty list preserves
+the original behavior: all implicit root nodes are planned. Its optional `initialInputs` map supplies
 values to unconnected input ports, including an explicit `null`; connected
 ports remain owned by upstream node outputs. Unknown, output, connected, or
 out-of-scope ports are rejected. An explicit entry must exist and cannot have
@@ -84,10 +86,11 @@ an incoming connection. A future Run command or trigger may construct this
 request, but the request itself is not a trigger or scheduler.
 
 `CanvasExecutionPreflight` prepares the same request without invoking any node
-executor. It returns the planned node IDs and structured diagnostics for an
-invalid graph, invalid input scope, or missing executor. `CanvasService` and
-`CanvasApplication` expose this as a read-only readiness check; a ready result
-does not start execution and a failed result does not change the canvas.
+executor. It returns the same `executionId`, planned node IDs, and structured
+diagnostics for an invalid graph, invalid input scope, or missing executor.
+`CanvasService` and `CanvasApplication` expose this as a read-only readiness
+check; a ready result does not start execution and a failed result does not
+change the canvas. The eventual `CanvasExecutionResult` carries that same ID.
 
 The returned `CanvasExecutionResult.outputValues` is an immutable snapshot of
 values published by successfully completed nodes, keyed by output-port ID. It

@@ -64,20 +64,25 @@ public final class CanvasService {
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas,
                                                      Map<String, Object> namedInputs) {
+        UUID executionId = UUID.randomUUID();
         try {
-            return preflight(CanvasExecutionRequest.withNamedInputs(canvas, namedInputs));
+            return preflight(CanvasExecutionRequest.withNamedInputs(executionId, canvas, namedInputs));
         } catch (IllegalArgumentException exception) {
-            return CanvasExecutionPreflightResult.invalidRequest(canvas.canvasId(), exception.getMessage());
+            return CanvasExecutionPreflightResult.invalidRequest(
+                    executionId, canvas.canvasId(), exception.getMessage());
         }
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas,
                                                      List<UUID> entryNodeIds,
                                                      Map<String, Object> namedInputs) {
+        UUID executionId = UUID.randomUUID();
         try {
-            return preflight(CanvasExecutionRequest.withNamedInputs(canvas, entryNodeIds, namedInputs));
+            return preflight(CanvasExecutionRequest.withNamedInputs(
+                    executionId, canvas, entryNodeIds, namedInputs));
         } catch (IllegalArgumentException exception) {
-            return CanvasExecutionPreflightResult.invalidRequest(canvas.canvasId(), exception.getMessage());
+            return CanvasExecutionPreflightResult.invalidRequest(
+                    executionId, canvas.canvasId(), exception.getMessage());
         }
     }
 
