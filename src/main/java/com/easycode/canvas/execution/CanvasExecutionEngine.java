@@ -1,11 +1,9 @@
 package com.easycode.canvas.execution;
 
-import com.easycode.canvas.exception.CanvasValidationException;
 import com.easycode.canvas.model.CanvasConnection;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
 import com.easycode.canvas.model.CanvasPort;
-import com.easycode.canvas.model.CanvasPortDirection;
 import com.easycode.canvas.plan.CanvasExecutionPlan;
 import com.easycode.canvas.plan.CanvasExecutionPlanner;
 
@@ -26,8 +24,8 @@ import java.util.UUID;
  * between connected ports; it does not start processes or schedule work.
  */
 public final class CanvasExecutionEngine {
-    private final CanvasExecutionPlanner planner;
     private final Map<String, CanvasNodeExecutor> executors;
+    private final CanvasExecutionPreflight preflight;
 
     public CanvasExecutionEngine(Map<String, CanvasNodeExecutor> executors) {
         this(new CanvasExecutionPlanner(), executors);
@@ -35,7 +33,7 @@ public final class CanvasExecutionEngine {
 
     public CanvasExecutionEngine(CanvasExecutionPlanner planner,
                                   Map<String, CanvasNodeExecutor> executors) {
-        this.planner = Objects.requireNonNull(planner, "planner");
+        Objects.requireNonNull(planner, "planner");
         Objects.requireNonNull(executors, "executors");
         Map<String, CanvasNodeExecutor> copy = new LinkedHashMap<>();
         executors.forEach((type, executor) -> {
@@ -45,21 +43,25 @@ public final class CanvasExecutionEngine {
             copy.put(type, Objects.requireNonNull(executor, "executor"));
         });
         this.executors = Collections.unmodifiableMap(copy);
+        this.preflight = new CanvasExecutionPreflight(planner, this.executors);
     }
 
     public CanvasExecutionResult execute(CanvasDefinition canvas) {
         return execute(CanvasExecutionRequest.forCanvas(canvas));
     }
 
+    public CanvasExecutionPreflightResult preflight(CanvasExecutionRequest request) {
+        return preflight.inspect(request);
+    }
+
     public CanvasExecutionResult execute(CanvasExecutionRequest request) {
         Objects.requireNonNull(request, "request");
         CanvasDefinition canvas = request.canvas();
         Instant startedAt = Instant.now();
-        CanvasExecutionPlan plan = planner.plan(canvas, Set.copyOf(request.entryNodeIds()));
+        CanvasExecutionPlan plan = preflight.prepare(request);
         Map<UUID, CanvasNode> nodes = indexNodes(canvas.nodes());
         Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
         Set<UUID> declaredOutputPorts = Set.copyOf(canvas.outputBindings().values());
-        validateInitialInputs(canvas, plan, request.initialInputs());
         Map<UUID, Object> inputValues = new LinkedHashMap<>(request.initialInputs());
         Map<UUID, Object> outputValues = new LinkedHashMap<>();
         List<UUID> completed = new ArrayList<>();
@@ -136,43 +138,6 @@ public final class CanvasExecutionEngine {
         Map<UUID, CanvasNode> indexed = new HashMap<>();
         nodes.forEach(node -> indexed.put(node.nodeId(), node));
         return indexed;
-    }
-
-    private static void validateInitialInputs(CanvasDefinition canvas,
-                                              CanvasExecutionPlan plan,
-                                              Map<UUID, Object> initialInputs) {
-        if (initialInputs.isEmpty()) {
-            return;
-        }
-        Map<UUID, CanvasPort> ports = new HashMap<>();
-        Map<UUID, UUID> owners = new HashMap<>();
-        for (CanvasNode node : canvas.nodes()) {
-            for (CanvasPort port : node.ports()) {
-                ports.put(port.portId(), port);
-                owners.put(port.portId(), node.nodeId());
-            }
-        }
-        Set<UUID> connectedInputs = new java.util.HashSet<>();
-        for (CanvasConnection connection : canvas.connections()) {
-            connectedInputs.add(connection.toPortId());
-        }
-        Set<UUID> plannedNodes = Set.copyOf(plan.orderedNodeIds());
-        for (UUID portId : initialInputs.keySet()) {
-            CanvasPort port = ports.get(portId);
-            if (port == null) {
-                throw new CanvasValidationException("initial input references an unknown port: " + portId);
-            }
-            if (port.direction() != CanvasPortDirection.INPUT) {
-                throw new CanvasValidationException("initial input must target an input port: " + portId);
-            }
-            if (connectedInputs.contains(portId)) {
-                throw new CanvasValidationException("initial input cannot target a connected port: " + portId);
-            }
-            if (!plannedNodes.contains(owners.get(portId))) {
-                throw new CanvasValidationException("initial input targets a node outside the execution scope: "
-                        + owners.get(portId));
-            }
-        }
     }
 
     private static Map<UUID, List<CanvasConnection>> outgoingConnections(List<CanvasConnection> connections) {

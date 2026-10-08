@@ -83,6 +83,12 @@ out-of-scope ports are rejected. An explicit entry must exist and cannot have
 an incoming connection. A future Run command or trigger may construct this
 request, but the request itself is not a trigger or scheduler.
 
+`CanvasExecutionPreflight` prepares the same request without invoking any node
+executor. It returns the planned node IDs and structured diagnostics for an
+invalid graph, invalid input scope, or missing executor. `CanvasService` and
+`CanvasApplication` expose this as a read-only readiness check; a ready result
+does not start execution and a failed result does not change the canvas.
+
 The returned `CanvasExecutionResult.outputValues` is an immutable snapshot of
 values published by successfully completed nodes, keyed by output-port ID. It
 allows a caller to consume a canvas result without scanning node traces. Values

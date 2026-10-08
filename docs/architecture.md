@@ -85,6 +85,13 @@ that execution scope, and a map entry can deliberately carry `null`. The
 request describes one run; it does not introduce a trigger, scheduler,
 persistence, or a special `MainNode` type.
 
+`CanvasExecutionPreflight` is the non-executing preparation boundary for the
+same request. It reuses the planner and input-scope checks, reports the planned
+node IDs, and returns stable diagnostics for invalid requests, invalid graphs,
+or missing executors. `CanvasService` and `CanvasApplication` expose the check
+without invoking a node executor; a successful preflight is readiness evidence,
+not a run or a debugger session.
+
 `CanvasExecutionResult.outputValues` is the immutable aggregate of output-port
 values published by successfully completed nodes. It preserves explicit `null`
 values and provides a direct result boundary for callers that should not parse

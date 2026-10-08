@@ -1,6 +1,7 @@
 package com.easycode.canvas.api;
 
 import com.easycode.canvas.execution.CanvasExecutionEngine;
+import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasNodeExecutor;
@@ -55,5 +56,32 @@ public final class CanvasService {
     /** Executes an already prepared request for advanced callers. */
     public CanvasExecutionResult execute(CanvasExecutionRequest request) {
         return engine.execute(request);
+    }
+
+    public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {
+        return preflight(CanvasExecutionRequest.forCanvas(canvas));
+    }
+
+    public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas,
+                                                     Map<String, Object> namedInputs) {
+        try {
+            return preflight(CanvasExecutionRequest.withNamedInputs(canvas, namedInputs));
+        } catch (IllegalArgumentException exception) {
+            return CanvasExecutionPreflightResult.invalidRequest(canvas.canvasId(), exception.getMessage());
+        }
+    }
+
+    public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas,
+                                                     List<UUID> entryNodeIds,
+                                                     Map<String, Object> namedInputs) {
+        try {
+            return preflight(CanvasExecutionRequest.withNamedInputs(canvas, entryNodeIds, namedInputs));
+        } catch (IllegalArgumentException exception) {
+            return CanvasExecutionPreflightResult.invalidRequest(canvas.canvasId(), exception.getMessage());
+        }
+    }
+
+    public CanvasExecutionPreflightResult preflight(CanvasExecutionRequest request) {
+        return engine.preflight(request);
     }
 }
