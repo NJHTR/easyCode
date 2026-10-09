@@ -233,4 +233,38 @@ class CanvasExecutionObserverTest {
         assertSame(snapshot, snapshot.get(0));
         assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
+
+    @Test
+    void collectorCanSnapshotCustomMutableValues() {
+        UUID nodeId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        MutableValue value = new MutableValue("before");
+        CanvasNode node = new CanvasNode(nodeId, "custom", "custom", Map.of(), List.of(
+                new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "custom-snapshot",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of(
+                "custom", (ignoredNode, context) -> context.output(outputPortId, value)));
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector(candidate ->
+                candidate instanceof MutableValue mutable
+                        ? Map.of("value", mutable.value)
+                        : candidate);
+
+        CanvasExecutionResult result = service.execute(CanvasExecutionRequest.forCanvas(canvas), collector);
+        assertSame(value, result.output(outputPortId).value());
+        value.value = "after";
+
+        CanvasExecutionEvent succeeded = collector.eventsOfType(CanvasExecutionEventType.NODE_SUCCEEDED).get(0);
+        Map<?, ?> outputSnapshot = (Map<?, ?>) succeeded.outputs().get(outputPortId);
+        assertEquals("before", outputSnapshot.get("value"));
+        assertThrows(UnsupportedOperationException.class, outputSnapshot::clear);
+    }
+
+    private static final class MutableValue {
+        private String value;
+
+        private MutableValue(String value) {
+            this.value = value;
+        }
+    }
 }

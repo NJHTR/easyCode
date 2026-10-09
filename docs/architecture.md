@@ -153,7 +153,10 @@ a terminal success or failure event; it rejects attempts to append events after
 completion.
 Event value snapshots recursively copy standard maps, collections, arrays, and
 dates; arbitrary custom value objects remain shared references
-because their safe copying semantics are type-specific.
+by default because their safe copying semantics are type-specific. Callers may
+give `CanvasExecutionEventCollector` a `CanvasExecutionValueSnapshotter` to
+project custom runtime values into immutable debug representations without
+changing the values passed between nodes.
 If a node executor throws, its `NODE_FAILED` event carries immutable failure
 details with the exception type, message, and formatted stack trace. Engine
 validation failures do not claim to have an exception stack when none exists.

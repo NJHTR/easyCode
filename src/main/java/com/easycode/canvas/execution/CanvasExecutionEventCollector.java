@@ -12,8 +12,17 @@ import java.util.UUID;
  */
 public final class CanvasExecutionEventCollector implements CanvasExecutionObserver {
     private final List<CanvasExecutionEvent> events = new ArrayList<>();
+    private final CanvasExecutionValueSnapshotter snapshotter;
     private UUID executionId;
     private boolean terminal;
+
+    public CanvasExecutionEventCollector() {
+        this(CanvasExecutionValueSnapshotter.identity());
+    }
+
+    public CanvasExecutionEventCollector(CanvasExecutionValueSnapshotter snapshotter) {
+        this.snapshotter = Objects.requireNonNull(snapshotter, "snapshotter");
+    }
 
     @Override
     public synchronized void onEvent(CanvasExecutionEvent event) {
@@ -34,7 +43,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 throw new IllegalArgumentException("execution event sequence is not contiguous");
             }
         }
-        events.add(event);
+        events.add(event.withValueSnapshotter(snapshotter));
         terminal = event.type() == CanvasExecutionEventType.SUCCEEDED
                 || event.type() == CanvasExecutionEventType.FAILED;
     }

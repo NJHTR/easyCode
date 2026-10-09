@@ -23,19 +23,28 @@ final class CanvasExecutionValueSnapshots {
     }
 
     static Map<UUID, Object> snapshot(Map<UUID, Object> values, String name) {
+        return snapshot(values, name, CanvasExecutionValueSnapshotter.identity());
+    }
+
+    static Map<UUID, Object> snapshot(Map<UUID, Object> values, String name,
+                                      CanvasExecutionValueSnapshotter snapshotter) {
         if (values == null || values.isEmpty()) {
             return Map.of();
+        }
+        if (snapshotter == null) {
+            throw new NullPointerException("snapshotter");
         }
         if (values.entrySet().stream().anyMatch(entry -> entry.getKey() == null)) {
             throw new IllegalArgumentException(name + " cannot contain a null port id");
         }
         Map<UUID, Object> snapshot = new LinkedHashMap<>();
         IdentityHashMap<Object, Object> copies = new IdentityHashMap<>();
-        values.forEach((portId, value) -> snapshot.put(portId, copy(value, copies)));
+        values.forEach((portId, value) -> snapshot.put(portId, copy(value, copies, snapshotter)));
         return Collections.unmodifiableMap(snapshot);
     }
 
-    private static Object copy(Object value, IdentityHashMap<Object, Object> copies) {
+    private static Object copy(Object value, IdentityHashMap<Object, Object> copies,
+                               CanvasExecutionValueSnapshotter snapshotter) {
         if (value == null || isImmutable(value)) {
             return value;
         }
@@ -47,28 +56,28 @@ final class CanvasExecutionValueSnapshots {
             Map<Object, Object> copy = new LinkedHashMap<>();
             Map<Object, Object> snapshot = Collections.unmodifiableMap(copy);
             copies.put(value, snapshot);
-            map.forEach((key, item) -> copy.put(copy(key, copies), copy(item, copies)));
+            map.forEach((key, item) -> copy.put(copy(key, copies, snapshotter), copy(item, copies, snapshotter)));
             return snapshot;
         }
         if (value instanceof List<?> list) {
             List<Object> copy = new ArrayList<>(list.size());
             List<Object> snapshot = Collections.unmodifiableList(copy);
             copies.put(value, snapshot);
-            list.forEach(item -> copy.add(copy(item, copies)));
+            list.forEach(item -> copy.add(copy(item, copies, snapshotter)));
             return snapshot;
         }
         if (value instanceof Set<?> set) {
             Set<Object> copy = new LinkedHashSet<>();
             Set<Object> snapshot = Collections.unmodifiableSet(copy);
             copies.put(value, snapshot);
-            set.forEach(item -> copy.add(copy(item, copies)));
+            set.forEach(item -> copy.add(copy(item, copies, snapshotter)));
             return snapshot;
         }
         if (value instanceof Collection<?> collection) {
             List<Object> copy = new ArrayList<>();
             List<Object> snapshot = Collections.unmodifiableList(copy);
             copies.put(value, snapshot);
-            collection.forEach(item -> copy.add(copy(item, copies)));
+            collection.forEach(item -> copy.add(copy(item, copies, snapshotter)));
             return snapshot;
         }
         if (value.getClass().isArray()) {
@@ -77,14 +86,15 @@ final class CanvasExecutionValueSnapshots {
             List<Object> snapshot = Collections.unmodifiableList(copy);
             copies.put(value, snapshot);
             for (int index = 0; index < length; index++) {
-                copy.add(copy(Array.get(value, index), copies));
+                copy.add(copy(Array.get(value, index), copies, snapshotter));
             }
             return snapshot;
         }
         if (value instanceof Date date) {
             return date.toInstant();
         }
-        return value;
+        Object customSnapshot = snapshotter.snapshot(value);
+        return customSnapshot == value ? value : copy(customSnapshot, copies, snapshotter);
     }
 
     private static boolean isImmutable(Object value) {

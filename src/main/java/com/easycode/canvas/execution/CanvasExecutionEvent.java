@@ -94,4 +94,12 @@ public record CanvasExecutionEvent(
             throw new IllegalArgumentException("node started events cannot carry outputs");
         }
     }
+
+    CanvasExecutionEvent withValueSnapshotter(CanvasExecutionValueSnapshotter snapshotter) {
+        Objects.requireNonNull(snapshotter, "snapshotter");
+        return new CanvasExecutionEvent(executionId, type, nodeId, message, sequence,
+                CanvasExecutionValueSnapshots.snapshot(inputs, "inputs", snapshotter),
+                CanvasExecutionValueSnapshots.snapshot(outputs, "outputs", snapshotter),
+                consoleOutput, occurredAt, failureDetails);
+    }
 }

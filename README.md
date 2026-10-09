@@ -137,7 +137,10 @@ also records its `occurredAt` timestamp for inspection and correlation; event
 ordering continues to use `sequence`.
 Standard maps, collections, arrays, and dates inside value snapshots
 are copied into read-only structures. Custom value objects are retained by
-reference because the runtime cannot safely clone arbitrary user types.
+reference by default because the runtime cannot safely clone arbitrary user
+types. A `CanvasExecutionEventCollector` can be constructed with a
+`CanvasExecutionValueSnapshotter` to project such values into immutable debug
+representations.
 When a node executor throws, its `NODE_FAILED` event includes the exception
 type, message, and formatted stack trace in `failureDetails`; graph validation
 failures still expose their existing message without a fabricated stack trace.
