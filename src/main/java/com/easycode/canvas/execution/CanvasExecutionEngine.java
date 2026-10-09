@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.CancellationException;
 
 /**
@@ -147,6 +148,7 @@ public final class CanvasExecutionEngine {
             }
             eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.NODE_STARTED,
                     nodeId, "", eventSequence, nodeInputs, Map.of(), List.of());
+            AtomicLong nodeEventSequence = new AtomicLong(eventSequence);
             CanvasNodeExecutor executor = executors.get(node.nodeType());
             if (executor == null) {
                 String message = "no executor registered for node type: " + node.nodeType();
@@ -155,10 +157,22 @@ public final class CanvasExecutionEngine {
                         consoleOutput, outputValues,
                         nodeId, message, startedAt, eventSequence, nodeInputs, Map.of(), List.of(), null);
             }
-            CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs, cancellationToken);
+            CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs,
+                    cancellationToken, line -> {
+                long sequence = nodeEventSequence.getAndIncrement();
+                try {
+                    emit(observer, request.executionId(), CanvasExecutionEventType.NODE_CONSOLE_OUTPUT,
+                            nodeId, "", sequence, Map.of(), Map.of(), List.of(line));
+                } catch (RuntimeException exception) {
+                    throw new ObserverNotificationException(exception);
+                }
+            });
             try {
                 executor.execute(node, context);
+            } catch (ObserverNotificationException exception) {
+                throw exception.observerFailure;
             } catch (CancellationException exception) {
+                eventSequence = nodeEventSequence.get();
                 if (cancellationToken.isCancellationRequested()) {
                     return cancelledNode(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, node, nodeInputs, traceInputs, context, eventSequence,
@@ -168,10 +182,12 @@ public final class CanvasExecutionEngine {
                         consoleOutput, outputValues, node, nodeInputs, traceInputs, context, exception,
                         eventSequence, nodeStartedAt, startedAt, traceSnapshotter);
             } catch (Exception exception) {
+                eventSequence = nodeEventSequence.get();
                 return failedNode(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, node, nodeInputs, traceInputs, context, exception,
                         eventSequence, nodeStartedAt, startedAt, traceSnapshotter);
             }
+            eventSequence = nodeEventSequence.get();
             if (cancellationToken.isCancellationRequested()) {
                 return cancelledNode(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, node, nodeInputs, traceInputs, context, eventSequence,
@@ -381,6 +397,15 @@ public final class CanvasExecutionEngine {
         observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, message, sequence,
                 inputs, outputs, consoleOutput, Instant.now(), failureDetails));
         return sequence + 1;
+    }
+
+    private static final class ObserverNotificationException extends RuntimeException {
+        private final RuntimeException observerFailure;
+
+        private ObserverNotificationException(RuntimeException cause) {
+            super(cause);
+            this.observerFailure = cause;
+        }
     }
 
     private static Map<String, Object> namedOutputValues(CanvasDefinition canvas,

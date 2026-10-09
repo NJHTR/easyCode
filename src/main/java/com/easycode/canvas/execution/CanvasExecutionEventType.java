@@ -6,6 +6,7 @@ public enum CanvasExecutionEventType {
     DEBUGGER_PAUSED,
     DEBUGGER_RESUMED,
     NODE_STARTED,
+    NODE_CONSOLE_OUTPUT,
     NODE_SUCCEEDED,
     NODE_FAILED,
     NODE_CANCELLED,

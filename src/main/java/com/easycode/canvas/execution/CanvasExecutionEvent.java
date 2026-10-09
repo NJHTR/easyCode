@@ -86,6 +86,7 @@ public record CanvasExecutionEvent(
             throw new IllegalArgumentException("console output cannot contain null");
         }
         boolean nodeEvent = type == CanvasExecutionEventType.NODE_STARTED
+                || type == CanvasExecutionEventType.NODE_CONSOLE_OUTPUT
                 || type == CanvasExecutionEventType.NODE_SUCCEEDED
                 || type == CanvasExecutionEventType.NODE_FAILED
                 || type == CanvasExecutionEventType.NODE_CANCELLED
@@ -114,6 +115,10 @@ public record CanvasExecutionEvent(
         if (type == CanvasExecutionEventType.NODE_STARTED
                 && (!outputs.isEmpty() || !consoleOutput.isEmpty())) {
             throw new IllegalArgumentException("node started events cannot carry outputs");
+        }
+        if (type == CanvasExecutionEventType.NODE_CONSOLE_OUTPUT
+                && (consoleOutput.size() != 1 || !inputs.isEmpty() || !outputs.isEmpty())) {
+            throw new IllegalArgumentException("node console events must carry exactly one line and no port values");
         }
         if ((type == CanvasExecutionEventType.DEBUGGER_PAUSED
                 || type == CanvasExecutionEventType.DEBUGGER_RESUMED)

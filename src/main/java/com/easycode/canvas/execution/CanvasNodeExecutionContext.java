@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** In-memory port values for one node invocation. */
 public final class CanvasNodeExecutionContext {
@@ -20,6 +21,7 @@ public final class CanvasNodeExecutionContext {
     private final Map<String, UUID> outputPortsByName;
     private final Map<String, UUID> inputPortsByName;
     private final CanvasExecutionCancellationToken cancellationToken;
+    private final Consumer<String> consoleSink;
     private final Map<UUID, Object> outputs = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
 
@@ -29,8 +31,15 @@ public final class CanvasNodeExecutionContext {
 
     CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs,
                                CanvasExecutionCancellationToken cancellationToken) {
+        this(node, inputs, cancellationToken, ignored -> { });
+    }
+
+    CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs,
+                               CanvasExecutionCancellationToken cancellationToken,
+                               Consumer<String> consoleSink) {
         Objects.requireNonNull(node, "node");
         this.cancellationToken = Objects.requireNonNull(cancellationToken, "cancellationToken");
+        this.consoleSink = Objects.requireNonNull(consoleSink, "consoleSink");
         this.inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
         this.inputPortIds = node.ports().stream()
                 .filter(port -> port.direction() == CanvasPortDirection.INPUT)
@@ -110,15 +119,17 @@ public final class CanvasNodeExecutionContext {
         output(portId, value);
     }
 
-    public void console(Object value) {
-        consoleOutput.add(String.valueOf(value));
+    public synchronized void console(Object value) {
+        String line = String.valueOf(value);
+        consoleOutput.add(line);
+        consoleSink.accept(line);
     }
 
     Map<UUID, Object> outputsSnapshot() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(outputs));
     }
 
-    List<String> consoleOutputSnapshot() {
+    synchronized List<String> consoleOutputSnapshot() {
         return List.copyOf(consoleOutput);
     }
 }

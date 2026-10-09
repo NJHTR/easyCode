@@ -40,6 +40,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final Map<UUID, CanvasExecutionStatus> nodeStatuses = new LinkedHashMap<>();
     private final Map<UUID, CanvasExecutionFailure> nodeFailures = new LinkedHashMap<>();
     private final Map<UUID, String> nodeFailureMessages = new LinkedHashMap<>();
+    private final Map<UUID, List<String>> emittedNodeConsoleOutput = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
     private final Map<UUID, Object> publishedOutputValues = new LinkedHashMap<>();
     private CanvasExecutionStatus terminalStatus;
@@ -123,7 +124,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                     && snapshot.failureDetails() != null) {
                 nodeFailures.put(event.nodeId(), snapshot.failureDetails());
             }
-            consoleOutput.addAll(snapshot.consoleOutput());
+            mergeNodeConsoleOutput(event.nodeId(), snapshot.consoleOutput());
+        } else if (event.type() == CanvasExecutionEventType.NODE_CONSOLE_OUTPUT) {
+            String line = snapshot.consoleOutput().get(0);
+            emittedNodeConsoleOutput.computeIfAbsent(event.nodeId(), ignored -> new ArrayList<>()).add(line);
+            consoleOutput.add(line);
         }
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
@@ -192,6 +197,12 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                         || event.nodeId().equals(debuggerResumedNodeId));
                 if (!event.nodeId().equals(activeNodeId) && !cancelledPausedNode) {
                     throw new IllegalArgumentException("node outcome must match the active node");
+                }
+                validateTerminalConsoleOutput(event);
+            }
+            case NODE_CONSOLE_OUTPUT -> {
+                if (!event.nodeId().equals(activeNodeId)) {
+                    throw new IllegalArgumentException("console output must belong to the active node");
                 }
             }
             case SUCCEEDED -> {
@@ -475,13 +486,50 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns console lines emitted by one node in lifecycle order. */
     public synchronized List<String> consoleOutputForNode(UUID nodeId) {
         Objects.requireNonNull(nodeId, "nodeId");
-        return events.stream()
+        List<String> emitted = events.stream()
+                .filter(event -> nodeId.equals(event.nodeId()))
+                .filter(event -> event.type() == CanvasExecutionEventType.NODE_CONSOLE_OUTPUT)
+                .flatMap(event -> event.consoleOutput().stream())
+                .toList();
+        List<String> terminalOutput = events.stream()
                 .filter(event -> nodeId.equals(event.nodeId()))
                 .filter(event -> event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
                         || event.type() == CanvasExecutionEventType.NODE_FAILED
                         || event.type() == CanvasExecutionEventType.NODE_CANCELLED)
                 .flatMap(event -> event.consoleOutput().stream())
                 .toList();
+        boolean hasTerminalEvent = events.stream()
+                .anyMatch(event -> nodeId.equals(event.nodeId()) && isNodeTerminal(event.type()));
+        if (!hasTerminalEvent) {
+            return List.copyOf(emitted);
+        }
+        if (terminalOutput.size() < emitted.size()) {
+            throw new IllegalStateException("terminal node console output is shorter than emitted output");
+        }
+        if (!terminalOutput.subList(0, emitted.size()).equals(emitted)) {
+            throw new IllegalStateException("terminal node console output disagrees with emitted output");
+        }
+        List<String> combined = new ArrayList<>(emitted);
+        combined.addAll(terminalOutput.subList(emitted.size(), terminalOutput.size()));
+        return List.copyOf(combined);
+    }
+
+    private void mergeNodeConsoleOutput(UUID nodeId, List<String> finalOutput) {
+        List<String> emitted = emittedNodeConsoleOutput.getOrDefault(nodeId, List.of());
+        if (finalOutput.size() < emitted.size()
+                || !finalOutput.subList(0, emitted.size()).equals(emitted)) {
+            throw new IllegalArgumentException("terminal node console output disagrees with emitted console events");
+        }
+        consoleOutput.addAll(finalOutput.subList(emitted.size(), finalOutput.size()));
+    }
+
+    private void validateTerminalConsoleOutput(CanvasExecutionEvent event) {
+        List<String> emitted = emittedNodeConsoleOutput.getOrDefault(event.nodeId(), List.of());
+        List<String> finalOutput = event.consoleOutput();
+        if (finalOutput.size() < emitted.size()
+                || !finalOutput.subList(0, emitted.size()).equals(emitted)) {
+            throw new IllegalArgumentException("terminal node console output disagrees with emitted console events");
+        }
     }
 
     /** Returns the terminal status once execution has completed. */
