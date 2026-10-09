@@ -185,6 +185,16 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return List.copyOf(events);
     }
 
+    /** Returns accepted events whose sequence is greater than the supplied cursor. */
+    public synchronized List<CanvasExecutionEvent> eventsAfter(long sequence) {
+        if (sequence < -1L) {
+            throw new IllegalArgumentException("event sequence cursor cannot be less than -1");
+        }
+        return events.stream()
+                .filter(event -> event.sequence() > sequence)
+                .toList();
+    }
+
     /** Returns the most recently accepted lifecycle event, if execution has started. */
     public synchronized Optional<CanvasExecutionEvent> lastEvent() {
         return events.isEmpty() ? Optional.empty() : Optional.of(events.get(events.size() - 1));

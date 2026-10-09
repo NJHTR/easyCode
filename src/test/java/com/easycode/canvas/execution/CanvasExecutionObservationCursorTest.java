@@ -21,6 +21,8 @@ class CanvasExecutionObservationCursorTest {
 
         assertTrue(collector.lastEvent().isEmpty());
         assertEquals(List.of(), collector.observedNodeIds());
+        assertEquals(List.of(), collector.eventsAfter(-1L));
+        assertThrows(IllegalArgumentException.class, () -> collector.eventsAfter(-2L));
 
         CanvasExecutionEvent started = new CanvasExecutionEvent(executionId,
                 CanvasExecutionEventType.STARTED, null, "", 0L);
@@ -36,6 +38,10 @@ class CanvasExecutionObservationCursorTest {
         collector.onEvent(new CanvasExecutionEvent(executionId,
                 CanvasExecutionEventType.NODE_STARTED, secondNode, "", 3L));
 
+        assertEquals(List.of(CanvasExecutionEventType.NODE_SUCCEEDED,
+                        CanvasExecutionEventType.NODE_STARTED),
+                collector.eventsAfter(1L).stream().map(CanvasExecutionEvent::type).toList());
+        assertThrows(UnsupportedOperationException.class, () -> collector.eventsAfter(1L).clear());
         assertEquals(List.of(firstNode, secondNode), collector.observedNodeIds());
         assertEquals(CanvasExecutionEventType.NODE_STARTED,
                 collector.lastEvent().orElseThrow().type());
