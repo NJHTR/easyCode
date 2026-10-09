@@ -112,8 +112,7 @@ add triggers, scheduling, persistence, or nested-canvas execution.
 Post-run query helpers expose output values and node traces without changing
 the immutable snapshot model. `CanvasValueLookup` represents both presence and
 the stored value, because `null` is a valid explicit Canvas value and cannot be
-used to mean that a port or public output was absent. These helpers do not add
-live inspection, breakpoints, or a mutable debugger session.
+used to mean that a port or public output was absent.
 
 `CanvasBuiltinExecutors` contains a small deterministic in-memory baseline:
 `constant`, `passthrough`, `print`, and `add`. The `add` node consumes explicit
@@ -169,6 +168,15 @@ it before starting each node, and a long-running executor may call
 Cancellation produces a distinct terminal status and event; partial diagnostics
 for a cancelled node are retained in its trace but are not published as completed
 canvas outputs. The engine does not forcibly interrupt threads.
+
+`CanvasExecutionDebugger` adds an optional node-boundary control plane for one
+execution. Callers may set node breakpoints, pause before the next node, resume,
+or step one node at a time. A breakpoint pauses before that node starts; a pause
+requested during a node takes effect after the node finishes. The debugger does
+not interrupt node code. Execution remains synchronous and the caller owns any
+thread used to issue controls concurrently. Cancellation releases a paused
+execution. This is basic graph-level stepping, not source-line debugging or a
+mutable variable watch session.
 
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's

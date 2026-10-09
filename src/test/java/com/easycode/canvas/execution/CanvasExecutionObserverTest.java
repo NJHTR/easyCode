@@ -9,6 +9,7 @@ import com.easycode.canvas.model.CanvasPort;
 import com.easycode.canvas.model.CanvasPortDirection;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -16,6 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -338,6 +343,78 @@ class CanvasExecutionObserverTest {
         assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
                         CanvasExecutionEventType.NODE_FAILED, CanvasExecutionEventType.FAILED),
                 collector.events().stream().map(CanvasExecutionEvent::type).toList());
+    }
+
+    @Test
+    void debuggerSupportsBreakpointStepAndResume() throws Exception {
+        List<UUID> executed = java.util.Collections.synchronizedList(new ArrayList<>());
+        CanvasNode first = bareNode("first");
+        CanvasNode second = bareNode("second");
+        CanvasNode third = bareNode("third");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "debug-step",
+                List.of(first, second, third), List.of());
+        CanvasService service = new CanvasService(Map.of(
+                "debug-node", (node, context) -> executed.add(node.nodeId())));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(second.nodeId());
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), CanvasExecutionObserver.noop(),
+                    cancellation, debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            assertEquals(second.nodeId(), debugger.pausedNodeId());
+            assertEquals(List.of(first.nodeId()), List.copyOf(executed));
+
+            debugger.step();
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            assertEquals(third.nodeId(), debugger.pausedNodeId());
+            assertEquals(List.of(first.nodeId(), second.nodeId()), List.copyOf(executed));
+
+            debugger.resume();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED,
+                    result.get(5, TimeUnit.SECONDS).status());
+            assertEquals(List.of(first.nodeId(), second.nodeId(), third.nodeId()), List.copyOf(executed));
+        } finally {
+            debugger.resume();
+            cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void cancellationReleasesExecutionPausedAtBreakpoint() throws Exception {
+        CanvasNode node = bareNode("paused");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "debug-cancel",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(node.nodeId());
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), CanvasExecutionObserver.noop(),
+                    cancellation, debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            cancellation.cancel();
+
+            assertEquals(CanvasExecutionStatus.CANCELLED,
+                    result.get(5, TimeUnit.SECONDS).status());
+        } finally {
+            debugger.resume();
+            cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    private static CanvasNode bareNode(String name) {
+        return new CanvasNode(UUID.randomUUID(), name, "debug-node", Map.of(), List.of());
     }
 
     private static final class MutableValue {

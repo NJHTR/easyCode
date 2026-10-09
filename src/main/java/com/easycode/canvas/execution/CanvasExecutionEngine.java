@@ -69,9 +69,25 @@ public final class CanvasExecutionEngine {
     public CanvasExecutionResult execute(CanvasExecutionRequest request,
                                          CanvasExecutionObserver observer,
                                          CanvasExecutionCancellationToken cancellationToken) {
+        return execute(request, observer, cancellationToken, new CanvasExecutionDebugger());
+    }
+
+    /** Executes a request with external node-boundary breakpoint and stepping control. */
+    public CanvasExecutionResult executeDebuggable(CanvasExecutionRequest request,
+                                                   CanvasExecutionObserver observer,
+                                                   CanvasExecutionCancellationToken cancellationToken,
+                                                   CanvasExecutionDebugger debugger) {
+        return execute(request, observer, cancellationToken, debugger);
+    }
+
+    private CanvasExecutionResult execute(CanvasExecutionRequest request,
+                                          CanvasExecutionObserver observer,
+                                          CanvasExecutionCancellationToken cancellationToken,
+                                          CanvasExecutionDebugger debugger) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(observer, "observer");
         Objects.requireNonNull(cancellationToken, "cancellationToken");
+        Objects.requireNonNull(debugger, "debugger");
         CanvasDefinition canvas = request.canvas();
         Instant startedAt = Instant.now();
         CanvasExecutionPlan plan = preflight.prepare(request);
@@ -94,6 +110,10 @@ public final class CanvasExecutionEngine {
 
         for (UUID nodeId : plan.orderedNodeIds()) {
             if (cancellationToken.isCancellationRequested()) {
+                return cancelled(request.executionId(), observer, canvas, completed, traces,
+                        consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
+            }
+            if (!debugger.beforeNode(nodeId, cancellationToken)) {
                 return cancelled(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
             }
@@ -175,6 +195,7 @@ public final class CanvasExecutionEngine {
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
                 inputValues.put(connection.toPortId(), outputs.get(connection.fromPortId()));
             }
+            debugger.afterNode();
         }
         CanvasExecutionResult result = new CanvasExecutionResult(request.executionId(), canvas.canvasId(),
                 CanvasExecutionStatus.SUCCEEDED, completed, traces,

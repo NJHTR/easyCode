@@ -5,6 +5,7 @@ import com.easycode.canvas.execution.CanvasExecutionResult;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionObserver;
 import com.easycode.canvas.execution.CanvasExecutionCancellationToken;
+import com.easycode.canvas.execution.CanvasExecutionDebugger;
 import com.easycode.canvas.execution.builtin.CanvasBuiltinLibrary;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
@@ -80,6 +81,13 @@ public final class CanvasApplication {
                                          CanvasExecutionObserver observer,
                                          CanvasExecutionCancellationToken cancellationToken) {
         return service.execute(request, observer, cancellationToken);
+    }
+
+    public CanvasExecutionResult executeDebuggable(CanvasExecutionRequest request,
+                                                   CanvasExecutionObserver observer,
+                                                   CanvasExecutionCancellationToken cancellationToken,
+                                                   CanvasExecutionDebugger debugger) {
+        return service.executeDebuggable(request, observer, cancellationToken, debugger);
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {

@@ -3,6 +3,7 @@ package com.easycode.canvas.api;
 import com.easycode.canvas.execution.CanvasExecutionEngine;
 import com.easycode.canvas.execution.CanvasExecutionObserver;
 import com.easycode.canvas.execution.CanvasExecutionCancellationToken;
+import com.easycode.canvas.execution.CanvasExecutionDebugger;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
@@ -77,6 +78,14 @@ public final class CanvasService {
                                          CanvasExecutionObserver observer,
                                          CanvasExecutionCancellationToken cancellationToken) {
         return engine.execute(request, observer, cancellationToken);
+    }
+
+    /** Executes a request with node-boundary breakpoints and external stepping control. */
+    public CanvasExecutionResult executeDebuggable(CanvasExecutionRequest request,
+                                                   CanvasExecutionObserver observer,
+                                                   CanvasExecutionCancellationToken cancellationToken,
+                                                   CanvasExecutionDebugger debugger) {
+        return engine.executeDebuggable(request, observer, cancellationToken, debugger);
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {

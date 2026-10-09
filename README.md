@@ -158,6 +158,12 @@ Synchronous runs also accept a `CanvasExecutionCancellationToken`. Cancellation
 is cooperative: the engine checks between nodes and node executors can check the
 token during long work. It does not forcibly interrupt or kill a running node.
 
+For node-boundary debugging, `CanvasExecutionDebugger` supports per-node
+breakpoints, pause, resume, and one-node stepping. It does not stop a node in the
+middle of its execution. The execution call stays synchronous; callers that
+need to control it concurrently run that call on a thread they own. Cancellation
+also releases an execution waiting at a debugger pause.
+
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is
 available through `CanvasBuiltinNodes.catalog()`. It describes node shape only;
