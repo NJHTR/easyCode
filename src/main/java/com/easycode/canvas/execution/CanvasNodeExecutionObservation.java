@@ -53,6 +53,22 @@ public record CanvasNodeExecutionObservation(
         return isActive() && startedAt.isEmpty();
     }
 
+    /** Looks up one observed input while preserving an explicit null value. */
+    public CanvasValueLookup input(UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return inputs.containsKey(portId)
+                ? CanvasValueLookup.present(inputs.get(portId))
+                : CanvasValueLookup.missing();
+    }
+
+    /** Looks up one observed output while preserving an explicit null value. */
+    public CanvasValueLookup output(UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return outputs.isPresent() && outputs.orElseThrow().containsKey(portId)
+                ? CanvasValueLookup.present(outputs.orElseThrow().get(portId))
+                : CanvasValueLookup.missing();
+    }
+
     /** Returns whether this node reached a terminal outcome. */
     public boolean isComplete() {
         return status.isPresent();

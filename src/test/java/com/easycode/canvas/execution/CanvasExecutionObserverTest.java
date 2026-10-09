@@ -109,6 +109,8 @@ class CanvasExecutionObserverTest {
         assertEquals(Map.of(second.ports().get(0).portId(), "one"), secondObservation.inputs());
         assertEquals(java.util.Optional.of(Map.of()), secondObservation.outputs());
         assertEquals(List.of("one"), secondObservation.consoleOutput());
+        assertEquals("one", secondObservation.input(second.ports().get(0).portId()).requireValue());
+        assertFalse(secondObservation.output(UUID.randomUUID()).present());
         assertTrue(secondObservation.isComplete());
         assertFalse(secondObservation.isActive());
         assertEquals(2, collector.nodeObservations().size());
@@ -171,6 +173,8 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.of("expected failure"), failedObservation.failureMessage());
         assertTrue(failedObservation.failureDetails().isPresent());
         assertEquals(Map.of(outputPortId, "partial"), failedObservation.outputs().orElseThrow());
+        assertEquals("partial", failedObservation.output(outputPortId).requireValue());
+        assertFalse(failedObservation.input(UUID.randomUUID()).present());
         assertTrue(failedObservation.isComplete());
         assertFalse(failedObservation.isActive());
         assertFalse(failedObservation.isPaused());
