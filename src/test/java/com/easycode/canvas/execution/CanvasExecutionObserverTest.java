@@ -724,6 +724,53 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void cancellationDuringDebuggerResumeClosesNodeBoundaryLifecycle() throws Exception {
+        CanvasNode node = bareNode("cancel-on-resume");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "cancel-on-resume",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> {
+            throw new AssertionError("cancelled node must not start");
+        }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(node.nodeId());
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), event -> {
+                        collector.onEvent(event);
+                        if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
+                            cancellation.cancel();
+                        }
+                    }, cancellation, debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            debugger.resume();
+            CanvasExecutionResult cancelledResult = result.get(5, TimeUnit.SECONDS);
+
+            assertEquals(CanvasExecutionStatus.CANCELLED, cancelledResult.status());
+            assertEquals(CanvasExecutionStatus.CANCELLED,
+                    cancelledResult.trace(node.nodeId()).orElseThrow().status());
+            assertEquals(List.of(CanvasExecutionEventType.STARTED,
+                            CanvasExecutionEventType.DEBUGGER_PAUSED,
+                            CanvasExecutionEventType.DEBUGGER_RESUMED,
+                            CanvasExecutionEventType.NODE_CANCELLED,
+                            CanvasExecutionEventType.CANCELLED),
+                    collector.events().stream().map(CanvasExecutionEvent::type).toList());
+            assertEquals(java.util.Optional.empty(), collector.nodeStartedAt(node.nodeId()));
+            assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED),
+                    collector.nodeStatus(node.nodeId()));
+            assertTrue(collector.isComplete());
+        } finally {
+            debugger.resume();
+            cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void debuggerCannotBeSharedByConcurrentExecutions() throws Exception {
         CanvasNode node = bareNode("single-debugger-owner");
         CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "single-debugger-owner",
@@ -1058,6 +1105,34 @@ class CanvasExecutionObserverTest {
         assertTrue(collector.isComplete());
         assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED),
                 collector.nodeStatus(nodeId));
+    }
+
+    @Test
+    void collectorAcceptsCancellationAfterDebuggerResumeBeforeNodeStart() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
+                nodeId, "", 1L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.DEBUGGER_RESUMED,
+                nodeId, "", 2L));
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.CANCELLED, null,
+                "canvas execution cancelled", 3L)));
+        assertEquals(3, collector.size());
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_CANCELLED,
+                nodeId, "canvas execution cancelled", 3L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.CANCELLED,
+                null, "canvas execution cancelled", 4L));
+
+        assertTrue(collector.isComplete());
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), collector.nodeStatus(nodeId));
+        assertEquals(java.util.Optional.empty(), collector.nodeStartedAt(nodeId));
+        assertEquals(java.util.Optional.empty(), collector.activeNodeId());
     }
 
     private static CanvasNode bareNode(String name) {

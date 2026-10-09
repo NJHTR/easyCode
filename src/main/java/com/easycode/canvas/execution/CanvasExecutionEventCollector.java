@@ -31,6 +31,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private Map<UUID, Object> activeNodeInputs = Map.of();
     private UUID debuggerPausedNodeId;
     private Map<UUID, Object> debuggerPausedNodeInputs = Map.of();
+    private UUID debuggerResumedNodeId;
     private CanvasExecutionEventType lastNodeOutcome;
     private final List<UUID> completedNodeIds = new ArrayList<>();
     private final Map<UUID, Map<UUID, Object>> nodeInputs = new LinkedHashMap<>();
@@ -80,21 +81,25 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         } else if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
             debuggerPausedNodeId = null;
             debuggerPausedNodeInputs = Map.of();
+            debuggerResumedNodeId = event.nodeId();
         }
         if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
             activeNodeId = event.nodeId();
             activeNodeInputs = snapshot.inputs();
             nodeInputs.put(event.nodeId(), snapshot.inputs());
+            debuggerResumedNodeId = null;
         } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
                 || event.type() == CanvasExecutionEventType.NODE_FAILED
                 || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
             boolean cancelledPausedNode = event.type() == CanvasExecutionEventType.NODE_CANCELLED
-                    && event.nodeId().equals(debuggerPausedNodeId);
+                    && (event.nodeId().equals(debuggerPausedNodeId)
+                    || event.nodeId().equals(debuggerResumedNodeId));
             activeNodeId = null;
             activeNodeInputs = Map.of();
             if (cancelledPausedNode) {
                 debuggerPausedNodeId = null;
                 debuggerPausedNodeInputs = Map.of();
+                debuggerResumedNodeId = null;
             }
             lastNodeOutcome = event.type();
             if (event.type() == CanvasExecutionEventType.NODE_FAILED) {
@@ -130,6 +135,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             activeNodeInputs = Map.of();
             debuggerPausedNodeId = null;
             debuggerPausedNodeInputs = Map.of();
+            debuggerResumedNodeId = null;
         }
     }
 
@@ -142,6 +148,12 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 || (lastNodeOutcome == CanvasExecutionEventType.NODE_CANCELLED
                 && type != CanvasExecutionEventType.CANCELLED)) {
             throw new IllegalArgumentException("terminal node outcome must be followed by its execution outcome");
+        }
+        if (debuggerResumedNodeId != null
+                && (type != CanvasExecutionEventType.NODE_STARTED
+                && (type != CanvasExecutionEventType.NODE_CANCELLED
+                || !debuggerResumedNodeId.equals(event.nodeId())))) {
+            throw new IllegalArgumentException("resumed debugger node must start or be cancelled before another event");
         }
         switch (type) {
             case STARTED -> throw new IllegalArgumentException("execution can only start once");
@@ -159,13 +171,17 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 if (activeNodeId != null || debuggerPausedNodeId != null) {
                     throw new IllegalArgumentException("node execution cannot overlap another node or debugger pause");
                 }
+                if (debuggerResumedNodeId != null && !debuggerResumedNodeId.equals(event.nodeId())) {
+                    throw new IllegalArgumentException("resumed node must match the next node start");
+                }
                 if (nodeInputs.containsKey(event.nodeId()) || nodeStatuses.containsKey(event.nodeId())) {
                     throw new IllegalArgumentException("node can only start once per execution");
                 }
             }
             case NODE_SUCCEEDED, NODE_FAILED, NODE_CANCELLED -> {
                 boolean cancelledPausedNode = type == CanvasExecutionEventType.NODE_CANCELLED
-                        && event.nodeId().equals(debuggerPausedNodeId);
+                        && (event.nodeId().equals(debuggerPausedNodeId)
+                        || event.nodeId().equals(debuggerResumedNodeId));
                 if (!event.nodeId().equals(activeNodeId) && !cancelledPausedNode) {
                     throw new IllegalArgumentException("node outcome must match the active node");
                 }
