@@ -189,6 +189,9 @@ one immutable point-in-time view of the collector state. It remains an in-memory
 query snapshot and does not add event streaming or persistence. Its
 `isRunning()` and `isPaused()` helpers expose the derived lifecycle state without
 requiring callers to interpret optional fields.
+`nodeObservation(nodeId)` and `nodeObservations()` provide immutable per-node
+snapshots with timing, inputs, outputs, console lines, status, and failure data;
+they are still query projections over the in-memory collector.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

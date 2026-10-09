@@ -181,6 +181,9 @@ without requiring callers to scan node events.
 `observation()` returns one immutable point-in-time view when callers need
 several of these values consistently. Its `isRunning()` and `isPaused()` helpers
 make the lifecycle state explicit without parsing optional fields.
+`nodeObservation(nodeId)` and `nodeObservations()` provide the equivalent
+consistent view for one or all observed nodes, including node timing, values,
+console output, status, and failure information.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.

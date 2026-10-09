@@ -329,6 +329,46 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return Optional.ofNullable(nodeFailureMessages.get(nodeId));
     }
 
+    /** Returns one consistent observation of a node, if that node has been observed. */
+    public synchronized Optional<CanvasNodeExecutionObservation> nodeObservation(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        Map<UUID, Object> inputs = nodeInputs.get(nodeId);
+        if (inputs == null) {
+            inputs = events.stream()
+                    .filter(event -> event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED)
+                    .filter(event -> nodeId.equals(event.nodeId()))
+                    .map(CanvasExecutionEvent::inputs)
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (inputs == null && !nodeStatuses.containsKey(nodeId)) {
+            return Optional.empty();
+        }
+        return Optional.of(new CanvasNodeExecutionObservation(
+                nodeId,
+                nodeStartedAt(nodeId),
+                nodeCompletedAt(nodeId),
+                nodeElapsed(nodeId),
+                inputs == null ? Map.of() : inputs,
+                Optional.ofNullable(nodeOutputs.get(nodeId)),
+                consoleOutputForNode(nodeId),
+                Optional.ofNullable(nodeStatuses.get(nodeId)),
+                Optional.ofNullable(nodeFailureMessages.get(nodeId)),
+                Optional.ofNullable(nodeFailures.get(nodeId))));
+    }
+
+    /** Returns immutable node observations in their first observed execution order. */
+    public synchronized Map<UUID, CanvasNodeExecutionObservation> nodeObservations() {
+        Map<UUID, CanvasNodeExecutionObservation> observations = new LinkedHashMap<>();
+        for (CanvasExecutionEvent event : events) {
+            if (event.nodeId() != null) {
+                nodeObservation(event.nodeId()).ifPresent(observation ->
+                        observations.putIfAbsent(event.nodeId(), observation));
+            }
+        }
+        return Collections.unmodifiableMap(observations);
+    }
+
     /** Returns the node at which execution is currently paused, if any. */
     public synchronized Optional<UUID> pausedNodeId() {
         return Optional.ofNullable(debuggerPausedNodeId);

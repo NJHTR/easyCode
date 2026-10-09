@@ -104,6 +104,14 @@ class CanvasExecutionObserverTest {
         assertTrue(observation.complete());
         assertFalse(observation.isRunning());
         assertFalse(observation.isPaused());
+        CanvasNodeExecutionObservation secondObservation = collector.nodeObservation(second.nodeId()).orElseThrow();
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), secondObservation.status());
+        assertEquals(Map.of(second.ports().get(0).portId(), "one"), secondObservation.inputs());
+        assertEquals(java.util.Optional.of(Map.of()), secondObservation.outputs());
+        assertEquals(List.of("one"), secondObservation.consoleOutput());
+        assertTrue(secondObservation.isComplete());
+        assertFalse(secondObservation.isActive());
+        assertEquals(2, collector.nodeObservations().size());
         assertThrows(UnsupportedOperationException.class,
                 () -> observation.nodeStatuses().clear());
     }
@@ -158,6 +166,13 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.of(events.get(2).failureDetails()),
                 collector.nodeFailureDetails(nodeId));
         assertEquals(java.util.Optional.of("expected failure"), collector.nodeFailureMessage(nodeId));
+        CanvasNodeExecutionObservation failedObservation = collector.nodeObservation(nodeId).orElseThrow();
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.FAILED), failedObservation.status());
+        assertEquals(java.util.Optional.of("expected failure"), failedObservation.failureMessage());
+        assertTrue(failedObservation.failureDetails().isPresent());
+        assertEquals(Map.of(outputPortId, "partial"), failedObservation.outputs().orElseThrow());
+        assertTrue(failedObservation.isComplete());
+        assertFalse(failedObservation.isActive());
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);
@@ -235,6 +250,11 @@ class CanvasExecutionObserverTest {
         assertEquals(false, observation.complete());
         assertTrue(observation.isRunning());
         assertTrue(observation.isPaused());
+        CanvasNodeExecutionObservation nodeObservation = collector.nodeObservation(nodeId).orElseThrow();
+        assertEquals(java.util.Optional.empty(), nodeObservation.startedAt());
+        assertEquals(Map.of(inputPortId, "paused"), nodeObservation.inputs());
+        assertTrue(nodeObservation.isActive());
+        assertFalse(nodeObservation.isComplete());
     }
 
     @Test
