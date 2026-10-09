@@ -105,17 +105,18 @@ public final class CanvasExecutionEngine {
         Instant startedAt = Instant.now();
         CanvasExecutionPlan plan = preflight.prepare(request);
         debugger.validateBreakpoints(plan.orderedNodeIds());
-        long eventSequence = 0L;
-        eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.STARTED,
+        try {
+            long eventSequence = 0L;
+            eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.STARTED,
                 null, "", eventSequence, Map.of(), Map.of(), List.of());
-        Map<UUID, CanvasNode> nodes = indexNodes(canvas.nodes());
-        Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
-        Set<UUID> declaredOutputPorts = Set.copyOf(canvas.outputBindings().values());
-        Map<UUID, Object> inputValues = new LinkedHashMap<>(request.initialInputs());
-        Map<UUID, Object> outputValues = new LinkedHashMap<>();
-        List<UUID> completed = new ArrayList<>();
-        List<CanvasNodeExecutionTrace> traces = new ArrayList<>();
-        List<String> consoleOutput = new ArrayList<>();
+            Map<UUID, CanvasNode> nodes = indexNodes(canvas.nodes());
+            Map<UUID, List<CanvasConnection>> outgoing = outgoingConnections(canvas.connections());
+            Set<UUID> declaredOutputPorts = Set.copyOf(canvas.outputBindings().values());
+            Map<UUID, Object> inputValues = new LinkedHashMap<>(request.initialInputs());
+            Map<UUID, Object> outputValues = new LinkedHashMap<>();
+            List<UUID> completed = new ArrayList<>();
+            List<CanvasNodeExecutionTrace> traces = new ArrayList<>();
+            List<String> consoleOutput = new ArrayList<>();
 
         if (cancellationToken.isCancellationRequested()) {
             return cancelled(request.executionId(), observer, canvas, completed, traces,
@@ -228,7 +229,11 @@ public final class CanvasExecutionEngine {
         debugger.complete();
         emit(observer, request.executionId(), CanvasExecutionEventType.SUCCEEDED,
                 null, "", eventSequence, Map.of(), Map.of(), List.of());
-        return result;
+            return result;
+        } finally {
+            // Observer failures must not leave reusable debugger state behind.
+            debugger.complete();
+        }
     }
 
     private static Map<UUID, CanvasNode> indexNodes(List<CanvasNode> nodes) {

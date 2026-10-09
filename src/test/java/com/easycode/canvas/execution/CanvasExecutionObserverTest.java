@@ -700,6 +700,30 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void observerFailureAtPauseCleansReusableDebuggerState() {
+        CanvasNode node = bareNode("observer-failure");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "observer-failure",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(node.nodeId());
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class, () ->
+                service.executeDebuggable(CanvasExecutionRequest.forCanvas(canvas), event -> {
+                    if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
+                        throw new IllegalStateException("observer failed");
+                    }
+                }, new CanvasExecutionCancellationToken(), debugger));
+
+        assertEquals("observer failed", failure.getMessage());
+        assertEquals(Set.of(node.nodeId()), debugger.breakpoints());
+        assertEquals(Set.of(), debugger.hitBreakpoints());
+        assertFalse(debugger.isPaused());
+        assertFalse(debugger.isPauseRequested());
+        assertEquals(null, debugger.pausedNodeId());
+    }
+
+    @Test
     void debuggerRejectsBreakpointOutsideExecutionBeforeStarting() {
         CanvasNode node = bareNode("node");
         CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "invalid-breakpoint",
