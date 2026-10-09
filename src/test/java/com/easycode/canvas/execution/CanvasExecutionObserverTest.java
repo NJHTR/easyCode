@@ -1054,6 +1054,26 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void collectorRejectsPausingACompletedNodeAgain() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_STARTED,
+                nodeId, "", 1L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_SUCCEEDED,
+                nodeId, "", 2L));
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.DEBUGGER_PAUSED, nodeId, "", 3L)));
+
+        assertEquals(3, collector.size());
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), collector.nodeStatus(nodeId));
+        assertEquals(List.of(nodeId), collector.completedNodeIds());
+    }
+
+    @Test
     void collectorClearsPauseImmediatelyWhenPausedNodeIsCancelled() {
         CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
         UUID executionId = UUID.randomUUID();

@@ -161,6 +161,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 if (activeNodeId != null || debuggerPausedNodeId != null) {
                     throw new IllegalArgumentException("debugger can pause only between nodes");
                 }
+                if (nodeStatuses.containsKey(event.nodeId())) {
+                    throw new IllegalArgumentException("completed node cannot be paused again");
+                }
             }
             case DEBUGGER_RESUMED -> {
                 if (debuggerPausedNodeId == null || !event.nodeId().equals(debuggerPausedNodeId)) {
