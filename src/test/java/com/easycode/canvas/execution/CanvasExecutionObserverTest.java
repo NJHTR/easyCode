@@ -985,6 +985,27 @@ class CanvasExecutionObserverTest {
         assertEquals(1, failedWithoutNodeFailure.size());
     }
 
+    @Test
+    void collectorRejectsRestartingACompletedNode() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_STARTED,
+                nodeId, "", 1L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_SUCCEEDED,
+                nodeId, "", 2L));
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.NODE_STARTED, nodeId, "", 3L)));
+
+        assertEquals(3, collector.size());
+        assertEquals(java.util.Optional.empty(), collector.activeNodeId());
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), collector.nodeStatus(nodeId));
+        assertEquals(List.of(nodeId), collector.completedNodeIds());
+    }
+
     private static CanvasNode bareNode(String name) {
         return new CanvasNode(UUID.randomUUID(), name, "debug-node", Map.of(), List.of());
     }

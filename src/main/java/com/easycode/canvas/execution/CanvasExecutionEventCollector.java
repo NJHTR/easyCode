@@ -153,6 +153,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 if (activeNodeId != null || debuggerPausedNodeId != null) {
                     throw new IllegalArgumentException("node execution cannot overlap another node or debugger pause");
                 }
+                if (nodeInputs.containsKey(event.nodeId()) || nodeStatuses.containsKey(event.nodeId())) {
+                    throw new IllegalArgumentException("node can only start once per execution");
+                }
             }
             case NODE_SUCCEEDED, NODE_FAILED, NODE_CANCELLED -> {
                 boolean cancelledPausedNode = type == CanvasExecutionEventType.NODE_CANCELLED
