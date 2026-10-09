@@ -78,4 +78,14 @@ public record CanvasExecutionObservation(
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(statuses));
     }
+
+    /** Returns whether this snapshot represents an execution that has started but not terminated. */
+    public boolean isRunning() {
+        return executionId.isPresent() && !complete;
+    }
+
+    /** Returns whether the execution is paused at a node boundary in this snapshot. */
+    public boolean isPaused() {
+        return pausedNodeId.isPresent();
+    }
 }

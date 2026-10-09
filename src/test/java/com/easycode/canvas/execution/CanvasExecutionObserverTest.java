@@ -102,6 +102,8 @@ class CanvasExecutionObserverTest {
                 second.nodeId(), CanvasExecutionStatus.SUCCEEDED), observation.nodeStatuses());
         assertEquals(List.of("one"), observation.consoleOutput());
         assertTrue(observation.complete());
+        assertFalse(observation.isRunning());
+        assertFalse(observation.isPaused());
         assertThrows(UnsupportedOperationException.class,
                 () -> observation.nodeStatuses().clear());
     }
@@ -230,6 +232,8 @@ class CanvasExecutionObserverTest {
         assertEquals(Map.of(inputPortId, "paused"), observation.pausedNodeInputs());
         assertEquals(java.util.Optional.empty(), observation.terminalStatus());
         assertEquals(false, observation.complete());
+        assertTrue(observation.isRunning());
+        assertTrue(observation.isPaused());
     }
 
     @Test
