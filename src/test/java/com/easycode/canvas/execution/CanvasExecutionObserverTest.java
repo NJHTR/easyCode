@@ -166,6 +166,25 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void collectorExposesExecutionTimingFromLifecycleTimestamps() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        Instant startedAt = Instant.parse("2026-01-02T03:04:05Z");
+        Instant completedAt = startedAt.plusMillis(125);
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L, Map.of(), Map.of(), List.of(), startedAt));
+        assertEquals(java.util.Optional.of(startedAt), collector.startedAt());
+        assertEquals(java.util.Optional.empty(), collector.completedAt());
+        assertTrue(collector.elapsed().orElseThrow().compareTo(Duration.ZERO) >= 0);
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.SUCCEEDED,
+                null, "", 1L, Map.of(), Map.of(), List.of(), completedAt));
+        assertEquals(java.util.Optional.of(completedAt), collector.completedAt());
+        assertEquals(Duration.ofMillis(125), collector.elapsed().orElseThrow());
+    }
+
+    @Test
     void collectorKeepsAnImmutableExecutionSnapshot() {
         CanvasApplication application = new CanvasApplication();
         CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",

@@ -1,5 +1,7 @@
 package com.easycode.canvas.execution;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -18,6 +20,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final List<CanvasExecutionEvent> events = new ArrayList<>();
     private final CanvasExecutionValueSnapshotter snapshotter;
     private UUID executionId;
+    private Instant startedAt;
+    private Instant completedAt;
     private boolean terminal;
     private UUID failedNodeId;
     private CanvasExecutionFailure failureDetails;
@@ -61,6 +65,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         }
         CanvasExecutionEvent snapshot = event.withValueSnapshotter(snapshotter);
         validateLifecycle(event);
+        if (events.isEmpty()) {
+            startedAt = snapshot.occurredAt();
+        }
         if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
             debuggerPausedNodeId = event.nodeId();
             debuggerPausedNodeInputs = snapshot.inputs();
@@ -89,6 +96,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         }
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
+        if (terminalStatus != null) {
+            completedAt = snapshot.occurredAt();
+        }
         if (terminalStatus != null && !event.message().isBlank()) {
             terminalMessage = event.message();
         }
@@ -162,6 +172,26 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns the execution identity after the first STARTED event is collected. */
     public synchronized Optional<UUID> executionId() {
         return Optional.ofNullable(executionId);
+    }
+
+    /** Returns the timestamp carried by the STARTED event. */
+    public synchronized Optional<Instant> startedAt() {
+        return Optional.ofNullable(startedAt);
+    }
+
+    /** Returns the timestamp carried by the terminal event, if complete. */
+    public synchronized Optional<Instant> completedAt() {
+        return Optional.ofNullable(completedAt);
+    }
+
+    /** Returns elapsed wall-clock time from STARTED to now or the terminal event. */
+    public synchronized Optional<Duration> elapsed() {
+        if (startedAt == null) {
+            return Optional.empty();
+        }
+        Instant end = completedAt == null ? Instant.now() : completedAt;
+        Duration duration = Duration.between(startedAt, end);
+        return Optional.of(duration.isNegative() ? Duration.ZERO : duration);
     }
 
     /** Returns lifecycle events for one node in their original execution order. */

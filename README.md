@@ -166,7 +166,9 @@ only while that node state exists; terminal cleanup removes them.
 Failure queries expose the failed node, exception diagnostics when available,
 and the terminal failure or cancellation message without requiring event scans.
 The collector also provides execution identity, null-safe lookup by output port,
-and per-node console queries.
+and per-node console queries. Lifecycle timestamps are available through
+`startedAt()`, `completedAt()`, and `elapsed()` without introducing a realtime
+log stream.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
