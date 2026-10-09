@@ -143,4 +143,18 @@ public record CanvasExecutionObservation(
     public boolean isPaused() {
         return pausedNodeId.isPresent();
     }
+
+    /** Looks up one published output while preserving an explicit null value. */
+    public CanvasValueLookup publishedOutput(UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return publishedOutputValues.containsKey(portId)
+                ? CanvasValueLookup.present(publishedOutputValues.get(portId))
+                : CanvasValueLookup.missing();
+    }
+
+    /** Returns the terminal status observed for a node, if it has completed. */
+    public Optional<CanvasExecutionStatus> nodeStatus(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return Optional.ofNullable(nodeStatuses.get(nodeId));
+    }
 }
