@@ -95,7 +95,7 @@ public final class CanvasExecutionEngine {
                 traces.add(failedTrace(node, nodeInputs, message, nodeStartedAt));
                 return failed(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues,
-                        nodeId, message, startedAt, eventSequence, nodeInputs, Map.of(), List.of());
+                        nodeId, message, startedAt, eventSequence, nodeInputs, Map.of(), List.of(), null);
             }
             CanvasNodeExecutionContext context = new CanvasNodeExecutionContext(node, nodeInputs);
             try {
@@ -109,7 +109,8 @@ public final class CanvasExecutionEngine {
                 return failed(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues,
                         nodeId, message, startedAt, eventSequence, nodeInputs,
-                        context.outputsSnapshot(), context.consoleOutputSnapshot());
+                        context.outputsSnapshot(), context.consoleOutputSnapshot(),
+                        CanvasExecutionFailure.from(exception));
             }
             Map<UUID, Object> outputs = context.outputsSnapshot();
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {
@@ -122,7 +123,7 @@ public final class CanvasExecutionEngine {
                     return failed(request.executionId(), observer, canvas, completed, traces,
                             consoleOutput, outputValues,
                             nodeId, message, startedAt, eventSequence, nodeInputs,
-                            outputs, context.consoleOutputSnapshot());
+                            outputs, context.consoleOutputSnapshot(), null);
                 }
             }
             for (CanvasPort port : node.ports()) {
@@ -135,7 +136,7 @@ public final class CanvasExecutionEngine {
                     return failed(request.executionId(), observer, canvas, completed, traces,
                             consoleOutput, outputValues,
                             nodeId, message, startedAt, eventSequence, nodeInputs,
-                            outputs, context.consoleOutputSnapshot());
+                            outputs, context.consoleOutputSnapshot(), null);
                 }
             }
             outputValues.putAll(outputs);
@@ -183,7 +184,8 @@ public final class CanvasExecutionEngine {
                                                 long eventSequence,
                                                 Map<UUID, Object> inputs,
                                                 Map<UUID, Object> outputs,
-                                                List<String> nodeConsoleOutput) {
+                                                List<String> nodeConsoleOutput,
+                                                CanvasExecutionFailure failureDetails) {
         String failure = message == null || message.isBlank() ? "node execution failed" : message;
         CanvasExecutionResult result = new CanvasExecutionResult(executionId, canvas.canvasId(),
                 CanvasExecutionStatus.FAILED,
@@ -192,7 +194,7 @@ public final class CanvasExecutionEngine {
                 failure,
                 Duration.between(startedAt, Instant.now()));
         eventSequence = emit(observer, executionId, CanvasExecutionEventType.NODE_FAILED,
-                nodeId, failure, eventSequence, inputs, outputs, nodeConsoleOutput);
+                nodeId, failure, eventSequence, inputs, outputs, nodeConsoleOutput, failureDetails);
         emit(observer, executionId, CanvasExecutionEventType.FAILED,
                 null, failure, eventSequence, Map.of(), Map.of(), List.of());
         return result;
@@ -202,8 +204,17 @@ public final class CanvasExecutionEngine {
                              CanvasExecutionEventType type, UUID nodeId, String message,
                              long sequence, Map<UUID, Object> inputs,
                              Map<UUID, Object> outputs, List<String> consoleOutput) {
+        return emit(observer, executionId, type, nodeId, message, sequence,
+                inputs, outputs, consoleOutput, null);
+    }
+
+    private static long emit(CanvasExecutionObserver observer, UUID executionId,
+                             CanvasExecutionEventType type, UUID nodeId, String message,
+                             long sequence, Map<UUID, Object> inputs,
+                             Map<UUID, Object> outputs, List<String> consoleOutput,
+                             CanvasExecutionFailure failureDetails) {
         observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, message, sequence,
-                inputs, outputs, consoleOutput));
+                inputs, outputs, consoleOutput, Instant.now(), failureDetails));
         return sequence + 1;
     }
 

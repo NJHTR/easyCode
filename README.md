@@ -138,6 +138,9 @@ ordering continues to use `sequence`.
 Standard maps, collections, arrays, and dates inside value snapshots
 are copied into read-only structures. Custom value objects are retained by
 reference because the runtime cannot safely clone arbitrary user types.
+When a node executor throws, its `NODE_FAILED` event includes the exception
+type, message, and formatted stack trace in `failureDetails`; graph validation
+failures still expose their existing message without a fabricated stack trace.
 Callers that need to inspect the complete event sequence after the synchronous
 run can pass a `CanvasExecutionEventCollector` as the observer and read its
 immutable `events()` snapshot, or query it by node or lifecycle event type.

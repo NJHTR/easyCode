@@ -16,12 +16,13 @@ public record CanvasExecutionEvent(
         Map<UUID, Object> inputs,
         Map<UUID, Object> outputs,
         List<String> consoleOutput,
-        Instant occurredAt) {
+        Instant occurredAt,
+        CanvasExecutionFailure failureDetails) {
     public CanvasExecutionEvent(UUID executionId,
                                 CanvasExecutionEventType type,
                                 UUID nodeId,
                                 String message) {
-        this(executionId, type, nodeId, message, 0L, Map.of(), Map.of(), List.of(), Instant.now());
+        this(executionId, type, nodeId, message, 0L, Map.of(), Map.of(), List.of(), Instant.now(), null);
     }
 
     public CanvasExecutionEvent(UUID executionId,
@@ -29,7 +30,7 @@ public record CanvasExecutionEvent(
                                 UUID nodeId,
                                 String message,
                                 long sequence) {
-        this(executionId, type, nodeId, message, sequence, Map.of(), Map.of(), List.of(), Instant.now());
+        this(executionId, type, nodeId, message, sequence, Map.of(), Map.of(), List.of(), Instant.now(), null);
     }
 
     public CanvasExecutionEvent(UUID executionId,
@@ -40,7 +41,19 @@ public record CanvasExecutionEvent(
                                 Map<UUID, Object> inputs,
                                 Map<UUID, Object> outputs,
                                 List<String> consoleOutput) {
-        this(executionId, type, nodeId, message, sequence, inputs, outputs, consoleOutput, Instant.now());
+        this(executionId, type, nodeId, message, sequence, inputs, outputs, consoleOutput, Instant.now(), null);
+    }
+
+    public CanvasExecutionEvent(UUID executionId,
+                                CanvasExecutionEventType type,
+                                UUID nodeId,
+                                String message,
+                                long sequence,
+                                Map<UUID, Object> inputs,
+                                Map<UUID, Object> outputs,
+                                List<String> consoleOutput,
+                                Instant occurredAt) {
+        this(executionId, type, nodeId, message, sequence, inputs, outputs, consoleOutput, occurredAt, null);
     }
 
     public CanvasExecutionEvent {
@@ -69,6 +82,9 @@ public record CanvasExecutionEvent(
             }
         } else if (!message.isBlank()) {
             throw new IllegalArgumentException("non-failure lifecycle events cannot carry a message");
+        }
+        if (failureDetails != null && type != CanvasExecutionEventType.NODE_FAILED) {
+            throw new IllegalArgumentException("failure details can only be attached to node failure events");
         }
         if (!nodeEvent && (!inputs.isEmpty() || !outputs.isEmpty() || !consoleOutput.isEmpty())) {
             throw new IllegalArgumentException("execution events cannot carry node snapshots");
