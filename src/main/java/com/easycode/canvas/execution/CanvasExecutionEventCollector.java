@@ -36,6 +36,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final Map<UUID, Map<UUID, Object>> nodeOutputs = new LinkedHashMap<>();
     private final Map<UUID, CanvasExecutionStatus> nodeStatuses = new LinkedHashMap<>();
     private final Map<UUID, CanvasExecutionFailure> nodeFailures = new LinkedHashMap<>();
+    private final Map<UUID, String> nodeFailureMessages = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
     private final Map<UUID, Object> publishedOutputValues = new LinkedHashMap<>();
     private CanvasExecutionStatus terminalStatus;
@@ -99,6 +100,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             }
             nodeOutputs.put(event.nodeId(), snapshot.outputs());
             nodeStatuses.put(event.nodeId(), nodeStatusOf(event.type()));
+            if (event.type() == CanvasExecutionEventType.NODE_FAILED) {
+                nodeFailureMessages.put(event.nodeId(), snapshot.message());
+            }
             if (event.type() == CanvasExecutionEventType.NODE_FAILED
                     && snapshot.failureDetails() != null) {
                 nodeFailures.put(event.nodeId(), snapshot.failureDetails());
@@ -317,6 +321,12 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     public synchronized Optional<CanvasExecutionFailure> nodeFailureDetails(UUID nodeId) {
         Objects.requireNonNull(nodeId, "nodeId");
         return Optional.ofNullable(nodeFailures.get(nodeId));
+    }
+
+    /** Returns the failure message for a node that reached the failed outcome. */
+    public synchronized Optional<String> nodeFailureMessage(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return Optional.ofNullable(nodeFailureMessages.get(nodeId));
     }
 
     /** Returns the node at which execution is currently paused, if any. */

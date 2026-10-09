@@ -157,6 +157,7 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.of(CanvasExecutionStatus.FAILED), collector.nodeStatus(nodeId));
         assertEquals(java.util.Optional.of(events.get(2).failureDetails()),
                 collector.nodeFailureDetails(nodeId));
+        assertEquals(java.util.Optional.of("expected failure"), collector.nodeFailureMessage(nodeId));
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);
@@ -319,6 +320,7 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.empty(), collector.nodeOutputs(nodeId));
         assertEquals(java.util.Optional.empty(), collector.nodeStatus(nodeId));
         assertEquals(java.util.Optional.empty(), collector.nodeFailureDetails(nodeId));
+        assertEquals(java.util.Optional.empty(), collector.nodeFailureMessage(nodeId));
         assertEquals(java.util.Optional.of(Map.of(inputPortId, "active")),
                 collector.activeNodeInputs());
         assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());

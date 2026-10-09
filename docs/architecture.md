@@ -182,6 +182,8 @@ until that node reaches an outcome.
 `nodeFailureDetails()` provides thrown-exception diagnostics for one failed node
 without requiring callers to scan its event list; graph validation failures do
 not receive fabricated exception details.
+`nodeFailureMessage()` provides the failed node's message for both validation
+and thrown-exception failures.
 For callers that need a consistent multi-field read, `observation()` returns
 one immutable point-in-time view of the collector state. It remains an in-memory
 query snapshot and does not add event streaming or persistence. Its

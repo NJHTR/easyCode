@@ -176,6 +176,8 @@ outcome, while partial output from a failed or cancelled node remains inspectabl
 `nodeStatus()` reports the terminal status without requiring event inspection.
 `nodeFailureDetails()` provides the exception type, message, and stack trace for
 an individual node when its executor threw; validation failures remain message-only.
+`nodeFailureMessage()` also exposes a validation or executor failure message
+without requiring callers to scan node events.
 `observation()` returns one immutable point-in-time view when callers need
 several of these values consistently. Its `isRunning()` and `isPaused()` helpers
 make the lifecycle state explicit without parsing optional fields.
