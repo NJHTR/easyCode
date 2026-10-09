@@ -178,9 +178,16 @@ outcome, while partial output from a failed or cancelled node remains inspectabl
 an individual node when its executor threw; validation failures remain message-only.
 `nodeFailureMessage()` also exposes a validation or executor failure message
 without requiring callers to scan node events.
+`lastEvent()` returns the latest accepted lifecycle event, while
+`eventsAfter(sequence)` supports simple sequence-based polling without adding
+a realtime event stream. `observedNodeIds()` returns node IDs in first-seen
+order.
 `observation()` returns one immutable point-in-time view when callers need
 several of these values consistently. Its `isRunning()` and `isPaused()` helpers
 make the lifecycle state explicit without parsing optional fields.
+The top-level observation also provides `nodeStatus(nodeId)` and
+`publishedOutput(portId)` lookups; the latter preserves an explicitly published
+`null` value separately from a missing output.
 `nodeObservation(nodeId)` and `nodeObservations()` provide the equivalent
 consistent view for one or all observed nodes, including node timing, values,
 console output, status, and failure information.
@@ -205,7 +212,10 @@ middle of its execution. The execution call stays synchronous; callers that
 need to control it concurrently run that call on a thread they own. Cancellation
 also releases an execution waiting at a debugger pause. A pause event includes
 the selected node's input snapshot before that node starts. Breakpoint
-configuration and pending-pause state are also queryable.
+configuration and pending-pause state are also queryable. While paused,
+`pausedNodeId()`, `pausedNodeInputs()`, and `pauseReason()` expose the current
+node boundary, its immutable inputs, and whether the pause came from a
+breakpoint, an explicit request, or single-step execution.
 The debugger also exposes the read-only set of breakpoints hit during the
 current run. That set is cleared when the run reaches success, failure, or
 cancellation, while configured breakpoints remain available for inspection.
