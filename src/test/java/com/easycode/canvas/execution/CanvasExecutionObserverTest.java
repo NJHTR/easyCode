@@ -686,11 +686,25 @@ class CanvasExecutionObserverTest {
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             cancellation.cancel();
 
-            assertEquals(CanvasExecutionStatus.CANCELLED,
-                    result.get(5, TimeUnit.SECONDS).status());
+            CanvasExecutionResult cancelledResult = result.get(5, TimeUnit.SECONDS);
+            assertEquals(CanvasExecutionStatus.CANCELLED, cancelledResult.status());
             assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.DEBUGGER_PAUSED,
-                            CanvasExecutionEventType.CANCELLED),
+                            CanvasExecutionEventType.NODE_CANCELLED, CanvasExecutionEventType.CANCELLED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
+            assertEquals(CanvasExecutionStatus.CANCELLED,
+                    cancelledResult.trace(node.nodeId()).orElseThrow().status());
+            CanvasNodeExecutionObservation resultNodeObservation =
+                    cancelledResult.nodeObservation(node.nodeId()).orElseThrow();
+            assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED),
+                    resultNodeObservation.status());
+            assertTrue(resultNodeObservation.isComplete());
+            assertFalse(resultNodeObservation.isActive());
+            assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED),
+                    collector.nodeStatus(node.nodeId()));
+            CanvasNodeExecutionObservation nodeObservation = collector.nodeObservation(node.nodeId()).orElseThrow();
+            assertTrue(nodeObservation.isComplete());
+            assertFalse(nodeObservation.isActive());
+            assertFalse(nodeObservation.isPaused());
             assertTrue(collector.isComplete());
             assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), collector.terminalStatus());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());

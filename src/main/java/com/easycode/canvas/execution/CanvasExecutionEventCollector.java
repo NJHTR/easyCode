@@ -155,7 +155,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 }
             }
             case NODE_SUCCEEDED, NODE_FAILED, NODE_CANCELLED -> {
-                if (!event.nodeId().equals(activeNodeId)) {
+                boolean cancelledPausedNode = type == CanvasExecutionEventType.NODE_CANCELLED
+                        && event.nodeId().equals(debuggerPausedNodeId);
+                if (!event.nodeId().equals(activeNodeId) && !cancelledPausedNode) {
                     throw new IllegalArgumentException("node outcome must match the active node");
                 }
             }

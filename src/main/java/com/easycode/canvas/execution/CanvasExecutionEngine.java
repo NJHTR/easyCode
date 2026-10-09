@@ -143,8 +143,8 @@ public final class CanvasExecutionEngine {
             eventSequence = debugger.beforeNode(nodeId, nodeInputs, cancellationToken, observer,
                     request.executionId(), eventSequence);
             if (cancellationToken.isCancellationRequested()) {
-                return cancelled(request.executionId(), observer, canvas, completed, traces,
-                        consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt,
+                return cancelledBeforeNode(request.executionId(), observer, canvas, completed, traces,
+                        consoleOutput, outputValues, node, nodeInputs, traceInputs, eventSequence, startedAt,
                         debugger);
             }
             eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.NODE_STARTED,
@@ -273,6 +273,25 @@ public final class CanvasExecutionEngine {
         consoleOutput.addAll(nodeConsoleOutput);
         return cancelled(executionId, observer, canvas, completed, traces, consoleOutput, outputValues,
                 node.nodeId(), inputs, outputs, nodeConsoleOutput, eventSequence, startedAt, debugger);
+    }
+
+    private static CanvasExecutionResult cancelledBeforeNode(UUID executionId,
+                                                             CanvasExecutionObserver observer,
+                                                             CanvasDefinition canvas,
+                                                             List<UUID> completed,
+                                                             List<CanvasNodeExecutionTrace> traces,
+                                                             List<String> consoleOutput,
+                                                             Map<UUID, Object> outputValues,
+                                                             CanvasNode node,
+                                                             Map<UUID, Object> inputs,
+                                                             Map<UUID, Object> traceInputs,
+                                                             long eventSequence,
+                                                             Instant startedAt,
+                                                             CanvasExecutionDebugger debugger) {
+        traces.add(CanvasNodeExecutionTrace.fromSnapshots(node.nodeId(), node.nodeType(),
+                CanvasExecutionStatus.CANCELLED, traceInputs, Map.of(), List.of(), Duration.ZERO, "", null));
+        return cancelled(executionId, observer, canvas, completed, traces, consoleOutput, outputValues,
+                node.nodeId(), inputs, Map.of(), List.of(), eventSequence, startedAt, debugger);
     }
 
     private static CanvasExecutionResult failedNode(UUID executionId, CanvasExecutionObserver observer,

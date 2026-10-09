@@ -41,7 +41,8 @@ public record CanvasNodeExecutionObservation(
         if (failureMessage.isPresent() && failureMessage.orElseThrow().isBlank()) {
             throw new IllegalArgumentException("failure message cannot be blank");
         }
-        if (completedAt.isPresent() && startedAt.isEmpty()) {
+        if (completedAt.isPresent() && startedAt.isEmpty()
+                && !(status.isPresent() && status.orElseThrow() == CanvasExecutionStatus.CANCELLED)) {
             throw new IllegalArgumentException("completed time requires a start time");
         }
         if (startedAt.isPresent() && completedAt.isPresent()
