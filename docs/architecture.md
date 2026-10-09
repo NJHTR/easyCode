@@ -148,6 +148,9 @@ implements the same observer contract and exposes an immutable in-memory event
 snapshot after the synchronous call returns. It is a convenience collector, not
 an execution registry or a persistence layer. Its node and event-type queries
 preserve execution order and return immutable lists.
+The collector requires one execution ID, contiguous event sequence numbers, and
+a terminal success or failure event; it rejects attempts to append events after
+completion.
 Event value snapshots recursively copy standard maps, collections, arrays, and
 dates; arbitrary custom value objects remain shared references
 because their safe copying semantics are type-specific.

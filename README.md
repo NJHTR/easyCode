@@ -141,6 +141,8 @@ reference because the runtime cannot safely clone arbitrary user types.
 Callers that need to inspect the complete event sequence after the synchronous
 run can pass a `CanvasExecutionEventCollector` as the observer and read its
 immutable `events()` snapshot, or query it by node or lifecycle event type.
+The collector validates that the recorded events belong to one execution, have
+contiguous sequence numbers, and end with one terminal event.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.

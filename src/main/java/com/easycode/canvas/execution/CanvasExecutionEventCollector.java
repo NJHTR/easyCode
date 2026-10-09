@@ -12,10 +12,31 @@ import java.util.UUID;
  */
 public final class CanvasExecutionEventCollector implements CanvasExecutionObserver {
     private final List<CanvasExecutionEvent> events = new ArrayList<>();
+    private UUID executionId;
+    private boolean terminal;
 
     @Override
     public synchronized void onEvent(CanvasExecutionEvent event) {
-        events.add(Objects.requireNonNull(event, "event"));
+        Objects.requireNonNull(event, "event");
+        if (terminal) {
+            throw new IllegalStateException("execution event collector already received a terminal event");
+        }
+        if (events.isEmpty()) {
+            if (event.type() != CanvasExecutionEventType.STARTED || event.sequence() != 0L) {
+                throw new IllegalArgumentException("first execution event must be STARTED with sequence 0");
+            }
+            executionId = event.executionId();
+        } else {
+            if (!executionId.equals(event.executionId())) {
+                throw new IllegalArgumentException("execution event belongs to a different execution");
+            }
+            if (event.sequence() != events.size()) {
+                throw new IllegalArgumentException("execution event sequence is not contiguous");
+            }
+        }
+        events.add(event);
+        terminal = event.type() == CanvasExecutionEventType.SUCCEEDED
+                || event.type() == CanvasExecutionEventType.FAILED;
     }
 
     /** Returns an immutable snapshot of all events collected so far. */
@@ -42,5 +63,10 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns the number of events collected so far. */
     public synchronized int size() {
         return events.size();
+    }
+
+    /** Returns whether a terminal success or failure event has been collected. */
+    public synchronized boolean isComplete() {
+        return terminal;
     }
 }

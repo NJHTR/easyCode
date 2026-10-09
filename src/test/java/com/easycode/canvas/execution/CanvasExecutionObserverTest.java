@@ -145,6 +145,7 @@ class CanvasExecutionObserverTest {
         CanvasExecutionResult result = application.execute(request, collector);
 
         assertEquals(4, collector.size());
+        assertEquals(true, collector.isComplete());
         assertEquals(List.of(CanvasExecutionEventType.STARTED,
                         CanvasExecutionEventType.NODE_STARTED,
                         CanvasExecutionEventType.NODE_SUCCEEDED,
@@ -161,6 +162,28 @@ class CanvasExecutionObserverTest {
                 () -> collector.eventsForNode(constant.nodeId()).clear());
         assertThrows(UnsupportedOperationException.class,
                 () -> collector.events().clear());
+        assertThrows(IllegalStateException.class,
+                () -> collector.onEvent(collector.events().get(0)));
+    }
+
+    @Test
+    void collectorRejectsBrokenEventSequences() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        CanvasExecutionEvent started = new CanvasExecutionEvent(UUID.randomUUID(),
+                CanvasExecutionEventType.STARTED, null, "", 0L);
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(
+                new CanvasExecutionEvent(UUID.randomUUID(), CanvasExecutionEventType.NODE_STARTED,
+                        UUID.randomUUID(), "", 0L)));
+        collector.onEvent(started);
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(
+                new CanvasExecutionEvent(started.executionId(), CanvasExecutionEventType.SUCCEEDED,
+                        null, "", 2L)));
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(
+                new CanvasExecutionEvent(UUID.randomUUID(), CanvasExecutionEventType.SUCCEEDED,
+                        null, "", 1L)));
+        assertEquals(1, collector.size());
+        assertEquals(false, collector.isComplete());
     }
 
     @Test
