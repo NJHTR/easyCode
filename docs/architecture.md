@@ -148,6 +148,9 @@ implements the same observer contract and exposes an immutable in-memory event
 snapshot after the synchronous call returns. It is a convenience collector, not
 an execution registry or a persistence layer. Its node and event-type queries
 preserve execution order and return immutable lists.
+Event value snapshots recursively copy standard maps, collections, arrays, and
+dates; arbitrary custom value objects remain shared references
+because their safe copying semantics are type-specific.
 
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's

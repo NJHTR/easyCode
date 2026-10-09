@@ -1,8 +1,6 @@
 package com.easycode.canvas.execution;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,8 +51,8 @@ public record CanvasExecutionEvent(
             throw new IllegalArgumentException("event sequence cannot be negative");
         }
         message = message == null ? "" : message;
-        inputs = immutableValues(inputs, "inputs");
-        outputs = immutableValues(outputs, "outputs");
+        inputs = CanvasExecutionValueSnapshots.snapshot(inputs, "inputs");
+        outputs = CanvasExecutionValueSnapshots.snapshot(outputs, "outputs");
         consoleOutput = consoleOutput == null ? List.of() : List.copyOf(consoleOutput);
         if (consoleOutput.stream().anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("console output cannot contain null");
@@ -79,15 +77,5 @@ public record CanvasExecutionEvent(
                 && (!outputs.isEmpty() || !consoleOutput.isEmpty())) {
             throw new IllegalArgumentException("node started events cannot carry outputs");
         }
-    }
-
-    private static Map<UUID, Object> immutableValues(Map<UUID, Object> values, String name) {
-        if (values == null || values.isEmpty()) {
-            return Map.of();
-        }
-        if (values.entrySet().stream().anyMatch(entry -> entry.getKey() == null)) {
-            throw new IllegalArgumentException(name + " cannot contain a null port id");
-        }
-        return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
 }

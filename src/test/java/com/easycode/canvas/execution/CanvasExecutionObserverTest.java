@@ -11,11 +11,13 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -159,5 +161,45 @@ class CanvasExecutionObserverTest {
                 () -> collector.eventsForNode(constant.nodeId()).clear());
         assertThrows(UnsupportedOperationException.class,
                 () -> collector.events().clear());
+    }
+
+    @Test
+    void eventSnapshotCopiesNestedCollectionsAndArrays() {
+        UUID portId = UUID.randomUUID();
+        List<Object> originalList = new ArrayList<>(List.of("before"));
+        Map<String, Object> originalMap = new LinkedHashMap<>();
+        originalMap.put("items", originalList);
+        Object[] originalArray = new Object[]{"array-before"};
+        CanvasExecutionEvent event = new CanvasExecutionEvent(UUID.randomUUID(),
+                CanvasExecutionEventType.NODE_SUCCEEDED, UUID.randomUUID(), "", 1L,
+                Map.of(), Map.of(portId, List.of(originalMap, originalArray)), List.of());
+
+        originalList.add("after");
+        originalMap.put("later", true);
+        originalArray[0] = "array-after";
+
+        List<?> output = (List<?>) event.outputs().get(portId);
+        Map<?, ?> mapSnapshot = (Map<?, ?>) output.get(0);
+        List<?> listSnapshot = (List<?>) mapSnapshot.get("items");
+        List<?> arraySnapshot = (List<?>) output.get(1);
+        assertEquals(List.of("before"), listSnapshot);
+        assertEquals(false, mapSnapshot.containsKey("later"));
+        assertEquals(List.of("array-before"), arraySnapshot);
+        assertThrows(UnsupportedOperationException.class, listSnapshot::clear);
+    }
+
+    @Test
+    void eventSnapshotPreservesCyclesWithoutExposingMutableContainers() {
+        UUID portId = UUID.randomUUID();
+        List<Object> cyclic = new ArrayList<>();
+        cyclic.add(cyclic);
+        CanvasExecutionEvent event = new CanvasExecutionEvent(UUID.randomUUID(),
+                CanvasExecutionEventType.NODE_SUCCEEDED, UUID.randomUUID(), "", 1L,
+                Map.of(), Map.of(portId, cyclic), List.of());
+
+        List<?> snapshot = (List<?>) event.outputs().get(portId);
+
+        assertSame(snapshot, snapshot.get(0));
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 }

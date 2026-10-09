@@ -135,6 +135,9 @@ Node events also carry immutable snapshots of the node's input values, produced
 output values, and console lines available at that lifecycle point. Every event
 also records its `occurredAt` timestamp for inspection and correlation; event
 ordering continues to use `sequence`.
+Standard maps, collections, arrays, and dates inside value snapshots
+are copied into read-only structures. Custom value objects are retained by
+reference because the runtime cannot safely clone arbitrary user types.
 Callers that need to inspect the complete event sequence after the synchronous
 run can pass a `CanvasExecutionEventCollector` as the observer and read its
 immutable `events()` snapshot, or query it by node or lifecycle event type.
