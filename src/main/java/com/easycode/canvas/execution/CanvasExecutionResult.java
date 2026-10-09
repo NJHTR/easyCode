@@ -1,12 +1,15 @@
 package com.easycode.canvas.execution;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /** Immutable summary of one synchronous canvas run. */
@@ -73,6 +76,37 @@ public record CanvasExecutionResult(
         if (nodeTraces.stream().anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("node traces cannot contain null");
         }
+        Set<UUID> tracedNodeIds = new HashSet<>();
+        List<UUID> successfulNodeIds = new ArrayList<>();
+        int failedTraceCount = 0;
+        int cancelledTraceCount = 0;
+        for (int index = 0; index < nodeTraces.size(); index++) {
+            CanvasNodeExecutionTrace trace = nodeTraces.get(index);
+            if (!tracedNodeIds.add(trace.nodeId())) {
+                throw new IllegalArgumentException("node traces cannot contain duplicate node ids");
+            }
+            switch (trace.status()) {
+                case SUCCEEDED -> successfulNodeIds.add(trace.nodeId());
+                case FAILED -> {
+                    failedTraceCount++;
+                    if (index != nodeTraces.size() - 1) {
+                        throw new IllegalArgumentException("failed node trace must be the final node trace");
+                    }
+                }
+                case CANCELLED -> {
+                    cancelledTraceCount++;
+                    if (index != nodeTraces.size() - 1) {
+                        throw new IllegalArgumentException("cancelled node trace must be the final node trace");
+                    }
+                }
+            }
+        }
+        if (new HashSet<>(completedNodeIds).size() != completedNodeIds.size()) {
+            throw new IllegalArgumentException("completed node ids cannot contain duplicates");
+        }
+        if (!completedNodeIds.equals(successfulNodeIds)) {
+            throw new IllegalArgumentException("completed node ids must match successful node traces in order");
+        }
         consoleOutput = consoleOutput == null ? List.of() : List.copyOf(consoleOutput);
         if (consoleOutput.stream().anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("console output cannot contain null");
@@ -97,6 +131,17 @@ public record CanvasExecutionResult(
         if (status == CanvasExecutionStatus.CANCELLED
                 && (failedNodeId != null || !failureMessage.isBlank())) {
             throw new IllegalArgumentException("cancelled execution cannot have a failed node or failure message");
+        }
+        if (status == CanvasExecutionStatus.SUCCEEDED && (failedTraceCount != 0 || cancelledTraceCount != 0)) {
+            throw new IllegalArgumentException("successful execution cannot contain failed or cancelled node traces");
+        }
+        if (status == CanvasExecutionStatus.FAILED
+                && (failedTraceCount != 1 || cancelledTraceCount != 0
+                || !Objects.equals(nodeTraces.get(nodeTraces.size() - 1).nodeId(), failedNodeId))) {
+            throw new IllegalArgumentException("failed execution must end with its failed node trace");
+        }
+        if (status == CanvasExecutionStatus.CANCELLED && (failedTraceCount != 0 || cancelledTraceCount > 1)) {
+            throw new IllegalArgumentException("cancelled execution cannot contain failed traces or multiple cancelled nodes");
         }
     }
 
