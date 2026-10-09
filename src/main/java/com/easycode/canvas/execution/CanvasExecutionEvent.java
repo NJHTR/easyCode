@@ -72,16 +72,18 @@ public record CanvasExecutionEvent(
         }
         boolean nodeEvent = type == CanvasExecutionEventType.NODE_STARTED
                 || type == CanvasExecutionEventType.NODE_SUCCEEDED
-                || type == CanvasExecutionEventType.NODE_FAILED;
+                || type == CanvasExecutionEventType.NODE_FAILED
+                || type == CanvasExecutionEventType.NODE_CANCELLED;
         if (nodeEvent != (nodeId != null)) {
             throw new IllegalArgumentException("node lifecycle events require a node id");
         }
-        if (type == CanvasExecutionEventType.NODE_FAILED || type == CanvasExecutionEventType.FAILED) {
+        if (type == CanvasExecutionEventType.NODE_FAILED || type == CanvasExecutionEventType.FAILED
+                || type == CanvasExecutionEventType.NODE_CANCELLED || type == CanvasExecutionEventType.CANCELLED) {
             if (message.isBlank()) {
-                throw new IllegalArgumentException("failure events require a message");
+                throw new IllegalArgumentException("failure and cancellation events require a message");
             }
         } else if (!message.isBlank()) {
-            throw new IllegalArgumentException("non-failure lifecycle events cannot carry a message");
+            throw new IllegalArgumentException("non-terminal lifecycle events cannot carry a message");
         }
         if (failureDetails != null && type != CanvasExecutionEventType.NODE_FAILED) {
             throw new IllegalArgumentException("failure details can only be attached to node failure events");

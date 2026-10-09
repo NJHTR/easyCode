@@ -154,6 +154,9 @@ contiguous sequence numbers, and end with one terminal event.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
+Synchronous runs also accept a `CanvasExecutionCancellationToken`. Cancellation
+is cooperative: the engine checks between nodes and node executors can check the
+token during long work. It does not forcibly interrupt or kill a running node.
 
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is

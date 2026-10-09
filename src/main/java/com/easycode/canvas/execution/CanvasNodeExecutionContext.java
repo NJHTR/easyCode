@@ -19,11 +19,18 @@ public final class CanvasNodeExecutionContext {
     private final Set<UUID> outputPortIds;
     private final Map<String, UUID> outputPortsByName;
     private final Map<String, UUID> inputPortsByName;
+    private final CanvasExecutionCancellationToken cancellationToken;
     private final Map<UUID, Object> outputs = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
 
     CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs) {
+        this(node, inputs, new CanvasExecutionCancellationToken());
+    }
+
+    CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs,
+                               CanvasExecutionCancellationToken cancellationToken) {
         Objects.requireNonNull(node, "node");
+        this.cancellationToken = Objects.requireNonNull(cancellationToken, "cancellationToken");
         this.inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
         this.inputPortIds = node.ports().stream()
                 .filter(port -> port.direction() == CanvasPortDirection.INPUT)
@@ -77,6 +84,14 @@ public final class CanvasNodeExecutionContext {
 
     public Map<UUID, Object> inputs() {
         return inputs;
+    }
+
+    public boolean isCancellationRequested() {
+        return cancellationToken.isCancellationRequested();
+    }
+
+    public void throwIfCancellationRequested() {
+        cancellationToken.throwIfCancellationRequested();
     }
 
     public void output(UUID portId, Object value) {

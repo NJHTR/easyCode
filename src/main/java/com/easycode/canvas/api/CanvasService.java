@@ -2,6 +2,7 @@ package com.easycode.canvas.api;
 
 import com.easycode.canvas.execution.CanvasExecutionEngine;
 import com.easycode.canvas.execution.CanvasExecutionObserver;
+import com.easycode.canvas.execution.CanvasExecutionCancellationToken;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
@@ -63,6 +64,19 @@ public final class CanvasService {
     public CanvasExecutionResult execute(CanvasExecutionRequest request,
                                          CanvasExecutionObserver observer) {
         return engine.execute(request, observer);
+    }
+
+    /** Executes a request that can be cooperatively cancelled. */
+    public CanvasExecutionResult execute(CanvasExecutionRequest request,
+                                         CanvasExecutionCancellationToken cancellationToken) {
+        return engine.execute(request, CanvasExecutionObserver.noop(), cancellationToken);
+    }
+
+    /** Executes a request, observes its lifecycle, and supports cooperative cancellation. */
+    public CanvasExecutionResult execute(CanvasExecutionRequest request,
+                                         CanvasExecutionObserver observer,
+                                         CanvasExecutionCancellationToken cancellationToken) {
+        return engine.execute(request, observer, cancellationToken);
     }
 
     public CanvasExecutionPreflightResult preflight(CanvasDefinition canvas) {

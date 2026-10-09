@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -258,6 +259,85 @@ class CanvasExecutionObserverTest {
         Map<?, ?> outputSnapshot = (Map<?, ?>) succeeded.outputs().get(outputPortId);
         assertEquals("before", outputSnapshot.get("value"));
         assertThrows(UnsupportedOperationException.class, outputSnapshot::clear);
+    }
+
+    @Test
+    void cancellationBeforeExecutionEmitsTerminalCancellation() {
+        CanvasApplication application = new CanvasApplication();
+        CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",
+                Map.of("value", "never-run"));
+        CanvasDefinition canvas = application.newCanvas("cancel-before-start")
+                .addNode(constant)
+                .build();
+        CanvasExecutionRequest request = CanvasExecutionRequest.forCanvas(canvas);
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        cancellation.cancel();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+
+        CanvasExecutionResult result = application.execute(request, collector, cancellation);
+
+        assertEquals(CanvasExecutionStatus.CANCELLED, result.status());
+        assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.CANCELLED),
+                collector.events().stream().map(CanvasExecutionEvent::type).toList());
+        assertTrue(collector.isComplete());
+        assertEquals(List.of(), result.completedNodeIds());
+    }
+
+    @Test
+    void nodeCanCooperativelyCancelAndKeepPartialDiagnostics() {
+        UUID nodeId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        CanvasNode node = new CanvasNode(nodeId, "cooperative", "cooperative", Map.of(), List.of(
+                new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "cancel-in-node",
+                List.of(node), List.of());
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        CanvasService service = new CanvasService(Map.of(
+                "cooperative", (ignoredNode, context) -> {
+                    context.console("partial log");
+                    context.output(outputPortId, "partial value");
+                    cancellation.cancel();
+                    context.throwIfCancellationRequested();
+                }));
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+
+        CanvasExecutionResult result = service.execute(CanvasExecutionRequest.forCanvas(canvas),
+                collector, cancellation);
+
+        assertEquals(CanvasExecutionStatus.CANCELLED, result.status());
+        assertEquals(null, result.failedNodeId());
+        assertEquals("partial value", result.trace(nodeId).orElseThrow().outputs().get(outputPortId));
+        assertEquals(CanvasExecutionStatus.CANCELLED, result.trace(nodeId).orElseThrow().status());
+        assertEquals(Map.of(), result.outputValues());
+        assertEquals(List.of("partial log"), result.consoleOutput());
+        assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
+                        CanvasExecutionEventType.NODE_CANCELLED, CanvasExecutionEventType.CANCELLED),
+                collector.events().stream().map(CanvasExecutionEvent::type).toList());
+        assertEquals("partial value", collector.events().get(2).outputs().get(outputPortId));
+        assertTrue(collector.isComplete());
+    }
+
+    @Test
+    void executorCancellationExceptionWithoutRequestedCancellationIsFailure() {
+        UUID nodeId = UUID.randomUUID();
+        CanvasNode node = new CanvasNode(nodeId, "aborted", "aborted", Map.of(), List.of());
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "executor-aborted",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of(
+                "aborted", (ignoredNode, context) -> {
+                    throw new CancellationException("executor operation aborted");
+                }));
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+
+        CanvasExecutionResult result = service.execute(CanvasExecutionRequest.forCanvas(canvas), collector,
+                new CanvasExecutionCancellationToken());
+
+        assertEquals(CanvasExecutionStatus.FAILED, result.status());
+        assertEquals("executor operation aborted", result.failureMessage());
+        assertEquals(CanvasExecutionStatus.FAILED, result.trace(nodeId).orElseThrow().status());
+        assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
+                        CanvasExecutionEventType.NODE_FAILED, CanvasExecutionEventType.FAILED),
+                collector.events().stream().map(CanvasExecutionEvent::type).toList());
     }
 
     private static final class MutableValue {

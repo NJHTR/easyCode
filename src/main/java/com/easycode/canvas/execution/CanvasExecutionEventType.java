@@ -6,6 +6,8 @@ public enum CanvasExecutionEventType {
     NODE_STARTED,
     NODE_SUCCEEDED,
     NODE_FAILED,
+    NODE_CANCELLED,
     SUCCEEDED,
-    FAILED
+    FAILED,
+    CANCELLED
 }

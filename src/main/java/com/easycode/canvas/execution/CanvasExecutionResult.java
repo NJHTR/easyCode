@@ -94,6 +94,10 @@ public record CanvasExecutionResult(
                 && (failedNodeId == null || failureMessage.isBlank())) {
             throw new IllegalArgumentException("failed execution must identify a node and failure");
         }
+        if (status == CanvasExecutionStatus.CANCELLED
+                && (failedNodeId != null || !failureMessage.isBlank())) {
+            throw new IllegalArgumentException("cancelled execution cannot have a failed node or failure message");
+        }
     }
 
     public CanvasValueLookup output(UUID portId) {

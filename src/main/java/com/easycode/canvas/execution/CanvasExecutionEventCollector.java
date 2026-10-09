@@ -45,7 +45,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         }
         events.add(event.withValueSnapshotter(snapshotter));
         terminal = event.type() == CanvasExecutionEventType.SUCCEEDED
-                || event.type() == CanvasExecutionEventType.FAILED;
+                || event.type() == CanvasExecutionEventType.FAILED
+                || event.type() == CanvasExecutionEventType.CANCELLED;
     }
 
     /** Returns an immutable snapshot of all events collected so far. */
@@ -74,7 +75,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return events.size();
     }
 
-    /** Returns whether a terminal success or failure event has been collected. */
+    /** Returns whether a terminal success, failure, or cancellation event has been collected. */
     public synchronized boolean isComplete() {
         return terminal;
     }

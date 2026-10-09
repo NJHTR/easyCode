@@ -49,6 +49,9 @@ public record CanvasNodeExecutionTrace(
         if (status == CanvasExecutionStatus.FAILED && failureMessage.isBlank()) {
             throw new IllegalArgumentException("failed trace must contain a failure message");
         }
+        if (status == CanvasExecutionStatus.CANCELLED && !failureMessage.isBlank()) {
+            throw new IllegalArgumentException("cancelled trace cannot have a failure message");
+        }
         if (failureDetails != null
                 && (status != CanvasExecutionStatus.FAILED
                 || !failureMessage.equals(failureDetails.message()))) {

@@ -163,6 +163,13 @@ validation failures do not claim to have an exception stack when none exists.
 The same thrown-exception details are included in the failed node trace returned
 by `CanvasExecutionResult`, independent of whether an observer was supplied.
 
+An execution may receive a `CanvasExecutionCancellationToken`. The engine checks
+it before starting each node, and a long-running executor may call
+`CanvasNodeExecutionContext.throwIfCancellationRequested()` to stop cooperatively.
+Cancellation produces a distinct terminal status and event; partial diagnostics
+for a cancelled node are retained in its trace but are not published as completed
+canvas outputs. The engine does not forcibly interrupt threads.
+
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's
 display metadata and port shape; creating from it generates fresh node and port
