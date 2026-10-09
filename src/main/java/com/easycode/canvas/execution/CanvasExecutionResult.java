@@ -148,6 +148,11 @@ public record CanvasExecutionResult(
         return Collections.unmodifiableMap(observations);
     }
 
+    /** Returns node ids in the order they appear in the post-run trace. */
+    public List<UUID> observedNodeIds() {
+        return nodeTraces.stream().map(CanvasNodeExecutionTrace::nodeId).toList();
+    }
+
     /** Returns exception diagnostics for the failed node, when an exception was thrown. */
     public Optional<CanvasExecutionFailure> failureDetails() {
         if (failedNodeId == null) {

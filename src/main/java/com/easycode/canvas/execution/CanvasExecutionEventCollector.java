@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -182,6 +183,21 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns an immutable snapshot of all events collected so far. */
     public synchronized List<CanvasExecutionEvent> events() {
         return List.copyOf(events);
+    }
+
+    /** Returns the most recently accepted lifecycle event, if execution has started. */
+    public synchronized Optional<CanvasExecutionEvent> lastEvent() {
+        return events.isEmpty() ? Optional.empty() : Optional.of(events.get(events.size() - 1));
+    }
+
+    /** Returns node ids in the order in which they first appeared in lifecycle events. */
+    public synchronized List<UUID> observedNodeIds() {
+        LinkedHashSet<UUID> nodeIds = new LinkedHashSet<>();
+        events.stream()
+                .map(CanvasExecutionEvent::nodeId)
+                .filter(Objects::nonNull)
+                .forEach(nodeIds::add);
+        return List.copyOf(nodeIds);
     }
 
     /** Returns the execution identity after the first STARTED event is collected. */
