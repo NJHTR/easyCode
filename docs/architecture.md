@@ -179,6 +179,9 @@ available after a node outcome; partial outputs from failed or cancelled nodes
 remain diagnostic data without entering the published output aggregate.
 `nodeStatus()` provides the corresponding terminal status directly; it is empty
 until that node reaches an outcome.
+`nodeFailureDetails()` provides thrown-exception diagnostics for one failed node
+without requiring callers to scan its event list; graph validation failures do
+not receive fabricated exception details.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

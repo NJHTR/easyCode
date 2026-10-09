@@ -174,6 +174,8 @@ The collector also exposes immutable per-node input and output snapshots through
 `nodeInputs()` and `nodeOutputs()`; output is absent until that node reaches an
 outcome, while partial output from a failed or cancelled node remains inspectable.
 `nodeStatus()` reports the terminal status without requiring event inspection.
+`nodeFailureDetails()` provides the exception type, message, and stack trace for
+an individual node when its executor threw; validation failures remain message-only.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
