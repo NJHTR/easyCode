@@ -58,6 +58,9 @@ public record CanvasExecutionObservation(
         if (elapsed.isPresent() && elapsed.orElseThrow().isNegative()) {
             throw new IllegalArgumentException("elapsed cannot be negative");
         }
+        if (executionId.isPresent() && startedAt.isEmpty()) {
+            throw new IllegalArgumentException("execution id requires a start time");
+        }
         if (completedAt.isPresent() && startedAt.isEmpty()) {
             throw new IllegalArgumentException("completed time requires a start time");
         }

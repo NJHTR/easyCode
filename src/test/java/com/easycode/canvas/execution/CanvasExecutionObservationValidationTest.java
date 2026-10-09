@@ -13,6 +13,28 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CanvasExecutionObservationValidationTest {
     @Test
+    void rejectsExecutionIdentityWithoutStartTime() {
+        assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionObservation(
+                Optional.of(UUID.randomUUID()),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Map.of(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false));
+    }
+
+    @Test
     void rejectsTerminalStatusWithoutCompleteSnapshot() {
         assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionObservation(
                 Optional.of(UUID.randomUUID()),
