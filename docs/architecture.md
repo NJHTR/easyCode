@@ -143,6 +143,11 @@ propagate to the caller. Preflight or planning rejection happens before
 does not create realtime logs, an event bus, a debugger session, a scheduler,
 or persistence.
 
+For callers that need a post-run inspection view, `CanvasExecutionEventCollector`
+implements the same observer contract and exposes an immutable in-memory event
+snapshot after the synchronous call returns. It is a convenience collector, not
+an execution registry or a persistence layer.
+
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's
 display metadata and port shape; creating from it generates fresh node and port

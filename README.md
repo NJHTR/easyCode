@@ -135,6 +135,9 @@ Node events also carry immutable snapshots of the node's input values, produced
 output values, and console lines available at that lifecycle point. Every event
 also records its `occurredAt` timestamp for inspection and correlation; event
 ordering continues to use `sequence`.
+Callers that need to inspect the complete event sequence after the synchronous
+run can pass a `CanvasExecutionEventCollector` as the observer and read its
+immutable `events()` snapshot.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.

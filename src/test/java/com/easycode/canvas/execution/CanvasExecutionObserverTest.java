@@ -128,4 +128,29 @@ class CanvasExecutionObserverTest {
 
         assertEquals(occurredAt, event.occurredAt());
     }
+
+    @Test
+    void collectorKeepsAnImmutableExecutionSnapshot() {
+        CanvasApplication application = new CanvasApplication();
+        CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",
+                Map.of("value", "collected"));
+        CanvasDefinition canvas = application.newCanvas("collected-events")
+                .addNode(constant)
+                .build();
+        CanvasExecutionRequest request = CanvasExecutionRequest.forCanvas(canvas);
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+
+        CanvasExecutionResult result = application.execute(request, collector);
+
+        assertEquals(4, collector.size());
+        assertEquals(List.of(CanvasExecutionEventType.STARTED,
+                        CanvasExecutionEventType.NODE_STARTED,
+                        CanvasExecutionEventType.NODE_SUCCEEDED,
+                        CanvasExecutionEventType.SUCCEEDED),
+                collector.events().stream().map(CanvasExecutionEvent::type).toList());
+        assertEquals(request.executionId(), collector.events().get(0).executionId());
+        assertEquals(result.executionId(), collector.events().get(0).executionId());
+        assertThrows(UnsupportedOperationException.class,
+                () -> collector.events().clear());
+    }
 }
