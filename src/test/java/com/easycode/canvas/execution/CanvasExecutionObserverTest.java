@@ -9,6 +9,7 @@ import com.easycode.canvas.model.CanvasPort;
 import com.easycode.canvas.model.CanvasPortDirection;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,8 @@ class CanvasExecutionObserverTest {
                 CanvasExecutionEventType.SUCCEEDED), events.stream().map(CanvasExecutionEvent::type).toList());
         assertEquals(List.of(0L, 1L, 2L, 3L, 4L, 5L),
                 events.stream().map(CanvasExecutionEvent::sequence).toList());
+        assertTrue(events.stream().allMatch(event -> event.occurredAt() != null));
+        assertTrue(events.get(0).occurredAt().compareTo(events.get(5).occurredAt()) <= 0);
         assertEquals(first.nodeId(), events.get(1).nodeId());
         assertEquals(first.nodeId(), events.get(2).nodeId());
         assertEquals(second.nodeId(), events.get(3).nodeId());
@@ -95,6 +98,8 @@ class CanvasExecutionObserverTest {
         assertEquals(Map.of(), events.get(2).inputs());
         assertEquals(List.of("before failure"), events.get(2).consoleOutput());
         assertEquals(Map.of(outputPortId, "partial"), events.get(2).outputs());
+        assertTrue(events.get(1).occurredAt().compareTo(events.get(2).occurredAt()) <= 0);
+        assertTrue(events.get(2).occurredAt().compareTo(events.get(3).occurredAt()) <= 0);
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));
     }
 
@@ -112,5 +117,15 @@ class CanvasExecutionObserverTest {
         assertThrows(RuntimeException.class,
                 () -> new CanvasService(Map.of()).execute(request, events::add));
         assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void explicitOccurredAtIsPreserved() {
+        Instant occurredAt = Instant.parse("2026-01-02T03:04:05Z");
+        CanvasExecutionEvent event = new CanvasExecutionEvent(UUID.randomUUID(),
+                CanvasExecutionEventType.STARTED, null, "", 0L,
+                Map.of(), Map.of(), List.of(), occurredAt);
+
+        assertEquals(occurredAt, event.occurredAt());
     }
 }

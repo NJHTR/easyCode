@@ -1,5 +1,6 @@
 package com.easycode.canvas.execution;
 
+import java.time.Instant;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,12 +17,13 @@ public record CanvasExecutionEvent(
         long sequence,
         Map<UUID, Object> inputs,
         Map<UUID, Object> outputs,
-        List<String> consoleOutput) {
+        List<String> consoleOutput,
+        Instant occurredAt) {
     public CanvasExecutionEvent(UUID executionId,
                                 CanvasExecutionEventType type,
                                 UUID nodeId,
                                 String message) {
-        this(executionId, type, nodeId, message, 0L, Map.of(), Map.of(), List.of());
+        this(executionId, type, nodeId, message, 0L, Map.of(), Map.of(), List.of(), Instant.now());
     }
 
     public CanvasExecutionEvent(UUID executionId,
@@ -29,12 +31,24 @@ public record CanvasExecutionEvent(
                                 UUID nodeId,
                                 String message,
                                 long sequence) {
-        this(executionId, type, nodeId, message, sequence, Map.of(), Map.of(), List.of());
+        this(executionId, type, nodeId, message, sequence, Map.of(), Map.of(), List.of(), Instant.now());
+    }
+
+    public CanvasExecutionEvent(UUID executionId,
+                                CanvasExecutionEventType type,
+                                UUID nodeId,
+                                String message,
+                                long sequence,
+                                Map<UUID, Object> inputs,
+                                Map<UUID, Object> outputs,
+                                List<String> consoleOutput) {
+        this(executionId, type, nodeId, message, sequence, inputs, outputs, consoleOutput, Instant.now());
     }
 
     public CanvasExecutionEvent {
         Objects.requireNonNull(executionId, "executionId");
         Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(occurredAt, "occurredAt");
         if (sequence < 0) {
             throw new IllegalArgumentException("event sequence cannot be negative");
         }

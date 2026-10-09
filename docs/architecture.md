@@ -134,7 +134,9 @@ terminal success or failure event inline on the synchronous execution thread.
 Every event carries the request's execution ID and a zero-based monotonically
 increasing sequence number for that execution. Node events also carry immutable
 input, output, and console snapshots for that node invocation. The observer is a
-callback only:
+callback only, and each event records an `occurredAt` timestamp for inspection
+and correlation; `sequence` remains the authoritative event order. The timestamp
+is observational metadata, not a scheduling or persistence mechanism:
 events are neither queued nor retained, and observer exceptions are allowed to
 propagate to the caller. Preflight or planning rejection happens before
 `STARTED`, so rejected requests produce no lifecycle events. This deliberately
