@@ -190,6 +190,8 @@ Their `input(portId)` and `output(portId)` lookups preserve the distinction
 between a missing port and an explicitly published `null` value.
 `CanvasExecutionResult.nodeObservation(nodeId)` exposes the same completed-node
 view from a post-run result even when no event collector was attached.
+`CanvasExecutionResult.nodeObservations()` exposes all result traces in execution
+order as one immutable map.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.

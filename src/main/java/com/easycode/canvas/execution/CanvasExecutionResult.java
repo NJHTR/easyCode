@@ -138,6 +138,16 @@ public record CanvasExecutionResult(
                 Optional.ofNullable(trace.failureDetails())));
     }
 
+    /** Returns immutable node observations in the result trace order. */
+    public Map<UUID, CanvasNodeExecutionObservation> nodeObservations() {
+        Map<UUID, CanvasNodeExecutionObservation> observations = new LinkedHashMap<>();
+        for (CanvasNodeExecutionTrace trace : nodeTraces) {
+            nodeObservation(trace.nodeId()).ifPresent(observation ->
+                    observations.put(trace.nodeId(), observation));
+        }
+        return Collections.unmodifiableMap(observations);
+    }
+
     /** Returns exception diagnostics for the failed node, when an exception was thrown. */
     public Optional<CanvasExecutionFailure> failureDetails() {
         if (failedNodeId == null) {
