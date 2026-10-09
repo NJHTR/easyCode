@@ -482,6 +482,35 @@ class CanvasExecutionObserverTest {
         assertEquals(1, collector.size());
     }
 
+    @Test
+    void collectorRequiresNodeLifecyclePairsAndMatchingTerminalState() {
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        CanvasExecutionEventCollector missingStart = new CanvasExecutionEventCollector();
+        missingStart.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        assertThrows(IllegalArgumentException.class, () -> missingStart.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.NODE_SUCCEEDED, nodeId, "", 1L)));
+        assertEquals(1, missingStart.size());
+
+        CanvasExecutionEventCollector activeNode = new CanvasExecutionEventCollector();
+        activeNode.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        activeNode.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_STARTED,
+                nodeId, "", 1L));
+        assertThrows(IllegalArgumentException.class, () -> activeNode.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.SUCCEEDED, null, "", 2L)));
+        assertEquals(2, activeNode.size());
+
+        CanvasExecutionEventCollector failedWithoutNodeFailure = new CanvasExecutionEventCollector();
+        failedWithoutNodeFailure.onEvent(new CanvasExecutionEvent(executionId,
+                CanvasExecutionEventType.STARTED, null, "", 0L));
+        assertThrows(IllegalArgumentException.class, () -> failedWithoutNodeFailure.onEvent(
+                new CanvasExecutionEvent(executionId, CanvasExecutionEventType.FAILED,
+                        null, "failure", 1L)));
+        assertEquals(1, failedWithoutNodeFailure.size());
+    }
+
     private static CanvasNode bareNode(String name) {
         return new CanvasNode(UUID.randomUUID(), name, "debug-node", Map.of(), List.of());
     }

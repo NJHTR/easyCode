@@ -151,7 +151,9 @@ For callers that need a post-run inspection view, `CanvasExecutionEventCollector
 implements the same observer contract and exposes an immutable in-memory event
 snapshot after the synchronous call returns. It is a convenience collector, not
 an execution registry or a persistence layer. Its node and event-type queries
-preserve execution order and return immutable lists.
+preserve execution order and return immutable lists. It validates contiguous
+event numbering, node start/outcome pairs, debugger pause/resume transitions,
+and that terminal outcomes agree with the last node lifecycle state.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

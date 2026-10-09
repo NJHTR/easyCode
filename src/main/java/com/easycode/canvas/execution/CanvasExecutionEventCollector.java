@@ -15,7 +15,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final CanvasExecutionValueSnapshotter snapshotter;
     private UUID executionId;
     private boolean terminal;
+    private UUID activeNodeId;
     private UUID debuggerPausedNodeId;
+    private CanvasExecutionEventType lastNodeOutcome;
 
     public CanvasExecutionEventCollector() {
         this(CanvasExecutionValueSnapshotter.identity());
@@ -44,21 +46,78 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 throw new IllegalArgumentException("execution event sequence is not contiguous");
             }
         }
+        CanvasExecutionEvent snapshot = event.withValueSnapshotter(snapshotter);
+        validateLifecycle(event);
         if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
-            if (debuggerPausedNodeId != null) {
-                throw new IllegalArgumentException("debugger cannot pause twice without resuming");
-            }
             debuggerPausedNodeId = event.nodeId();
         } else if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
-            if (!event.nodeId().equals(debuggerPausedNodeId)) {
-                throw new IllegalArgumentException("debugger resume must match the paused node");
-            }
             debuggerPausedNodeId = null;
         }
-        events.add(event.withValueSnapshotter(snapshotter));
+        if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
+            activeNodeId = event.nodeId();
+        } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
+                || event.type() == CanvasExecutionEventType.NODE_FAILED
+                || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
+            activeNodeId = null;
+            lastNodeOutcome = event.type();
+        }
+        events.add(snapshot);
         terminal = event.type() == CanvasExecutionEventType.SUCCEEDED
                 || event.type() == CanvasExecutionEventType.FAILED
                 || event.type() == CanvasExecutionEventType.CANCELLED;
+    }
+
+    private void validateLifecycle(CanvasExecutionEvent event) {
+        CanvasExecutionEventType type = event.type();
+        if (events.isEmpty()) {
+            return;
+        }
+        if ((lastNodeOutcome == CanvasExecutionEventType.NODE_FAILED && type != CanvasExecutionEventType.FAILED)
+                || (lastNodeOutcome == CanvasExecutionEventType.NODE_CANCELLED
+                && type != CanvasExecutionEventType.CANCELLED)) {
+            throw new IllegalArgumentException("terminal node outcome must be followed by its execution outcome");
+        }
+        switch (type) {
+            case STARTED -> throw new IllegalArgumentException("execution can only start once");
+            case DEBUGGER_PAUSED -> {
+                if (activeNodeId != null || debuggerPausedNodeId != null) {
+                    throw new IllegalArgumentException("debugger can pause only between nodes");
+                }
+            }
+            case DEBUGGER_RESUMED -> {
+                if (debuggerPausedNodeId == null || !event.nodeId().equals(debuggerPausedNodeId)) {
+                    throw new IllegalArgumentException("debugger resume must match the paused node");
+                }
+            }
+            case NODE_STARTED -> {
+                if (activeNodeId != null || debuggerPausedNodeId != null) {
+                    throw new IllegalArgumentException("node execution cannot overlap another node or debugger pause");
+                }
+            }
+            case NODE_SUCCEEDED, NODE_FAILED, NODE_CANCELLED -> {
+                if (!event.nodeId().equals(activeNodeId)) {
+                    throw new IllegalArgumentException("node outcome must match the active node");
+                }
+            }
+            case SUCCEEDED -> {
+                if (activeNodeId != null || debuggerPausedNodeId != null
+                        || lastNodeOutcome == CanvasExecutionEventType.NODE_FAILED
+                        || lastNodeOutcome == CanvasExecutionEventType.NODE_CANCELLED) {
+                    throw new IllegalArgumentException("successful terminal event conflicts with execution state");
+                }
+            }
+            case FAILED -> {
+                if (activeNodeId != null || debuggerPausedNodeId != null
+                        || lastNodeOutcome != CanvasExecutionEventType.NODE_FAILED) {
+                    throw new IllegalArgumentException("failed terminal event requires a failed node outcome");
+                }
+            }
+            case CANCELLED -> {
+                if (activeNodeId != null || lastNodeOutcome == CanvasExecutionEventType.NODE_FAILED) {
+                    throw new IllegalArgumentException("cancelled terminal event conflicts with execution state");
+                }
+            }
+        }
     }
 
     /** Returns an immutable snapshot of all events collected so far. */
