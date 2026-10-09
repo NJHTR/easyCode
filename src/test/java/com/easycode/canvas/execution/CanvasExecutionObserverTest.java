@@ -129,8 +129,11 @@ class CanvasExecutionObserverTest {
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);
-        assertEquals(IllegalStateException.class.getName(),
-                unobservedResult.trace(nodeId).orElseThrow().failureDetails().exceptionType());
+        CanvasExecutionFailure unobservedFailure = unobservedResult.failureDetails().orElseThrow();
+        assertEquals(IllegalStateException.class.getName(), unobservedFailure.exceptionType());
+        assertEquals("expected failure", unobservedFailure.message());
+        assertEquals(unobservedFailure,
+                unobservedResult.trace(nodeId).orElseThrow().failureDetails());
         assertTrue(events.get(1).occurredAt().compareTo(events.get(2).occurredAt()) <= 0);
         assertTrue(events.get(2).occurredAt().compareTo(events.get(3).occurredAt()) <= 0);
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));

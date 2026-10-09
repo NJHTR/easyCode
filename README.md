@@ -150,6 +150,9 @@ type, message, and formatted stack trace in `failureDetails`; graph validation
 failures still expose their existing message without a fabricated stack trace.
 The same details are available from the failed node's `CanvasNodeExecutionTrace`,
 so callers that do not subscribe to lifecycle events can still inspect them.
+`CanvasExecutionResult.failureDetails()` provides the same exception details
+directly when a failed node threw an exception; validation failures continue to
+expose their message without an artificial stack trace.
 Callers that need to inspect the complete event sequence after the synchronous
 run can pass a `CanvasExecutionEventCollector` as the observer and read its
 immutable `events()` snapshot, or query it by node or lifecycle event type.

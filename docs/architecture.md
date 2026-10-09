@@ -184,6 +184,8 @@ details with the exception type, message, and formatted stack trace. Engine
 validation failures do not claim to have an exception stack when none exists.
 The same thrown-exception details are included in the failed node trace returned
 by `CanvasExecutionResult`, independent of whether an observer was supplied.
+`CanvasExecutionResult.failureDetails()` exposes that diagnostic directly when
+the failed node threw an exception.
 
 An execution may receive a `CanvasExecutionCancellationToken`. The engine checks
 it before starting each node, and a long-running executor may call

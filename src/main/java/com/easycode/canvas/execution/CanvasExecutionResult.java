@@ -121,6 +121,16 @@ public record CanvasExecutionResult(
         return nodeTraces.stream().filter(trace -> trace.nodeId().equals(nodeId)).findFirst();
     }
 
+    /** Returns exception diagnostics for the failed node, when an exception was thrown. */
+    public Optional<CanvasExecutionFailure> failureDetails() {
+        if (failedNodeId == null) {
+            return Optional.empty();
+        }
+        return trace(failedNodeId)
+                .map(CanvasNodeExecutionTrace::failureDetails)
+                .filter(Objects::nonNull);
+    }
+
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values) {
         if (values == null) {
             return Map.of();
