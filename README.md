@@ -156,8 +156,10 @@ immutable `events()` snapshot, or query it by node or lifecycle event type.
 The collector validates that the recorded events belong to one execution, have
 contiguous sequence numbers, and end with one terminal event.
 It also exposes structured live queries for the active node, paused node,
-successfully completed node IDs, published output values, console lines, and
-terminal status while the synchronous call is running or after it returns.
+their captured input snapshots, successfully completed node IDs, published
+output values, console lines, and terminal status while the synchronous call
+is running or after it returns. Active and paused input queries are present
+only while that node state exists; terminal cleanup removes them.
 The collector also provides execution identity, null-safe lookup by output port,
 and per-node console queries.
 This is a small in-process observation hook, not a realtime log stream, event bus,

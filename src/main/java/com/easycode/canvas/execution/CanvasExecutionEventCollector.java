@@ -20,7 +20,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private UUID executionId;
     private boolean terminal;
     private UUID activeNodeId;
+    private Map<UUID, Object> activeNodeInputs = Map.of();
     private UUID debuggerPausedNodeId;
+    private Map<UUID, Object> debuggerPausedNodeInputs = Map.of();
     private CanvasExecutionEventType lastNodeOutcome;
     private final List<UUID> completedNodeIds = new ArrayList<>();
     private final List<String> consoleOutput = new ArrayList<>();
@@ -58,15 +60,19 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         validateLifecycle(event);
         if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
             debuggerPausedNodeId = event.nodeId();
+            debuggerPausedNodeInputs = snapshot.inputs();
         } else if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
             debuggerPausedNodeId = null;
+            debuggerPausedNodeInputs = Map.of();
         }
         if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
             activeNodeId = event.nodeId();
+            activeNodeInputs = snapshot.inputs();
         } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
                 || event.type() == CanvasExecutionEventType.NODE_FAILED
                 || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
             activeNodeId = null;
+            activeNodeInputs = Map.of();
             lastNodeOutcome = event.type();
             if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED) {
                 completedNodeIds.add(event.nodeId());
@@ -79,7 +85,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         terminal = terminalStatus != null;
         if (terminal) {
             activeNodeId = null;
+            activeNodeInputs = Map.of();
             debuggerPausedNodeId = null;
+            debuggerPausedNodeInputs = Map.of();
         }
     }
 
@@ -177,9 +185,21 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return Optional.ofNullable(activeNodeId);
     }
 
+    /** Returns the immutable inputs captured when the active node started. */
+    public synchronized Optional<Map<UUID, Object>> activeNodeInputs() {
+        return activeNodeId == null ? Optional.empty() : Optional.of(activeNodeInputs);
+    }
+
     /** Returns the node at which execution is currently paused, if any. */
     public synchronized Optional<UUID> pausedNodeId() {
         return Optional.ofNullable(debuggerPausedNodeId);
+    }
+
+    /** Returns the immutable inputs captured at the current debugger pause. */
+    public synchronized Optional<Map<UUID, Object>> pausedNodeInputs() {
+        return debuggerPausedNodeId == null
+                ? Optional.empty()
+                : Optional.of(debuggerPausedNodeInputs);
     }
 
     /** Returns node IDs that have completed successfully in execution order. */

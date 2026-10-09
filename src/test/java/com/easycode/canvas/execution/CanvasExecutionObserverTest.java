@@ -191,6 +191,30 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void collectorExposesActiveNodeInputsOnlyDuringNodeExecution() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_STARTED,
+                nodeId, "", 1L, Map.of(inputPortId, "active"), Map.of(), List.of()));
+
+        assertEquals(java.util.Optional.of(nodeId), collector.activeNodeId());
+        assertEquals(java.util.Optional.of(Map.of(inputPortId, "active")),
+                collector.activeNodeInputs());
+        assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_SUCCEEDED,
+                nodeId, "", 2L, Map.of(inputPortId, "active"), Map.of(), List.of()));
+        assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.SUCCEEDED,
+                null, "", 3L));
+    }
+
+    @Test
     void collectorRejectsBrokenEventSequences() {
         CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
         CanvasExecutionEvent started = new CanvasExecutionEvent(UUID.randomUUID(),
@@ -434,6 +458,7 @@ class CanvasExecutionObserverTest {
             assertEquals(List.of(first.nodeId()), collector.completedNodeIds());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
             assertEquals(java.util.Optional.of(second.nodeId()), collector.pausedNodeId());
+            assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
             assertEquals(java.util.Optional.empty(), collector.terminalStatus());
             assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
                             CanvasExecutionEventType.NODE_SUCCEEDED, CanvasExecutionEventType.DEBUGGER_PAUSED),
@@ -458,6 +483,8 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), collector.terminalStatus());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
             assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
+            assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
+            assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
             assertTrue(collector.isComplete());
         } finally {
             debugger.resume();
@@ -526,6 +553,8 @@ class CanvasExecutionObserverTest {
             CanvasExecutionEvent paused = collector.eventsOfType(CanvasExecutionEventType.DEBUGGER_PAUSED)
                     .get(0);
             assertEquals(Map.of(inputPortId, "visible"), paused.inputs());
+            assertEquals(java.util.Optional.of(Map.of(inputPortId, "visible")),
+                    collector.pausedNodeInputs());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
                             CanvasExecutionEventType.DEBUGGER_PAUSED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
