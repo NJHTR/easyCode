@@ -83,6 +83,7 @@ public final class CanvasExecutionDebugger {
         paused = false;
         singleStep = false;
         pausedNodeId = null;
+        encounteredBreakpoints.clear();
         notifyAll();
     }
 

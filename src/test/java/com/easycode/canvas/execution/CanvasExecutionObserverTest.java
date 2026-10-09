@@ -559,6 +559,14 @@ class CanvasExecutionObserverTest {
             assertEquals(false, debugger.isPauseRequested());
             assertEquals(null, debugger.pausedNodeId());
             assertEquals(Set.of(node.nodeId()), debugger.breakpoints());
+
+            Future<CanvasExecutionResult> secondRun = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), new CanvasExecutionEventCollector(),
+                    new CanvasExecutionCancellationToken(), debugger));
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            assertEquals(node.nodeId(), debugger.pausedNodeId());
+            debugger.resume();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED, secondRun.get(5, TimeUnit.SECONDS).status());
         } finally {
             debugger.resume();
             executor.shutdownNow();
