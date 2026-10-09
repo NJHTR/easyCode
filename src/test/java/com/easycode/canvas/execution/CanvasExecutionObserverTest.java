@@ -150,6 +150,13 @@ class CanvasExecutionObserverTest {
                 collector.events().stream().map(CanvasExecutionEvent::type).toList());
         assertEquals(request.executionId(), collector.events().get(0).executionId());
         assertEquals(result.executionId(), collector.events().get(0).executionId());
+        assertEquals(List.of(CanvasExecutionEventType.NODE_STARTED,
+                        CanvasExecutionEventType.NODE_SUCCEEDED),
+                collector.eventsForNode(constant.nodeId()).stream()
+                        .map(CanvasExecutionEvent::type).toList());
+        assertEquals(1, collector.eventsOfType(CanvasExecutionEventType.SUCCEEDED).size());
+        assertThrows(UnsupportedOperationException.class,
+                () -> collector.eventsForNode(constant.nodeId()).clear());
         assertThrows(UnsupportedOperationException.class,
                 () -> collector.events().clear());
     }
