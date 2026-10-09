@@ -70,6 +70,10 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
         terminal = terminalStatus != null;
+        if (terminal) {
+            activeNodeId = null;
+            debuggerPausedNodeId = null;
+        }
     }
 
     private void validateLifecycle(CanvasExecutionEvent event) {

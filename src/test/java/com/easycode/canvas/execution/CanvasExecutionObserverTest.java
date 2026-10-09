@@ -483,7 +483,8 @@ class CanvasExecutionObserverTest {
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
             assertTrue(collector.isComplete());
             assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), collector.terminalStatus());
-            assertEquals(java.util.Optional.of(node.nodeId()), collector.pausedNodeId());
+            assertEquals(java.util.Optional.empty(), collector.activeNodeId());
+            assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
         } finally {
             debugger.resume();
             cancellation.cancel();
