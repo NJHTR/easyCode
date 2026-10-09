@@ -49,16 +49,14 @@ public record CanvasNodeExecutionObservation(
                 && completedAt.orElseThrow().isBefore(startedAt.orElseThrow())) {
             throw new IllegalArgumentException("completed time cannot precede start time");
         }
+        if ((startedAt.isPresent() && elapsed.isEmpty())
+                || (completedAt.isPresent() && startedAt.isEmpty() && elapsed.isPresent())) {
+            throw new IllegalArgumentException("elapsed duration conflicts with node lifecycle timestamps");
+        }
         if (status.isEmpty()) {
             if (completedAt.isPresent() || outputs.isPresent()
                     || failureMessage.isPresent() || failureDetails.isPresent()) {
                 throw new IllegalArgumentException("active node cannot contain terminal state");
-            }
-            if (startedAt.isEmpty() && elapsed.isPresent()) {
-                throw new IllegalArgumentException("paused node cannot have elapsed time");
-            }
-            if (startedAt.isPresent() && elapsed.isEmpty()) {
-                throw new IllegalArgumentException("active node requires elapsed time");
             }
         } else {
             switch (status.orElseThrow()) {

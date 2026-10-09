@@ -133,6 +133,37 @@ class CanvasExecutionObservationValidationTest {
     }
 
     @Test
+    void rejectsCompletedNodeWithoutElapsedDuration() {
+        Instant startedAt = Instant.EPOCH;
+        assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionObservation(
+                UUID.randomUUID(),
+                Optional.of(startedAt),
+                Optional.of(startedAt.plusSeconds(1)),
+                Optional.empty(),
+                Map.of(),
+                Optional.of(Map.of()),
+                List.of(),
+                Optional.of(CanvasExecutionStatus.SUCCEEDED),
+                Optional.empty(),
+                Optional.empty()));
+    }
+
+    @Test
+    void rejectsElapsedDurationForCancelledNodeThatNeverStarted() {
+        assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionObservation(
+                UUID.randomUUID(),
+                Optional.empty(),
+                Optional.of(Instant.EPOCH),
+                Optional.of(Duration.ZERO),
+                Map.of(),
+                Optional.of(Map.of()),
+                List.of(),
+                Optional.of(CanvasExecutionStatus.CANCELLED),
+                Optional.empty(),
+                Optional.empty()));
+    }
+
+    @Test
     void rejectsCompletedNodeListThatDisagreesWithNodeStatuses() {
         UUID nodeId = UUID.randomUUID();
         assertThrows(IllegalArgumentException.class, () -> observation(
