@@ -58,6 +58,61 @@ public record CanvasExecutionObservation(
         if (elapsed.isPresent() && elapsed.orElseThrow().isNegative()) {
             throw new IllegalArgumentException("elapsed cannot be negative");
         }
+        if (completedAt.isPresent() && startedAt.isEmpty()) {
+            throw new IllegalArgumentException("completed time requires a start time");
+        }
+        if (startedAt.isPresent() && completedAt.isPresent()
+                && completedAt.orElseThrow().isBefore(startedAt.orElseThrow())) {
+            throw new IllegalArgumentException("completed time cannot precede start time");
+        }
+        if (activeNodeId.isPresent() && pausedNodeId.isPresent()) {
+            throw new IllegalArgumentException("execution cannot be active and paused at the same time");
+        }
+        if (complete != terminalStatus.isPresent()) {
+            throw new IllegalArgumentException("complete flag must match terminal status");
+        }
+        if (complete && completedAt.isEmpty()) {
+            throw new IllegalArgumentException("complete execution requires a completion time");
+        }
+        if (!complete && completedAt.isPresent()) {
+            throw new IllegalArgumentException("incomplete execution cannot have a completion time");
+        }
+        if (terminalMessage.isPresent() && terminalMessage.orElseThrow().isBlank()) {
+            throw new IllegalArgumentException("terminal message cannot be blank");
+        }
+        if (terminalStatus.isEmpty() && terminalMessage.isPresent()) {
+            throw new IllegalArgumentException("terminal message requires a terminal status");
+        }
+        if (failedNodeId.isEmpty() && failureDetails.isPresent()) {
+            throw new IllegalArgumentException("failure details require a failed node");
+        }
+        if (terminalStatus.isPresent()) {
+            switch (terminalStatus.orElseThrow()) {
+                case SUCCEEDED -> {
+                    if (failedNodeId.isPresent() || failureDetails.isPresent() || terminalMessage.isPresent()) {
+                        throw new IllegalArgumentException("successful execution cannot contain failure details");
+                    }
+                }
+                case FAILED -> {
+                    if (failedNodeId.isEmpty() || terminalMessage.isEmpty()) {
+                        throw new IllegalArgumentException("failed execution must identify a node and message");
+                    }
+                }
+                case CANCELLED -> {
+                    if (failedNodeId.isPresent() || failureDetails.isPresent() || terminalMessage.isEmpty()) {
+                        throw new IllegalArgumentException("cancelled execution must contain only a cancellation message");
+                    }
+                }
+            }
+        }
+        if (executionId.isEmpty() && (startedAt.isPresent() || completedAt.isPresent() || elapsed.isPresent()
+                || activeNodeId.isPresent() || !activeNodeInputs.isEmpty()
+                || pausedNodeId.isPresent() || !pausedNodeInputs.isEmpty() || !nodeStatuses.isEmpty()
+                || !completedNodeIds.isEmpty() || !publishedOutputValues.isEmpty()
+                || !consoleOutput.isEmpty() || terminalStatus.isPresent() || failedNodeId.isPresent()
+                || failureDetails.isPresent() || terminalMessage.isPresent() || complete)) {
+            throw new IllegalArgumentException("execution state requires an execution id");
+        }
     }
 
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values, String name) {

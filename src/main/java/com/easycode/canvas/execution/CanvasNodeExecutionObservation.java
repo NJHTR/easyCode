@@ -41,6 +41,42 @@ public record CanvasNodeExecutionObservation(
         if (failureMessage.isPresent() && failureMessage.orElseThrow().isBlank()) {
             throw new IllegalArgumentException("failure message cannot be blank");
         }
+        if (completedAt.isPresent() && startedAt.isEmpty()) {
+            throw new IllegalArgumentException("completed time requires a start time");
+        }
+        if (startedAt.isPresent() && completedAt.isPresent()
+                && completedAt.orElseThrow().isBefore(startedAt.orElseThrow())) {
+            throw new IllegalArgumentException("completed time cannot precede start time");
+        }
+        if (status.isEmpty()) {
+            if (completedAt.isPresent() || outputs.isPresent()
+                    || failureMessage.isPresent() || failureDetails.isPresent()) {
+                throw new IllegalArgumentException("active node cannot contain terminal state");
+            }
+            if (startedAt.isEmpty() && elapsed.isPresent()) {
+                throw new IllegalArgumentException("paused node cannot have elapsed time");
+            }
+            if (startedAt.isPresent() && elapsed.isEmpty()) {
+                throw new IllegalArgumentException("active node requires elapsed time");
+            }
+        } else {
+            switch (status.orElseThrow()) {
+                case SUCCEEDED, CANCELLED -> {
+                    if (failureMessage.isPresent() || failureDetails.isPresent()) {
+                        throw new IllegalArgumentException("successful or cancelled node cannot contain failure details");
+                    }
+                }
+                case FAILED -> {
+                    if (failureMessage.isEmpty()) {
+                        throw new IllegalArgumentException("failed node must contain a failure message");
+                    }
+                    if (failureDetails.isPresent()
+                            && !failureMessage.orElseThrow().equals(failureDetails.orElseThrow().message())) {
+                        throw new IllegalArgumentException("failure details must match the failure message");
+                    }
+                }
+            }
+        }
     }
 
     /** Returns whether this node is currently running or paused before execution. */
