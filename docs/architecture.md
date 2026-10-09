@@ -171,7 +171,9 @@ scan raw events.
 Execution identity, null-safe output lookup, and per-node console queries are
 available through the same collector. STARTED and terminal timestamps, plus
 their elapsed duration, are also exposed as observational metadata; they do
-not turn the collector into a scheduler or realtime log stream.
+not turn the collector into a scheduler or realtime log stream. The collector
+also exposes per-node start, terminal-outcome, and elapsed timestamps for
+inspection while a node is active or after it finishes.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

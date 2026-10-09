@@ -194,6 +194,38 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return Optional.of(duration.isNegative() ? Duration.ZERO : duration);
     }
 
+    /** Returns the timestamp at which a node entered execution, if it started. */
+    public synchronized Optional<Instant> nodeStartedAt(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return events.stream()
+                .filter(event -> event.type() == CanvasExecutionEventType.NODE_STARTED)
+                .filter(event -> nodeId.equals(event.nodeId()))
+                .map(CanvasExecutionEvent::occurredAt)
+                .findFirst();
+    }
+
+    /** Returns the timestamp at which a node reached a terminal outcome, if any. */
+    public synchronized Optional<Instant> nodeCompletedAt(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return events.stream()
+                .filter(event -> isNodeTerminal(event.type()))
+                .filter(event -> nodeId.equals(event.nodeId()))
+                .map(CanvasExecutionEvent::occurredAt)
+                .findFirst();
+    }
+
+    /** Returns node wall-clock time from its start to its outcome or to now while active. */
+    public synchronized Optional<Duration> nodeElapsed(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        Optional<Instant> started = nodeStartedAt(nodeId);
+        if (started.isEmpty()) {
+            return Optional.empty();
+        }
+        Instant end = nodeCompletedAt(nodeId).orElseGet(Instant::now);
+        Duration duration = Duration.between(started.orElseThrow(), end);
+        return Optional.of(duration.isNegative() ? Duration.ZERO : duration);
+    }
+
     /** Returns lifecycle events for one node in their original execution order. */
     public synchronized List<CanvasExecutionEvent> eventsForNode(UUID nodeId) {
         Objects.requireNonNull(nodeId, "nodeId");
@@ -304,5 +336,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             case CANCELLED -> CanvasExecutionStatus.CANCELLED;
             default -> null;
         };
+    }
+
+    private static boolean isNodeTerminal(CanvasExecutionEventType type) {
+        return type == CanvasExecutionEventType.NODE_SUCCEEDED
+                || type == CanvasExecutionEventType.NODE_FAILED
+                || type == CanvasExecutionEventType.NODE_CANCELLED;
     }
 }

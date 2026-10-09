@@ -126,6 +126,9 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.of(nodeId), collector.failedNodeId());
         assertEquals(java.util.Optional.of(events.get(2).failureDetails()), collector.failureDetails());
         assertEquals(java.util.Optional.of("expected failure"), collector.terminalMessage());
+        assertEquals(java.util.Optional.of(events.get(1).occurredAt()), collector.nodeStartedAt(nodeId));
+        assertEquals(java.util.Optional.of(events.get(2).occurredAt()), collector.nodeCompletedAt(nodeId));
+        assertTrue(collector.nodeElapsed(nodeId).orElseThrow().compareTo(Duration.ZERO) >= 0);
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);
@@ -185,6 +188,34 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void collectorExposesPerNodeTimingFromNodeLifecycleTimestamps() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        Instant executionStartedAt = Instant.parse("2026-01-02T03:04:05Z");
+        Instant nodeStartedAt = executionStartedAt.plusMillis(10);
+        Instant nodeCompletedAt = nodeStartedAt.plusMillis(125);
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L, Map.of(), Map.of(), List.of(), executionStartedAt));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_STARTED,
+                nodeId, "", 1L, Map.of(), Map.of(), List.of(), nodeStartedAt));
+
+        assertEquals(java.util.Optional.of(nodeStartedAt), collector.nodeStartedAt(nodeId));
+        assertEquals(java.util.Optional.empty(), collector.nodeCompletedAt(nodeId));
+        assertTrue(collector.nodeElapsed(nodeId).orElseThrow().compareTo(Duration.ZERO) >= 0);
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_SUCCEEDED,
+                nodeId, "", 2L, Map.of(), Map.of(), List.of(), nodeCompletedAt));
+        assertEquals(java.util.Optional.of(nodeCompletedAt), collector.nodeCompletedAt(nodeId));
+        assertEquals(Duration.ofMillis(125), collector.nodeElapsed(nodeId).orElseThrow());
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.SUCCEEDED,
+                null, "", 3L, Map.of(), Map.of(), List.of(), nodeCompletedAt.plusMillis(1)));
+        assertEquals(java.util.Optional.empty(), collector.nodeStartedAt(UUID.randomUUID()));
+    }
+
+    @Test
     void collectorKeepsAnImmutableExecutionSnapshot() {
         CanvasApplication application = new CanvasApplication();
         CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",
@@ -232,6 +263,9 @@ class CanvasExecutionObserverTest {
                 nodeId, "", 1L, Map.of(inputPortId, "active"), Map.of(), List.of()));
 
         assertEquals(java.util.Optional.of(nodeId), collector.activeNodeId());
+        assertTrue(collector.nodeStartedAt(nodeId).isPresent());
+        assertEquals(java.util.Optional.empty(), collector.nodeCompletedAt(nodeId));
+        assertTrue(collector.nodeElapsed(nodeId).orElseThrow().compareTo(Duration.ZERO) >= 0);
         assertEquals(java.util.Optional.of(Map.of(inputPortId, "active")),
                 collector.activeNodeInputs());
         assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
@@ -239,6 +273,7 @@ class CanvasExecutionObserverTest {
         collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_SUCCEEDED,
                 nodeId, "", 2L, Map.of(inputPortId, "active"), Map.of(), List.of()));
         assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
+        assertTrue(collector.nodeCompletedAt(nodeId).isPresent());
         collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.SUCCEEDED,
                 null, "", 3L));
     }
