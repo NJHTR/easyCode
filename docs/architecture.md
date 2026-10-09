@@ -163,6 +163,8 @@ successfully completed node IDs, published output values, console lines, and
 terminal status, so a debugger does not need to parse the raw event list for
 basic run state. Failed or cancelled node outputs are intentionally excluded
 from the published map, while their console diagnostics remain available.
+Execution identity, null-safe output lookup, and per-node console queries are
+available through the same collector.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

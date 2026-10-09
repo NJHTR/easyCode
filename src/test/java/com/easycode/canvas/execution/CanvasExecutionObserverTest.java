@@ -77,8 +77,11 @@ class CanvasExecutionObserverTest {
                 () -> events.get(4).consoleOutput().add("mutated"));
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));
         assertEquals(request.executionId(), result.executionId());
+        assertEquals(java.util.Optional.of(request.executionId()), collector.executionId());
         assertEquals(Map.of(first.ports().get(0).portId(), "one"), collector.publishedOutputValues());
+        assertEquals("one", collector.publishedOutput(first.ports().get(0).portId()).requireValue());
         assertEquals(List.of("one"), collector.consoleOutput());
+        assertEquals(List.of("one"), collector.consoleOutputForNode(second.nodeId()));
     }
 
     @Test

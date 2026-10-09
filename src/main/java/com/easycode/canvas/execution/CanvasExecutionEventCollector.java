@@ -141,6 +141,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return List.copyOf(events);
     }
 
+    /** Returns the execution identity after the first STARTED event is collected. */
+    public synchronized Optional<UUID> executionId() {
+        return Optional.ofNullable(executionId);
+    }
+
     /** Returns lifecycle events for one node in their original execution order. */
     public synchronized List<CanvasExecutionEvent> eventsForNode(UUID nodeId) {
         Objects.requireNonNull(nodeId, "nodeId");
@@ -190,6 +195,26 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns values published by successfully completed nodes so far. */
     public synchronized Map<UUID, Object> publishedOutputValues() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(publishedOutputValues));
+    }
+
+    /** Looks up one published output while preserving an explicit null value. */
+    public synchronized CanvasValueLookup publishedOutput(UUID portId) {
+        Objects.requireNonNull(portId, "portId");
+        return publishedOutputValues.containsKey(portId)
+                ? CanvasValueLookup.present(publishedOutputValues.get(portId))
+                : CanvasValueLookup.missing();
+    }
+
+    /** Returns console lines emitted by one node in lifecycle order. */
+    public synchronized List<String> consoleOutputForNode(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return events.stream()
+                .filter(event -> nodeId.equals(event.nodeId()))
+                .filter(event -> event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
+                        || event.type() == CanvasExecutionEventType.NODE_FAILED
+                        || event.type() == CanvasExecutionEventType.NODE_CANCELLED)
+                .flatMap(event -> event.consoleOutput().stream())
+                .toList();
     }
 
     /** Returns the terminal status once execution has completed. */

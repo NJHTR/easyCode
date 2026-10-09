@@ -158,6 +158,8 @@ contiguous sequence numbers, and end with one terminal event.
 It also exposes structured live queries for the active node, paused node,
 successfully completed node IDs, published output values, console lines, and
 terminal status while the synchronous call is running or after it returns.
+The collector also provides execution identity, null-safe lookup by output port,
+and per-node console queries.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
