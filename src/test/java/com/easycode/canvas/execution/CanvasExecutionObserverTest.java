@@ -369,18 +369,25 @@ class CanvasExecutionObserverTest {
             assertEquals(second.nodeId(), debugger.pausedNodeId());
             assertEquals(List.of(first.nodeId()), List.copyOf(executed));
             assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
-                            CanvasExecutionEventType.NODE_SUCCEEDED),
+                            CanvasExecutionEventType.NODE_SUCCEEDED, CanvasExecutionEventType.DEBUGGER_PAUSED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
 
             debugger.step();
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(third.nodeId(), debugger.pausedNodeId());
             assertEquals(List.of(first.nodeId(), second.nodeId()), List.copyOf(executed));
+            assertEquals(List.of(CanvasExecutionEventType.STARTED,
+                            CanvasExecutionEventType.NODE_STARTED, CanvasExecutionEventType.NODE_SUCCEEDED,
+                            CanvasExecutionEventType.DEBUGGER_PAUSED, CanvasExecutionEventType.DEBUGGER_RESUMED,
+                            CanvasExecutionEventType.NODE_STARTED, CanvasExecutionEventType.NODE_SUCCEEDED,
+                            CanvasExecutionEventType.DEBUGGER_PAUSED),
+                    collector.events().stream().map(CanvasExecutionEvent::type).toList());
 
             debugger.resume();
             assertEquals(CanvasExecutionStatus.SUCCEEDED,
                     result.get(5, TimeUnit.SECONDS).status());
             assertEquals(List.of(first.nodeId(), second.nodeId(), third.nodeId()), List.copyOf(executed));
+            assertTrue(collector.isComplete());
         } finally {
             debugger.resume();
             cancellation.cancel();
@@ -398,10 +405,11 @@ class CanvasExecutionObserverTest {
         CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
         debugger.addBreakpoint(node.nodeId());
         CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
-                    CanvasExecutionRequest.forCanvas(canvas), CanvasExecutionObserver.noop(),
+                    CanvasExecutionRequest.forCanvas(canvas), collector,
                     cancellation, debugger));
 
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
@@ -409,6 +417,10 @@ class CanvasExecutionObserverTest {
 
             assertEquals(CanvasExecutionStatus.CANCELLED,
                     result.get(5, TimeUnit.SECONDS).status());
+            assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.DEBUGGER_PAUSED,
+                            CanvasExecutionEventType.CANCELLED),
+                    collector.events().stream().map(CanvasExecutionEvent::type).toList());
+            assertTrue(collector.isComplete());
         } finally {
             debugger.resume();
             cancellation.cancel();
@@ -431,6 +443,19 @@ class CanvasExecutionObserverTest {
                 CanvasExecutionRequest.forCanvas(canvas), events::add,
                 new CanvasExecutionCancellationToken(), debugger));
         assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void collectorRejectsDebuggerResumeWithoutMatchingPause() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.DEBUGGER_RESUMED, nodeId, "", 1L)));
+        assertEquals(1, collector.size());
     }
 
     private static CanvasNode bareNode(String name) {

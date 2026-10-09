@@ -15,6 +15,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final CanvasExecutionValueSnapshotter snapshotter;
     private UUID executionId;
     private boolean terminal;
+    private UUID debuggerPausedNodeId;
 
     public CanvasExecutionEventCollector() {
         this(CanvasExecutionValueSnapshotter.identity());
@@ -42,6 +43,17 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             if (event.sequence() != events.size()) {
                 throw new IllegalArgumentException("execution event sequence is not contiguous");
             }
+        }
+        if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
+            if (debuggerPausedNodeId != null) {
+                throw new IllegalArgumentException("debugger cannot pause twice without resuming");
+            }
+            debuggerPausedNodeId = event.nodeId();
+        } else if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
+            if (!event.nodeId().equals(debuggerPausedNodeId)) {
+                throw new IllegalArgumentException("debugger resume must match the paused node");
+            }
+            debuggerPausedNodeId = null;
         }
         events.add(event.withValueSnapshotter(snapshotter));
         terminal = event.type() == CanvasExecutionEventType.SUCCEEDED

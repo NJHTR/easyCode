@@ -73,7 +73,9 @@ public record CanvasExecutionEvent(
         boolean nodeEvent = type == CanvasExecutionEventType.NODE_STARTED
                 || type == CanvasExecutionEventType.NODE_SUCCEEDED
                 || type == CanvasExecutionEventType.NODE_FAILED
-                || type == CanvasExecutionEventType.NODE_CANCELLED;
+                || type == CanvasExecutionEventType.NODE_CANCELLED
+                || type == CanvasExecutionEventType.DEBUGGER_PAUSED
+                || type == CanvasExecutionEventType.DEBUGGER_RESUMED;
         if (nodeEvent != (nodeId != null)) {
             throw new IllegalArgumentException("node lifecycle events require a node id");
         }

@@ -114,7 +114,9 @@ public final class CanvasExecutionEngine {
                 return cancelled(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
             }
-            if (!debugger.beforeNode(nodeId, cancellationToken)) {
+            eventSequence = debugger.beforeNode(nodeId, cancellationToken, observer,
+                    request.executionId(), eventSequence);
+            if (cancellationToken.isCancellationRequested()) {
                 return cancelled(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
             }

@@ -85,24 +85,36 @@ public final class CanvasExecutionDebugger {
         return paused;
     }
 
-    synchronized boolean beforeNode(UUID nodeId, CanvasExecutionCancellationToken cancellationToken) {
+    synchronized long beforeNode(UUID nodeId, CanvasExecutionCancellationToken cancellationToken,
+                                 CanvasExecutionObserver observer, UUID executionId, long eventSequence) {
         if (breakpoints.contains(nodeId) && encounteredBreakpoints.add(nodeId)) {
             pauseRequested = true;
         }
-        while (pauseRequested && !cancellationToken.isCancellationRequested()) {
+        if (pauseRequested && !cancellationToken.isCancellationRequested()) {
             paused = true;
             pausedNodeId = nodeId;
             notifyAll();
-            try {
-                wait(CANCELLATION_POLL_MILLIS);
-            } catch (InterruptedException exception) {
-                cancellationToken.cancel();
-                Thread.currentThread().interrupt();
+            eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
+                    nodeId, eventSequence);
+            while (pauseRequested && !cancellationToken.isCancellationRequested()) {
+                try {
+                    wait(CANCELLATION_POLL_MILLIS);
+                } catch (InterruptedException exception) {
+                    cancellationToken.cancel();
+                    Thread.currentThread().interrupt();
+                }
+            }
+            boolean cancelled = cancellationToken.isCancellationRequested();
+            paused = false;
+            pausedNodeId = null;
+            if (!cancelled) {
+                eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_RESUMED,
+                        nodeId, eventSequence);
             }
         }
         paused = false;
         pausedNodeId = null;
-        return !cancellationToken.isCancellationRequested();
+        return eventSequence;
     }
 
     synchronized void afterNode() {
@@ -110,5 +122,11 @@ public final class CanvasExecutionDebugger {
             singleStep = false;
             pauseRequested = true;
         }
+    }
+
+    private static long emit(CanvasExecutionObserver observer, UUID executionId,
+                             CanvasExecutionEventType type, UUID nodeId, long sequence) {
+        observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, "", sequence));
+        return sequence + 1;
     }
 }
