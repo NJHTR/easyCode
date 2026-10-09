@@ -19,6 +19,7 @@ public final class CanvasExecutionDebugger {
     private boolean pauseRequested;
     private boolean paused;
     private boolean singleStep;
+    private boolean executionActive;
     private UUID pausedNodeId;
     private Map<UUID, Object> pausedNodeInputs = Map.of();
     private CanvasExecutionPauseReason nextPauseReason;
@@ -113,12 +114,20 @@ public final class CanvasExecutionDebugger {
         pauseRequested = false;
         paused = false;
         singleStep = false;
+        executionActive = false;
         pausedNodeId = null;
         pausedNodeInputs = Map.of();
         nextPauseReason = null;
         pausedReason = null;
         encounteredBreakpoints.clear();
         notifyAll();
+    }
+
+    synchronized void beginExecution() {
+        if (executionActive) {
+            throw new IllegalStateException("debugger is already attached to an active execution");
+        }
+        executionActive = true;
     }
 
     synchronized void validateBreakpoints(List<UUID> plannedNodeIds) {

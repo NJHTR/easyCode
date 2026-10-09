@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -723,6 +724,45 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void debuggerCannotBeSharedByConcurrentExecutions() throws Exception {
+        CanvasNode node = bareNode("single-debugger-owner");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "single-debugger-owner",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(node.nodeId());
+        CanvasExecutionEventCollector firstCollector = new CanvasExecutionEventCollector();
+        CanvasExecutionEventCollector secondCollector = new CanvasExecutionEventCollector();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<CanvasExecutionResult> first = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), firstCollector,
+                    new CanvasExecutionCancellationToken(), debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            Future<CanvasExecutionResult> second = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), secondCollector,
+                    new CanvasExecutionCancellationToken(), debugger));
+
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> second.get(5, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof IllegalStateException);
+            assertEquals(0, secondCollector.size());
+            assertTrue(debugger.isPaused());
+            assertEquals(node.nodeId(), debugger.pausedNodeId());
+
+            debugger.resume();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED, first.get(5, TimeUnit.SECONDS).status());
+            assertTrue(firstCollector.isComplete());
+            assertEquals(0, debugger.hitBreakpoints().size());
+        } finally {
+            debugger.resume();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void debuggerClearsPauseStateAfterSteppingTheFinalNode() throws Exception {
         CanvasNode node = bareNode("final-step");
         CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "debug-final-step",
@@ -870,6 +910,12 @@ class CanvasExecutionObserverTest {
                 CanvasExecutionRequest.forCanvas(canvas), events::add,
                 new CanvasExecutionCancellationToken(), debugger));
         assertTrue(events.isEmpty());
+
+        debugger.removeBreakpoint(debugger.breakpoints().iterator().next());
+        CanvasExecutionResult result = service.executeDebuggable(CanvasExecutionRequest.forCanvas(canvas),
+                events::add, new CanvasExecutionCancellationToken(), debugger);
+        assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
+        assertEquals(CanvasExecutionEventType.SUCCEEDED, events.get(events.size() - 1).type());
     }
 
     @Test

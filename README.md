@@ -219,6 +219,8 @@ breakpoint, an explicit request, or single-step execution.
 The debugger also exposes the read-only set of breakpoints hit during the
 current run. That set is cleared when the run reaches success, failure, or
 cancellation, while configured breakpoints remain available for inspection.
+One debugger instance can control only one active execution at a time; it may be
+reused after that execution finishes.
 
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is
