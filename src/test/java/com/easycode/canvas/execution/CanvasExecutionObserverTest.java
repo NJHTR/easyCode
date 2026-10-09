@@ -783,6 +783,8 @@ class CanvasExecutionObserverTest {
             assertEquals(Map.of(inputPortId, "visible"), paused.inputs());
             assertEquals(java.util.Optional.of(Map.of(inputPortId, "visible")),
                     collector.pausedNodeInputs());
+            assertEquals(java.util.Optional.of(Map.of(inputPortId, "visible")),
+                    debugger.pausedNodeInputs());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
                             CanvasExecutionEventType.DEBUGGER_PAUSED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
@@ -790,6 +792,7 @@ class CanvasExecutionObserverTest {
             debugger.resume();
             assertEquals(CanvasExecutionStatus.SUCCEEDED,
                     result.get(5, TimeUnit.SECONDS).status());
+            assertEquals(java.util.Optional.empty(), debugger.pausedNodeInputs());
         } finally {
             debugger.resume();
             cancellation.cancel();

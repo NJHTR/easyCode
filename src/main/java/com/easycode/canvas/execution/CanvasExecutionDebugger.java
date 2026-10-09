@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +20,7 @@ public final class CanvasExecutionDebugger {
     private boolean paused;
     private boolean singleStep;
     private UUID pausedNodeId;
+    private Map<UUID, Object> pausedNodeInputs = Map.of();
 
     public synchronized void addBreakpoint(UUID nodeId) {
         breakpoints.add(Objects.requireNonNull(nodeId, "nodeId"));
@@ -59,6 +61,7 @@ public final class CanvasExecutionDebugger {
         singleStep = false;
         paused = false;
         pausedNodeId = null;
+        pausedNodeInputs = Map.of();
         notifyAll();
     }
 
@@ -71,6 +74,7 @@ public final class CanvasExecutionDebugger {
         singleStep = true;
         paused = false;
         pausedNodeId = null;
+        pausedNodeInputs = Map.of();
         notifyAll();
     }
 
@@ -87,12 +91,18 @@ public final class CanvasExecutionDebugger {
         return pausedNodeId;
     }
 
+    /** Returns an immutable snapshot of inputs at the current node-boundary pause. */
+    public synchronized Optional<Map<UUID, Object>> pausedNodeInputs() {
+        return pausedNodeId == null ? Optional.empty() : Optional.of(pausedNodeInputs);
+    }
+
     /** Clears per-execution pause state while retaining configured breakpoints. */
     synchronized void complete() {
         pauseRequested = false;
         paused = false;
         singleStep = false;
         pausedNodeId = null;
+        pausedNodeInputs = Map.of();
         encounteredBreakpoints.clear();
         notifyAll();
     }
@@ -131,6 +141,7 @@ public final class CanvasExecutionDebugger {
         if (pauseRequested && !cancellationToken.isCancellationRequested()) {
             paused = true;
             pausedNodeId = nodeId;
+            pausedNodeInputs = CanvasExecutionValueSnapshots.snapshot(inputs, "inputs");
             notifyAll();
             eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
                     nodeId, inputs, eventSequence);
@@ -145,6 +156,7 @@ public final class CanvasExecutionDebugger {
             boolean cancelled = cancellationToken.isCancellationRequested();
             paused = false;
             pausedNodeId = null;
+            pausedNodeInputs = Map.of();
             if (!cancelled) {
                 eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_RESUMED,
                         nodeId, eventSequence);
@@ -152,6 +164,7 @@ public final class CanvasExecutionDebugger {
         }
         paused = false;
         pausedNodeId = null;
+        pausedNodeInputs = Map.of();
         return eventSequence;
     }
 
