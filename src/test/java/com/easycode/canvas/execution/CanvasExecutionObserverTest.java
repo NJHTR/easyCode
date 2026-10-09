@@ -1033,6 +1033,33 @@ class CanvasExecutionObserverTest {
         assertTrue(collector.isComplete());
     }
 
+    @Test
+    void collectorRequiresPausedNodeCancellationBeforeExecutionCancellation() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
+                nodeId, "", 1L));
+
+        assertThrows(IllegalArgumentException.class, () -> collector.onEvent(new CanvasExecutionEvent(
+                executionId, CanvasExecutionEventType.CANCELLED, null,
+                "canvas execution cancelled", 2L)));
+        assertEquals(2, collector.size());
+        assertEquals(java.util.Optional.of(nodeId), collector.pausedNodeId());
+        assertEquals(false, collector.isComplete());
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.NODE_CANCELLED,
+                nodeId, "canvas execution cancelled", 2L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.CANCELLED,
+                null, "canvas execution cancelled", 3L));
+
+        assertTrue(collector.isComplete());
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED),
+                collector.nodeStatus(nodeId));
+    }
+
     private static CanvasNode bareNode(String name) {
         return new CanvasNode(UUID.randomUUID(), name, "debug-node", Map.of(), List.of());
     }

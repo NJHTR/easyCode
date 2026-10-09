@@ -184,7 +184,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 }
             }
             case CANCELLED -> {
-                if (activeNodeId != null || lastNodeOutcome == CanvasExecutionEventType.NODE_FAILED) {
+                if (activeNodeId != null || debuggerPausedNodeId != null
+                        || lastNodeOutcome == CanvasExecutionEventType.NODE_FAILED) {
                     throw new IllegalArgumentException("cancelled terminal event conflicts with execution state");
                 }
             }
