@@ -177,6 +177,8 @@ inspection while a node is active or after it finishes. Immutable per-node
 input snapshots are available after NODE_STARTED, and output snapshots become
 available after a node outcome; partial outputs from failed or cancelled nodes
 remain diagnostic data without entering the published output aggregate.
+`nodeStatus()` provides the corresponding terminal status directly; it is empty
+until that node reaches an outcome.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

@@ -34,6 +34,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final List<UUID> completedNodeIds = new ArrayList<>();
     private final Map<UUID, Map<UUID, Object>> nodeInputs = new LinkedHashMap<>();
     private final Map<UUID, Map<UUID, Object>> nodeOutputs = new LinkedHashMap<>();
+    private final Map<UUID, CanvasExecutionStatus> nodeStatuses = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
     private final Map<UUID, Object> publishedOutputValues = new LinkedHashMap<>();
     private CanvasExecutionStatus terminalStatus;
@@ -96,6 +97,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 publishedOutputValues.putAll(snapshot.outputs());
             }
             nodeOutputs.put(event.nodeId(), snapshot.outputs());
+            nodeStatuses.put(event.nodeId(), nodeStatusOf(event.type()));
             consoleOutput.addAll(snapshot.consoleOutput());
         }
         events.add(snapshot);
@@ -278,6 +280,12 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return Optional.ofNullable(nodeOutputs.get(nodeId));
     }
 
+    /** Returns the terminal status of a node after it reaches an outcome. */
+    public synchronized Optional<CanvasExecutionStatus> nodeStatus(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return Optional.ofNullable(nodeStatuses.get(nodeId));
+    }
+
     /** Returns the node at which execution is currently paused, if any. */
     public synchronized Optional<UUID> pausedNodeId() {
         return Optional.ofNullable(debuggerPausedNodeId);
@@ -358,5 +366,14 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return type == CanvasExecutionEventType.NODE_SUCCEEDED
                 || type == CanvasExecutionEventType.NODE_FAILED
                 || type == CanvasExecutionEventType.NODE_CANCELLED;
+    }
+
+    private static CanvasExecutionStatus nodeStatusOf(CanvasExecutionEventType type) {
+        return switch (type) {
+            case NODE_SUCCEEDED -> CanvasExecutionStatus.SUCCEEDED;
+            case NODE_FAILED -> CanvasExecutionStatus.FAILED;
+            case NODE_CANCELLED -> CanvasExecutionStatus.CANCELLED;
+            default -> throw new IllegalArgumentException("not a node terminal event: " + type);
+        };
     }
 }

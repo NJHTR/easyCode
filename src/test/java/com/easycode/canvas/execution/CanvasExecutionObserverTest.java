@@ -84,9 +84,13 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.of(Map.of()), collector.nodeInputs(first.nodeId()));
         assertEquals(java.util.Optional.of(Map.of(first.ports().get(0).portId(), "one")),
                 collector.nodeOutputs(first.nodeId()));
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED),
+                collector.nodeStatus(first.nodeId()));
         assertEquals(java.util.Optional.of(Map.of(second.ports().get(0).portId(), "one")),
                 collector.nodeInputs(second.nodeId()));
         assertEquals(java.util.Optional.of(Map.of()), collector.nodeOutputs(second.nodeId()));
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED),
+                collector.nodeStatus(second.nodeId()));
         assertEquals(List.of("one"), collector.consoleOutput());
         assertEquals(List.of("one"), collector.consoleOutputForNode(second.nodeId()));
     }
@@ -137,6 +141,7 @@ class CanvasExecutionObserverTest {
         assertTrue(collector.nodeElapsed(nodeId).orElseThrow().compareTo(Duration.ZERO) >= 0);
         assertEquals(java.util.Optional.of(Map.of()), collector.nodeInputs(nodeId));
         assertEquals(java.util.Optional.of(Map.of(outputPortId, "partial")), collector.nodeOutputs(nodeId));
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.FAILED), collector.nodeStatus(nodeId));
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);
@@ -276,6 +281,7 @@ class CanvasExecutionObserverTest {
         assertTrue(collector.nodeElapsed(nodeId).orElseThrow().compareTo(Duration.ZERO) >= 0);
         assertEquals(java.util.Optional.of(Map.of(inputPortId, "active")), collector.nodeInputs(nodeId));
         assertEquals(java.util.Optional.empty(), collector.nodeOutputs(nodeId));
+        assertEquals(java.util.Optional.empty(), collector.nodeStatus(nodeId));
         assertEquals(java.util.Optional.of(Map.of(inputPortId, "active")),
                 collector.activeNodeInputs());
         assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
@@ -285,6 +291,7 @@ class CanvasExecutionObserverTest {
         assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
         assertTrue(collector.nodeCompletedAt(nodeId).isPresent());
         assertEquals(java.util.Optional.of(Map.of()), collector.nodeOutputs(nodeId));
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), collector.nodeStatus(nodeId));
         collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.SUCCEEDED,
                 null, "", 3L));
     }
