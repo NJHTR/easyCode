@@ -32,6 +32,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private Map<UUID, Object> debuggerPausedNodeInputs = Map.of();
     private CanvasExecutionEventType lastNodeOutcome;
     private final List<UUID> completedNodeIds = new ArrayList<>();
+    private final Map<UUID, Map<UUID, Object>> nodeInputs = new LinkedHashMap<>();
+    private final Map<UUID, Map<UUID, Object>> nodeOutputs = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
     private final Map<UUID, Object> publishedOutputValues = new LinkedHashMap<>();
     private CanvasExecutionStatus terminalStatus;
@@ -78,6 +80,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
             activeNodeId = event.nodeId();
             activeNodeInputs = snapshot.inputs();
+            nodeInputs.put(event.nodeId(), snapshot.inputs());
         } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
                 || event.type() == CanvasExecutionEventType.NODE_FAILED
                 || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
@@ -92,6 +95,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 completedNodeIds.add(event.nodeId());
                 publishedOutputValues.putAll(snapshot.outputs());
             }
+            nodeOutputs.put(event.nodeId(), snapshot.outputs());
             consoleOutput.addAll(snapshot.consoleOutput());
         }
         events.add(snapshot);
@@ -260,6 +264,18 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns the immutable inputs captured when the active node started. */
     public synchronized Optional<Map<UUID, Object>> activeNodeInputs() {
         return activeNodeId == null ? Optional.empty() : Optional.of(activeNodeInputs);
+    }
+
+    /** Returns the immutable input snapshot captured when a node started. */
+    public synchronized Optional<Map<UUID, Object>> nodeInputs(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return Optional.ofNullable(nodeInputs.get(nodeId));
+    }
+
+    /** Returns the immutable output snapshot captured when a node reached an outcome. */
+    public synchronized Optional<Map<UUID, Object>> nodeOutputs(UUID nodeId) {
+        Objects.requireNonNull(nodeId, "nodeId");
+        return Optional.ofNullable(nodeOutputs.get(nodeId));
     }
 
     /** Returns the node at which execution is currently paused, if any. */
