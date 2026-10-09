@@ -132,7 +132,9 @@ The request-based execution overload also accepts a `CanvasExecutionObserver`.
 It reports `STARTED`, node-level started/succeeded or failed events, and one
 terminal success or failure event inline on the synchronous execution thread.
 Every event carries the request's execution ID and a zero-based monotonically
-increasing sequence number for that execution. The observer is a callback only:
+increasing sequence number for that execution. Node events also carry immutable
+input, output, and console snapshots for that node invocation. The observer is a
+callback only:
 events are neither queued nor retained, and observer exceptions are allowed to
 propagate to the caller. Preflight or planning rejection happens before
 `STARTED`, so rejected requests produce no lifecycle events. This deliberately

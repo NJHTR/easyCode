@@ -49,6 +49,17 @@ class CanvasExecutionObserverTest {
         assertEquals(first.nodeId(), events.get(2).nodeId());
         assertEquals(second.nodeId(), events.get(3).nodeId());
         assertEquals(second.nodeId(), events.get(4).nodeId());
+        assertEquals(Map.of(), events.get(1).inputs());
+        assertEquals(Map.of(), events.get(2).inputs());
+        assertEquals(Map.of(first.ports().get(0).portId(), "one"), events.get(2).outputs());
+        assertEquals(Map.of(second.ports().get(0).portId(), "one"), events.get(3).inputs());
+        assertEquals(Map.of(), events.get(1).outputs());
+        assertEquals(List.of("one"), events.get(4).consoleOutput());
+        assertEquals(Map.of(), events.get(4).outputs());
+        assertThrows(UnsupportedOperationException.class,
+                () -> events.get(3).inputs().put(UUID.randomUUID(), "mutated"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> events.get(4).consoleOutput().add("mutated"));
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));
         assertEquals(request.executionId(), result.executionId());
     }
@@ -56,11 +67,15 @@ class CanvasExecutionObserverTest {
     @Test
     void observesFailedNodeAndTerminalFailure() {
         UUID nodeId = UUID.randomUUID();
-        CanvasNode node = new CanvasNode(nodeId, "broken", "broken", Map.of(), List.of());
+        UUID outputPortId = UUID.randomUUID();
+        CanvasNode node = new CanvasNode(nodeId, "broken", "broken", Map.of(), List.of(
+                new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
         CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "observed-failure",
                 List.of(node), List.of());
         CanvasService service = new CanvasService(Map.of(
-                "broken", (ignoredNode, ignoredContext) -> {
+                "broken", (ignoredNode, context) -> {
+                    context.console("before failure");
+                    context.output(outputPortId, "partial");
                     throw new IllegalStateException("expected failure");
                 }));
         CanvasExecutionRequest request = CanvasExecutionRequest.forCanvas(canvas);
@@ -77,6 +92,9 @@ class CanvasExecutionObserverTest {
         assertEquals(nodeId, events.get(2).nodeId());
         assertEquals("expected failure", events.get(2).message());
         assertEquals("expected failure", events.get(3).message());
+        assertEquals(Map.of(), events.get(2).inputs());
+        assertEquals(List.of("before failure"), events.get(2).consoleOutput());
+        assertEquals(Map.of(outputPortId, "partial"), events.get(2).outputs());
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));
     }
 

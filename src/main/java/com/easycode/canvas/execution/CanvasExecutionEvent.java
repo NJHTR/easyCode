@@ -1,5 +1,9 @@
 package com.easycode.canvas.execution;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -9,12 +13,23 @@ public record CanvasExecutionEvent(
         CanvasExecutionEventType type,
         UUID nodeId,
         String message,
-        long sequence) {
+        long sequence,
+        Map<UUID, Object> inputs,
+        Map<UUID, Object> outputs,
+        List<String> consoleOutput) {
     public CanvasExecutionEvent(UUID executionId,
                                 CanvasExecutionEventType type,
                                 UUID nodeId,
                                 String message) {
-        this(executionId, type, nodeId, message, 0L);
+        this(executionId, type, nodeId, message, 0L, Map.of(), Map.of(), List.of());
+    }
+
+    public CanvasExecutionEvent(UUID executionId,
+                                CanvasExecutionEventType type,
+                                UUID nodeId,
+                                String message,
+                                long sequence) {
+        this(executionId, type, nodeId, message, sequence, Map.of(), Map.of(), List.of());
     }
 
     public CanvasExecutionEvent {
@@ -24,6 +39,12 @@ public record CanvasExecutionEvent(
             throw new IllegalArgumentException("event sequence cannot be negative");
         }
         message = message == null ? "" : message;
+        inputs = immutableValues(inputs, "inputs");
+        outputs = immutableValues(outputs, "outputs");
+        consoleOutput = consoleOutput == null ? List.of() : List.copyOf(consoleOutput);
+        if (consoleOutput.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("console output cannot contain null");
+        }
         boolean nodeEvent = type == CanvasExecutionEventType.NODE_STARTED
                 || type == CanvasExecutionEventType.NODE_SUCCEEDED
                 || type == CanvasExecutionEventType.NODE_FAILED;
@@ -37,5 +58,22 @@ public record CanvasExecutionEvent(
         } else if (!message.isBlank()) {
             throw new IllegalArgumentException("non-failure lifecycle events cannot carry a message");
         }
+        if (!nodeEvent && (!inputs.isEmpty() || !outputs.isEmpty() || !consoleOutput.isEmpty())) {
+            throw new IllegalArgumentException("execution events cannot carry node snapshots");
+        }
+        if (type == CanvasExecutionEventType.NODE_STARTED
+                && (!outputs.isEmpty() || !consoleOutput.isEmpty())) {
+            throw new IllegalArgumentException("node started events cannot carry outputs");
+        }
+    }
+
+    private static Map<UUID, Object> immutableValues(Map<UUID, Object> values, String name) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        if (values.entrySet().stream().anyMatch(entry -> entry.getKey() == null)) {
+            throw new IllegalArgumentException(name + " cannot contain a null port id");
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
 }
