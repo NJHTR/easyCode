@@ -91,6 +91,7 @@ public final class CanvasExecutionEngine {
         CanvasDefinition canvas = request.canvas();
         Instant startedAt = Instant.now();
         CanvasExecutionPlan plan = preflight.prepare(request);
+        debugger.validateBreakpoints(plan.orderedNodeIds());
         long eventSequence = 0L;
         eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.STARTED,
                 null, "", eventSequence, Map.of(), Map.of(), List.of());

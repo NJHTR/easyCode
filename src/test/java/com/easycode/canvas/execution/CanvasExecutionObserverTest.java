@@ -358,15 +358,19 @@ class CanvasExecutionObserverTest {
         CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
         debugger.addBreakpoint(second.nodeId());
         CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
-                    CanvasExecutionRequest.forCanvas(canvas), CanvasExecutionObserver.noop(),
+                    CanvasExecutionRequest.forCanvas(canvas), collector,
                     cancellation, debugger));
 
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(second.nodeId(), debugger.pausedNodeId());
             assertEquals(List.of(first.nodeId()), List.copyOf(executed));
+            assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
+                            CanvasExecutionEventType.NODE_SUCCEEDED),
+                    collector.events().stream().map(CanvasExecutionEvent::type).toList());
 
             debugger.step();
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
@@ -411,6 +415,22 @@ class CanvasExecutionObserverTest {
             executor.shutdownNow();
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }
+    }
+
+    @Test
+    void debuggerRejectsBreakpointOutsideExecutionBeforeStarting() {
+        CanvasNode node = bareNode("node");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "invalid-breakpoint",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(UUID.randomUUID());
+        List<CanvasExecutionEvent> events = new ArrayList<>();
+
+        assertThrows(IllegalArgumentException.class, () -> service.executeDebuggable(
+                CanvasExecutionRequest.forCanvas(canvas), events::add,
+                new CanvasExecutionCancellationToken(), debugger));
+        assertTrue(events.isEmpty());
     }
 
     private static CanvasNode bareNode(String name) {

@@ -2,6 +2,7 @@ package com.easycode.canvas.execution;
 
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -58,6 +59,15 @@ public final class CanvasExecutionDebugger {
 
     public synchronized UUID pausedNodeId() {
         return pausedNodeId;
+    }
+
+    synchronized void validateBreakpoints(List<UUID> plannedNodeIds) {
+        Set<UUID> planned = Set.copyOf(plannedNodeIds);
+        if (!planned.containsAll(breakpoints)) {
+            Set<UUID> unknown = new HashSet<>(breakpoints);
+            unknown.removeAll(planned);
+            throw new IllegalArgumentException("breakpoints reference nodes outside this execution: " + unknown);
+        }
     }
 
     /** Waits until execution reaches a pause or the timeout expires. */
