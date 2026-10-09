@@ -44,6 +44,19 @@ public record CanvasNodeExecutionTrace(
         Objects.requireNonNull(snapshotter, "snapshotter");
     }
 
+    static CanvasNodeExecutionTrace fromSnapshots(UUID nodeId,
+                                                  String nodeType,
+                                                  CanvasExecutionStatus status,
+                                                  Map<UUID, Object> inputs,
+                                                  Map<UUID, Object> outputs,
+                                                  java.util.List<String> consoleOutput,
+                                                  Duration duration,
+                                                  String failureMessage,
+                                                  CanvasExecutionFailure failureDetails) {
+        return new CanvasNodeExecutionTrace(nodeId, nodeType, status, inputs, outputs,
+                consoleOutput, duration, failureMessage, failureDetails);
+    }
+
     public CanvasNodeExecutionTrace {
         Objects.requireNonNull(nodeId, "nodeId");
         if (nodeType == null || nodeType.isBlank()) {

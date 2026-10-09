@@ -291,6 +291,35 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void traceCapturesInputsBeforeExecutorMutatesAValue() {
+        UUID nodeId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        MutableValue value = new MutableValue("before");
+        CanvasNode node = new CanvasNode(nodeId, "mutating", "mutating", Map.of(), List.of(
+                new CanvasPort(inputPortId, "in", CanvasPortDirection.INPUT),
+                new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "input-snapshot",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of(
+                "mutating", (ignoredNode, context) -> {
+                    MutableValue input = (MutableValue) context.input(inputPortId);
+                    input.value = "after";
+                    context.output(outputPortId, input);
+                }), candidate -> candidate instanceof MutableValue mutable
+                        ? Map.of("value", mutable.value)
+                        : candidate);
+
+        CanvasExecutionResult result = service.execute(CanvasExecutionRequest.withInputs(
+                canvas, List.of(), Map.of(inputPortId, value)));
+        CanvasNodeExecutionTrace trace = result.trace(nodeId).orElseThrow();
+
+        assertEquals("before", ((Map<?, ?>) trace.inputs().get(inputPortId)).get("value"));
+        assertEquals("after", ((Map<?, ?>) trace.outputs().get(outputPortId)).get("value"));
+        assertSame(value, result.output(outputPortId).value());
+    }
+
+    @Test
     void cancellationBeforeExecutionEmitsTerminalCancellation() {
         CanvasApplication application = new CanvasApplication();
         CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",
