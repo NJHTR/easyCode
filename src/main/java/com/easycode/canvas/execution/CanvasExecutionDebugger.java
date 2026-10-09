@@ -77,6 +77,15 @@ public final class CanvasExecutionDebugger {
         return pausedNodeId;
     }
 
+    /** Clears per-execution pause state while retaining configured breakpoints. */
+    synchronized void complete() {
+        pauseRequested = false;
+        paused = false;
+        singleStep = false;
+        pausedNodeId = null;
+        notifyAll();
+    }
+
     synchronized void validateBreakpoints(List<UUID> plannedNodeIds) {
         Set<UUID> planned = Set.copyOf(plannedNodeIds);
         if (!planned.containsAll(breakpoints)) {

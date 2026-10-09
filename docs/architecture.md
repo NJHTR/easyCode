@@ -202,6 +202,8 @@ caller owns any thread used to issue controls concurrently. Cancellation release
 a paused execution. This is basic graph-level stepping, not source-line debugging or a
 mutable variable watch session. Configured breakpoints and pending pause state
 are exposed as read-only debugger queries for control-surface synchronization.
+Terminal success, failure, and cancellation clear transient pause state while
+leaving the configured breakpoint set intact.
 
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's

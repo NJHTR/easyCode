@@ -529,9 +529,38 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), collector.terminalStatus());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
             assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
+            assertEquals(false, debugger.isPauseRequested());
         } finally {
             debugger.resume();
             cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void debuggerClearsPauseStateAfterSteppingTheFinalNode() throws Exception {
+        CanvasNode node = bareNode("final-step");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "debug-final-step",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(node.nodeId());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), new CanvasExecutionEventCollector(),
+                    new CanvasExecutionCancellationToken(), debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            debugger.step();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED, result.get(5, TimeUnit.SECONDS).status());
+            assertEquals(false, debugger.isPaused());
+            assertEquals(false, debugger.isPauseRequested());
+            assertEquals(null, debugger.pausedNodeId());
+            assertEquals(Set.of(node.nodeId()), debugger.breakpoints());
+        } finally {
+            debugger.resume();
             executor.shutdownNow();
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }

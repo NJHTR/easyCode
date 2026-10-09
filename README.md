@@ -178,6 +178,8 @@ need to control it concurrently run that call on a thread they own. Cancellation
 also releases an execution waiting at a debugger pause. A pause event includes
 the selected node's input snapshot before that node starts. Breakpoint
 configuration and pending-pause state are also queryable.
+When an execution succeeds, fails, or is cancelled, transient pause state is
+cleared while configured breakpoints remain available for inspection.
 
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is
