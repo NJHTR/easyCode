@@ -66,7 +66,9 @@ transfers those values along validated connections and returns a terminal
 post-run observation, not a realtime debugger or persistent log. Trace values
 recursively snapshot standard maps, collections, arrays, and dates so later
 nodes cannot mutate previously captured container state; custom objects remain
-shared references unless an observer snapshotter projects them. A connected
+shared references unless a `CanvasExecutionValueSnapshotter` is configured on
+`CanvasService` or an observer collector. Trace snapshot projection does not
+replace values passed between nodes or returned in `outputValues`. A connected
 output must be published by its source executor; if it is absent, the source
 node fails explicitly before downstream execution. Outputs without downstream
 connections remain optional. Executors may read only declared input ports;

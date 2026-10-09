@@ -6,6 +6,7 @@ import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionObserver;
 import com.easycode.canvas.execution.CanvasExecutionCancellationToken;
 import com.easycode.canvas.execution.CanvasExecutionDebugger;
+import com.easycode.canvas.execution.CanvasExecutionValueSnapshotter;
 import com.easycode.canvas.execution.builtin.CanvasBuiltinLibrary;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
@@ -25,8 +26,14 @@ public final class CanvasApplication {
     }
 
     public CanvasApplication(CanvasNodeRegistry nodeRegistry) {
+        this(nodeRegistry, CanvasExecutionValueSnapshotter.identity());
+    }
+
+    /** Creates an application with a custom projection for values retained in node traces. */
+    public CanvasApplication(CanvasNodeRegistry nodeRegistry,
+                             CanvasExecutionValueSnapshotter traceSnapshotter) {
         this.nodeRegistry = Objects.requireNonNull(nodeRegistry, "nodeRegistry");
-        this.service = new CanvasService(nodeRegistry);
+        this.service = new CanvasService(nodeRegistry, traceSnapshotter);
     }
 
     public CanvasNodeRegistry nodes() {

@@ -7,6 +7,7 @@ import com.easycode.canvas.execution.CanvasExecutionDebugger;
 import com.easycode.canvas.execution.CanvasExecutionPreflightResult;
 import com.easycode.canvas.execution.CanvasExecutionRequest;
 import com.easycode.canvas.execution.CanvasExecutionResult;
+import com.easycode.canvas.execution.CanvasExecutionValueSnapshotter;
 import com.easycode.canvas.execution.CanvasNodeExecutor;
 import com.easycode.canvas.execution.builtin.CanvasBuiltinLibrary;
 import com.easycode.canvas.model.CanvasDefinition;
@@ -30,9 +31,21 @@ public final class CanvasService {
         this(Objects.requireNonNull(registry, "registry").executors());
     }
 
+    /** Creates a service with a custom projection for values retained in node traces. */
+    public CanvasService(CanvasNodeRegistry registry, CanvasExecutionValueSnapshotter traceSnapshotter) {
+        this(new CanvasExecutionEngine(Objects.requireNonNull(registry, "registry").executors(),
+                Objects.requireNonNull(traceSnapshotter, "traceSnapshotter")));
+    }
+
     /** Creates a service with the exact executor set supplied by the caller. */
     public CanvasService(Map<String, CanvasNodeExecutor> executors) {
         this(new CanvasExecutionEngine(executors));
+    }
+
+    /** Creates a service with a custom projection for values retained in node traces. */
+    public CanvasService(Map<String, CanvasNodeExecutor> executors,
+                         CanvasExecutionValueSnapshotter traceSnapshotter) {
+        this(new CanvasExecutionEngine(executors, traceSnapshotter));
     }
 
     public CanvasService(CanvasExecutionEngine engine) {

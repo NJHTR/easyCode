@@ -61,6 +61,10 @@ It dispatches a registered executor by `CanvasNode.nodeType`, passes in-memory
 values across connected ports, and returns a terminal `CanvasExecutionResult`.
 The result includes immutable per-node traces with the observed inputs,
 outputs, duration, and failure message when applicable.
+Standard containers in trace values are recursively copied. Applications with
+custom mutable value types can provide a `CanvasExecutionValueSnapshotter` to
+`CanvasService`; this changes trace representations only, not values passed
+between nodes or returned in `outputValues`.
 Executors may read only declared input ports; attempting to read an output or
 unknown port fails the current node with an explicit execution error.
 Built-in `print` and `passthrough` nodes also require their `in` port to be

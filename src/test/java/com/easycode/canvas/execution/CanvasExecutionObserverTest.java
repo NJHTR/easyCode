@@ -267,6 +267,30 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void serviceCanProjectCustomValuesInTracesWithoutChangingRuntimeOutputs() {
+        UUID nodeId = UUID.randomUUID();
+        UUID outputPortId = UUID.randomUUID();
+        MutableValue value = new MutableValue("before");
+        CanvasNode node = new CanvasNode(nodeId, "custom", "custom", Map.of(), List.of(
+                new CanvasPort(outputPortId, "out", CanvasPortDirection.OUTPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "custom-trace-snapshot",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of(
+                "custom", (ignoredNode, context) -> context.output(outputPortId, value)),
+                candidate -> candidate instanceof MutableValue mutable
+                        ? Map.of("value", mutable.value)
+                        : candidate);
+
+        CanvasExecutionResult result = service.execute(CanvasExecutionRequest.forCanvas(canvas));
+        value.value = "after";
+
+        assertSame(value, result.output(outputPortId).value());
+        Map<?, ?> traceSnapshot = (Map<?, ?>) result.trace(nodeId).orElseThrow().outputs().get(outputPortId);
+        assertEquals("before", traceSnapshot.get("value"));
+        assertThrows(UnsupportedOperationException.class, traceSnapshot::clear);
+    }
+
+    @Test
     void cancellationBeforeExecutionEmitsTerminalCancellation() {
         CanvasApplication application = new CanvasApplication();
         CanvasNode constant = application.createNode(CanvasBuiltinExecutors.CONSTANT, "constant",

@@ -2,7 +2,7 @@ package com.easycode.canvas.execution;
 
 /**
  * Converts custom runtime values into independent immutable representations
- * for execution-event inspection.
+ * for execution trace or event inspection.
  */
 @FunctionalInterface
 public interface CanvasExecutionValueSnapshotter {
