@@ -19,6 +19,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private final CanvasExecutionValueSnapshotter snapshotter;
     private UUID executionId;
     private boolean terminal;
+    private UUID failedNodeId;
+    private CanvasExecutionFailure failureDetails;
+    private String terminalMessage;
     private UUID activeNodeId;
     private Map<UUID, Object> activeNodeInputs = Map.of();
     private UUID debuggerPausedNodeId;
@@ -74,6 +77,10 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             activeNodeId = null;
             activeNodeInputs = Map.of();
             lastNodeOutcome = event.type();
+            if (event.type() == CanvasExecutionEventType.NODE_FAILED) {
+                failedNodeId = event.nodeId();
+                failureDetails = snapshot.failureDetails();
+            }
             if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED) {
                 completedNodeIds.add(event.nodeId());
                 publishedOutputValues.putAll(snapshot.outputs());
@@ -82,6 +89,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         }
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
+        if (terminalStatus != null && !event.message().isBlank()) {
+            terminalMessage = event.message();
+        }
         terminal = terminalStatus != null;
         if (terminal) {
             activeNodeId = null;
@@ -240,6 +250,21 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns the terminal status once execution has completed. */
     public synchronized Optional<CanvasExecutionStatus> terminalStatus() {
         return Optional.ofNullable(terminalStatus);
+    }
+
+    /** Returns the node that produced the terminal failure, if any. */
+    public synchronized Optional<UUID> failedNodeId() {
+        return Optional.ofNullable(failedNodeId);
+    }
+
+    /** Returns exception diagnostics from the failed node, when an exception was thrown. */
+    public synchronized Optional<CanvasExecutionFailure> failureDetails() {
+        return Optional.ofNullable(failureDetails);
+    }
+
+    /** Returns the terminal failure or cancellation message, if one was emitted. */
+    public synchronized Optional<String> terminalMessage() {
+        return Optional.ofNullable(terminalMessage);
     }
 
     private static CanvasExecutionStatus terminalStatusOf(CanvasExecutionEventType type) {

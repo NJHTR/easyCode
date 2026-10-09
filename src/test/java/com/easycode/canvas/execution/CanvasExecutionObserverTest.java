@@ -101,8 +101,12 @@ class CanvasExecutionObserverTest {
                 }));
         CanvasExecutionRequest request = CanvasExecutionRequest.forCanvas(canvas);
         List<CanvasExecutionEvent> events = new ArrayList<>();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
 
-        CanvasExecutionResult result = service.execute(request, events::add);
+        CanvasExecutionResult result = service.execute(request, event -> {
+            events.add(event);
+            collector.onEvent(event);
+        });
 
         assertEquals(CanvasExecutionStatus.FAILED, result.status());
         assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
@@ -119,6 +123,9 @@ class CanvasExecutionObserverTest {
         assertEquals(IllegalStateException.class.getName(), events.get(2).failureDetails().exceptionType());
         assertEquals("expected failure", events.get(2).failureDetails().message());
         assertTrue(events.get(2).failureDetails().stackTrace().contains("CanvasExecutionObserverTest"));
+        assertEquals(java.util.Optional.of(nodeId), collector.failedNodeId());
+        assertEquals(java.util.Optional.of(events.get(2).failureDetails()), collector.failureDetails());
+        assertEquals(java.util.Optional.of("expected failure"), collector.terminalMessage());
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);

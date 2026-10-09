@@ -165,6 +165,9 @@ to parse the raw event list for basic run state. Active and paused input
 snapshots are available only during those states and are cleared at the
 terminal event. Failed or cancelled node outputs are intentionally excluded
 from the published map, while their console diagnostics remain available.
+Failure queries expose the failed node, exception diagnostics when available,
+and the terminal failure or cancellation message without requiring callers to
+scan raw events.
 Execution identity, null-safe output lookup, and per-node console queries are
 available through the same collector.
 The collector requires one execution ID, contiguous event sequence numbers, and

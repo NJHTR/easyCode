@@ -160,6 +160,8 @@ their captured input snapshots, successfully completed node IDs, published
 output values, console lines, and terminal status while the synchronous call
 is running or after it returns. Active and paused input queries are present
 only while that node state exists; terminal cleanup removes them.
+Failure queries expose the failed node, exception diagnostics when available,
+and the terminal failure or cancellation message without requiring event scans.
 The collector also provides execution identity, null-safe lookup by output port,
 and per-node console queries.
 This is a small in-process observation hook, not a realtime log stream, event bus,
