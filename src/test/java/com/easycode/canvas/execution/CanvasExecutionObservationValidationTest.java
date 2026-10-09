@@ -118,6 +118,30 @@ class CanvasExecutionObservationValidationTest {
     }
 
     @Test
+    void rejectsActiveOutputsWithoutAnActiveNode() {
+        assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionObservation(
+                Optional.of(UUID.randomUUID()),
+                Optional.of(Instant.EPOCH),
+                Optional.empty(),
+                Optional.of(Duration.ZERO),
+                Optional.empty(),
+                Map.of(),
+                Map.of(UUID.randomUUID(), "in progress"),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                Optional.empty()));
+    }
+
+    @Test
     void rejectsFailedNodeWithoutFailureMessage() {
         assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionObservation(
                 UUID.randomUUID(),

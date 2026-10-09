@@ -22,6 +22,7 @@ public final class CanvasNodeExecutionContext {
     private final Map<String, UUID> inputPortsByName;
     private final CanvasExecutionCancellationToken cancellationToken;
     private final Consumer<String> consoleSink;
+    private final Consumer<Map<UUID, Object>> outputSink;
     private final Map<UUID, Object> outputs = new LinkedHashMap<>();
     private final List<String> consoleOutput = new ArrayList<>();
 
@@ -37,9 +38,17 @@ public final class CanvasNodeExecutionContext {
     CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs,
                                CanvasExecutionCancellationToken cancellationToken,
                                Consumer<String> consoleSink) {
+        this(node, inputs, cancellationToken, consoleSink, ignored -> { });
+    }
+
+    CanvasNodeExecutionContext(CanvasNode node, Map<UUID, Object> inputs,
+                               CanvasExecutionCancellationToken cancellationToken,
+                               Consumer<String> consoleSink,
+                               Consumer<Map<UUID, Object>> outputSink) {
         Objects.requireNonNull(node, "node");
         this.cancellationToken = Objects.requireNonNull(cancellationToken, "cancellationToken");
         this.consoleSink = Objects.requireNonNull(consoleSink, "consoleSink");
+        this.outputSink = Objects.requireNonNull(outputSink, "outputSink");
         this.inputs = Collections.unmodifiableMap(new LinkedHashMap<>(inputs));
         this.inputPortIds = node.ports().stream()
                 .filter(port -> port.direction() == CanvasPortDirection.INPUT)
@@ -103,15 +112,16 @@ public final class CanvasNodeExecutionContext {
         cancellationToken.throwIfCancellationRequested();
     }
 
-    public void output(UUID portId, Object value) {
+    public synchronized void output(UUID portId, Object value) {
         UUID requiredPortId = Objects.requireNonNull(portId, "portId");
         if (!outputPortIds.contains(requiredPortId)) {
             throw new IllegalArgumentException("node cannot write to undeclared output port: " + requiredPortId);
         }
         outputs.put(requiredPortId, value);
+        outputSink.accept(outputsSnapshot());
     }
 
-    public void output(String portName, Object value) {
+    public synchronized void output(String portName, Object value) {
         UUID portId = outputPortsByName.get(Objects.requireNonNull(portName, "portName"));
         if (portId == null) {
             throw new IllegalArgumentException("node has no output port named: " + portName);
@@ -125,7 +135,7 @@ public final class CanvasNodeExecutionContext {
         consoleSink.accept(line);
     }
 
-    Map<UUID, Object> outputsSnapshot() {
+    synchronized Map<UUID, Object> outputsSnapshot() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(outputs));
     }
 

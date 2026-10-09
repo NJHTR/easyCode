@@ -166,6 +166,14 @@ public final class CanvasExecutionEngine {
                 } catch (RuntimeException exception) {
                     throw new ObserverNotificationException(exception);
                 }
+            }, outputs -> {
+                long sequence = nodeEventSequence.getAndIncrement();
+                try {
+                    emit(observer, request.executionId(), CanvasExecutionEventType.NODE_OUTPUT_UPDATED,
+                            nodeId, "", sequence, Map.of(), outputs, List.of());
+                } catch (RuntimeException exception) {
+                    throw new ObserverNotificationException(exception);
+                }
             });
             try {
                 executor.execute(node, context);

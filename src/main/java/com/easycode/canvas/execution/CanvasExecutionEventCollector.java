@@ -29,6 +29,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private String terminalMessage;
     private UUID activeNodeId;
     private Map<UUID, Object> activeNodeInputs = Map.of();
+    private Map<UUID, Object> activeNodeOutputs = Map.of();
     private UUID debuggerPausedNodeId;
     private Map<UUID, Object> debuggerPausedNodeInputs = Map.of();
     private CanvasExecutionPauseReason debuggerPauseReason;
@@ -73,7 +74,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             }
         }
         CanvasExecutionEvent snapshot = event.withValueSnapshotter(snapshotter);
-        validateLifecycle(event);
+        validateLifecycle(snapshot);
         if (events.isEmpty()) {
             startedAt = snapshot.occurredAt();
         }
@@ -90,6 +91,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
             activeNodeId = event.nodeId();
             activeNodeInputs = snapshot.inputs();
+            activeNodeOutputs = Map.of();
             nodeInputs.put(event.nodeId(), snapshot.inputs());
             debuggerResumedNodeId = null;
         } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
@@ -100,6 +102,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                     || event.nodeId().equals(debuggerResumedNodeId));
             activeNodeId = null;
             activeNodeInputs = Map.of();
+            activeNodeOutputs = Map.of();
             if (cancelledPausedNode) {
                 debuggerPausedNodeId = null;
                 debuggerPausedNodeInputs = Map.of();
@@ -129,6 +132,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             String line = snapshot.consoleOutput().get(0);
             emittedNodeConsoleOutput.computeIfAbsent(event.nodeId(), ignored -> new ArrayList<>()).add(line);
             consoleOutput.add(line);
+        } else if (event.type() == CanvasExecutionEventType.NODE_OUTPUT_UPDATED) {
+            activeNodeOutputs = snapshot.outputs();
         }
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
@@ -142,6 +147,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         if (terminal) {
             activeNodeId = null;
             activeNodeInputs = Map.of();
+            activeNodeOutputs = Map.of();
             debuggerPausedNodeId = null;
             debuggerPausedNodeInputs = Map.of();
             debuggerPauseReason = null;
@@ -198,11 +204,23 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 if (!event.nodeId().equals(activeNodeId) && !cancelledPausedNode) {
                     throw new IllegalArgumentException("node outcome must match the active node");
                 }
+                if (event.nodeId().equals(activeNodeId) && !activeNodeOutputs.isEmpty()
+                        && !event.outputs().equals(activeNodeOutputs)) {
+                    throw new IllegalArgumentException("terminal node outputs disagree with the latest output update");
+                }
                 validateTerminalConsoleOutput(event);
             }
             case NODE_CONSOLE_OUTPUT -> {
                 if (!event.nodeId().equals(activeNodeId)) {
                     throw new IllegalArgumentException("console output must belong to the active node");
+                }
+            }
+            case NODE_OUTPUT_UPDATED -> {
+                if (!event.nodeId().equals(activeNodeId)) {
+                    throw new IllegalArgumentException("output update must belong to the active node");
+                }
+                if (!event.outputs().keySet().containsAll(activeNodeOutputs.keySet())) {
+                    throw new IllegalArgumentException("node output updates cannot remove existing outputs");
                 }
             }
             case SUCCEEDED -> {
@@ -291,6 +309,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 elapsed(),
                 Optional.ofNullable(activeNodeId),
                 activeNodeInputs,
+                activeNodeOutputs,
                 Optional.ofNullable(debuggerPausedNodeId),
                 debuggerPausedNodeInputs,
                 nodeStatuses,
@@ -371,6 +390,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns the immutable inputs captured when the active node started. */
     public synchronized Optional<Map<UUID, Object>> activeNodeInputs() {
         return activeNodeId == null ? Optional.empty() : Optional.of(activeNodeInputs);
+    }
+
+    /** Returns the latest output values written by the currently active node. */
+    public synchronized Optional<Map<UUID, Object>> activeNodeOutputs() {
+        return activeNodeId == null ? Optional.empty() : Optional.of(activeNodeOutputs);
     }
 
     /** Returns the immutable input snapshot captured when a node started. */

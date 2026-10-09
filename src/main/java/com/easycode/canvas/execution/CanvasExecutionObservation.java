@@ -21,6 +21,7 @@ public record CanvasExecutionObservation(
         Optional<Duration> elapsed,
         Optional<UUID> activeNodeId,
         Map<UUID, Object> activeNodeInputs,
+        Map<UUID, Object> activeNodeOutputs,
         Optional<UUID> pausedNodeId,
         Map<UUID, Object> pausedNodeInputs,
         Map<UUID, CanvasExecutionStatus> nodeStatuses,
@@ -50,7 +51,55 @@ public record CanvasExecutionObservation(
                                       Optional<CanvasExecutionFailure> failureDetails,
                                       Optional<String> terminalMessage,
                                       boolean complete) {
-        this(executionId, startedAt, completedAt, elapsed, activeNodeId, activeNodeInputs,
+        this(executionId, startedAt, completedAt, elapsed, activeNodeId, activeNodeInputs, Map.of(),
+                pausedNodeId, pausedNodeInputs, nodeStatuses, completedNodeIds, publishedOutputValues,
+                consoleOutput, terminalStatus, failedNodeId, failureDetails, terminalMessage,
+                complete, Optional.empty());
+    }
+
+    public CanvasExecutionObservation(Optional<UUID> executionId,
+                                      Optional<Instant> startedAt,
+                                      Optional<Instant> completedAt,
+                                      Optional<Duration> elapsed,
+                                      Optional<UUID> activeNodeId,
+                                      Map<UUID, Object> activeNodeInputs,
+                                      Optional<UUID> pausedNodeId,
+                                      Map<UUID, Object> pausedNodeInputs,
+                                      Map<UUID, CanvasExecutionStatus> nodeStatuses,
+                                      List<UUID> completedNodeIds,
+                                      Map<UUID, Object> publishedOutputValues,
+                                      List<String> consoleOutput,
+                                      Optional<CanvasExecutionStatus> terminalStatus,
+                                      Optional<UUID> failedNodeId,
+                                      Optional<CanvasExecutionFailure> failureDetails,
+                                      Optional<String> terminalMessage,
+                                      boolean complete,
+                                      Optional<CanvasExecutionPauseReason> pausedReason) {
+        this(executionId, startedAt, completedAt, elapsed, activeNodeId, activeNodeInputs, Map.of(),
+                pausedNodeId, pausedNodeInputs, nodeStatuses, completedNodeIds, publishedOutputValues,
+                consoleOutput, terminalStatus, failedNodeId, failureDetails, terminalMessage,
+                complete, pausedReason);
+    }
+
+    public CanvasExecutionObservation(Optional<UUID> executionId,
+                                      Optional<Instant> startedAt,
+                                      Optional<Instant> completedAt,
+                                      Optional<Duration> elapsed,
+                                      Optional<UUID> activeNodeId,
+                                      Map<UUID, Object> activeNodeInputs,
+                                      Map<UUID, Object> activeNodeOutputs,
+                                      Optional<UUID> pausedNodeId,
+                                      Map<UUID, Object> pausedNodeInputs,
+                                      Map<UUID, CanvasExecutionStatus> nodeStatuses,
+                                      List<UUID> completedNodeIds,
+                                      Map<UUID, Object> publishedOutputValues,
+                                      List<String> consoleOutput,
+                                      Optional<CanvasExecutionStatus> terminalStatus,
+                                      Optional<UUID> failedNodeId,
+                                      Optional<CanvasExecutionFailure> failureDetails,
+                                      Optional<String> terminalMessage,
+                                      boolean complete) {
+        this(executionId, startedAt, completedAt, elapsed, activeNodeId, activeNodeInputs, activeNodeOutputs,
                 pausedNodeId, pausedNodeInputs, nodeStatuses, completedNodeIds,
                 publishedOutputValues, consoleOutput, terminalStatus, failedNodeId,
                 failureDetails, terminalMessage, complete, Optional.empty());
@@ -69,6 +118,7 @@ public record CanvasExecutionObservation(
         Objects.requireNonNull(terminalMessage, "terminalMessage");
         Objects.requireNonNull(pausedReason, "pausedReason");
         activeNodeInputs = immutableValues(activeNodeInputs, "activeNodeInputs");
+        activeNodeOutputs = immutableValues(activeNodeOutputs, "activeNodeOutputs");
         pausedNodeInputs = immutableValues(pausedNodeInputs, "pausedNodeInputs");
         nodeStatuses = immutableStatuses(nodeStatuses);
         completedNodeIds = completedNodeIds == null ? List.of() : List.copyOf(completedNodeIds);
@@ -98,6 +148,9 @@ public record CanvasExecutionObservation(
         }
         if (activeNodeId.isEmpty() && !activeNodeInputs.isEmpty()) {
             throw new IllegalArgumentException("active node inputs require an active node");
+        }
+        if (activeNodeId.isEmpty() && !activeNodeOutputs.isEmpty()) {
+            throw new IllegalArgumentException("active node outputs require an active node");
         }
         if (pausedNodeId.isEmpty() && !pausedNodeInputs.isEmpty()) {
             throw new IllegalArgumentException("paused node inputs require a paused node");
@@ -200,7 +253,7 @@ public record CanvasExecutionObservation(
             }
         }
         if (executionId.isEmpty() && (startedAt.isPresent() || completedAt.isPresent() || elapsed.isPresent()
-                || activeNodeId.isPresent() || !activeNodeInputs.isEmpty()
+                || activeNodeId.isPresent() || !activeNodeInputs.isEmpty() || !activeNodeOutputs.isEmpty()
                 || pausedNodeId.isPresent() || !pausedNodeInputs.isEmpty() || !nodeStatuses.isEmpty()
                 || pausedReason.isPresent()
                 || !completedNodeIds.isEmpty() || !publishedOutputValues.isEmpty()
