@@ -121,6 +121,23 @@ public record CanvasExecutionResult(
         return nodeTraces.stream().filter(trace -> trace.nodeId().equals(nodeId)).findFirst();
     }
 
+    /** Returns a node observation projected from the immutable post-run trace. */
+    public Optional<CanvasNodeExecutionObservation> nodeObservation(UUID nodeId) {
+        return trace(nodeId).map(trace -> new CanvasNodeExecutionObservation(
+                trace.nodeId(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(trace.duration()),
+                trace.inputs(),
+                Optional.of(trace.outputs()),
+                trace.consoleOutput(),
+                Optional.of(trace.status()),
+                trace.failureMessage().isBlank()
+                        ? Optional.empty()
+                        : Optional.of(trace.failureMessage()),
+                Optional.ofNullable(trace.failureDetails())));
+    }
+
     /** Returns exception diagnostics for the failed node, when an exception was thrown. */
     public Optional<CanvasExecutionFailure> failureDetails() {
         if (failedNodeId == null) {

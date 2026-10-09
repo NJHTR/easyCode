@@ -94,6 +94,13 @@ class CanvasExecutionObserverTest {
                 collector.nodeStatus(second.nodeId()));
         assertEquals(List.of("one"), collector.consoleOutput());
         assertEquals(List.of("one"), collector.consoleOutputForNode(second.nodeId()));
+        CanvasNodeExecutionObservation resultObservation = result.nodeObservation(second.nodeId()).orElseThrow();
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), resultObservation.status());
+        assertEquals(java.util.Optional.of(second.ports().get(0).portId()),
+                resultObservation.inputs().keySet().stream().findFirst());
+        assertTrue(resultObservation.elapsed().isPresent());
+        assertTrue(resultObservation.isComplete());
+        assertFalse(resultObservation.isActive());
 
         CanvasExecutionObservation observation = collector.observation();
         assertEquals(java.util.Optional.of(request.executionId()), observation.executionId());
@@ -178,6 +185,9 @@ class CanvasExecutionObserverTest {
         assertTrue(failedObservation.isComplete());
         assertFalse(failedObservation.isActive());
         assertFalse(failedObservation.isPaused());
+        CanvasNodeExecutionObservation resultFailedObservation = result.nodeObservation(nodeId).orElseThrow();
+        assertEquals(java.util.Optional.of("expected failure"), resultFailedObservation.failureMessage());
+        assertTrue(resultFailedObservation.failureDetails().isPresent());
         CanvasExecutionFailure traceFailure = result.trace(nodeId).orElseThrow().failureDetails();
         assertEquals(events.get(2).failureDetails(), traceFailure);
         CanvasExecutionResult unobservedResult = service.execute(request);

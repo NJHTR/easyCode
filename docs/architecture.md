@@ -196,6 +196,9 @@ helpers distinguish a running node, a paused-before-start node, and a terminal
 node without requiring timestamp interpretation.
 Their input/output lookup helpers preserve explicit null values instead of
 treating them as missing.
+`CanvasExecutionResult.nodeObservation(nodeId)` projects the same completed
+node view from a post-run trace; trace-only results expose duration but no event
+timestamps.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.
