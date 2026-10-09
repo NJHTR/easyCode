@@ -622,6 +622,7 @@ class CanvasExecutionObserverTest {
 
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(second.nodeId(), debugger.pausedNodeId());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.BREAKPOINT), debugger.pauseReason());
             assertEquals(Set.of(second.nodeId()), debugger.hitBreakpoints());
             assertTrue(debugger.hasHitBreakpoint(second.nodeId()));
             assertFalse(debugger.hasHitBreakpoint(first.nodeId()));
@@ -638,6 +639,7 @@ class CanvasExecutionObserverTest {
             debugger.step();
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(third.nodeId(), debugger.pausedNodeId());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.STEP), debugger.pauseReason());
             assertEquals(List.of(first.nodeId(), second.nodeId()), List.copyOf(executed));
             assertEquals(Set.of(second.nodeId()), debugger.hitBreakpoints());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
@@ -659,6 +661,7 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
             assertTrue(collector.isComplete());
             assertEquals(Set.of(), debugger.hitBreakpoints());
+            assertEquals(java.util.Optional.empty(), debugger.pauseReason());
         } finally {
             debugger.resume();
             cancellation.cancel();
@@ -785,6 +788,7 @@ class CanvasExecutionObserverTest {
                     collector.pausedNodeInputs());
             assertEquals(java.util.Optional.of(Map.of(inputPortId, "visible")),
                     debugger.pausedNodeInputs());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.BREAKPOINT), debugger.pauseReason());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
                             CanvasExecutionEventType.DEBUGGER_PAUSED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
@@ -793,9 +797,36 @@ class CanvasExecutionObserverTest {
             assertEquals(CanvasExecutionStatus.SUCCEEDED,
                     result.get(5, TimeUnit.SECONDS).status());
             assertEquals(java.util.Optional.empty(), debugger.pausedNodeInputs());
+            assertEquals(java.util.Optional.empty(), debugger.pauseReason());
         } finally {
             debugger.resume();
             cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void debuggerReportsExplicitPauseReason() throws Exception {
+        CanvasNode node = bareNode("requested-pause");
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "requested-pause",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("debug-node", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.pause();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.forCanvas(canvas), new CanvasExecutionEventCollector(),
+                    new CanvasExecutionCancellationToken(), debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.REQUESTED), debugger.pauseReason());
+            debugger.resume();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED, result.get(5, TimeUnit.SECONDS).status());
+            assertEquals(java.util.Optional.empty(), debugger.pauseReason());
+        } finally {
+            debugger.resume();
             executor.shutdownNow();
             assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }

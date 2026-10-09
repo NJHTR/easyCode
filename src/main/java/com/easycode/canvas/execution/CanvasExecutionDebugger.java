@@ -21,6 +21,8 @@ public final class CanvasExecutionDebugger {
     private boolean singleStep;
     private UUID pausedNodeId;
     private Map<UUID, Object> pausedNodeInputs = Map.of();
+    private CanvasExecutionPauseReason nextPauseReason;
+    private CanvasExecutionPauseReason pausedReason;
 
     public synchronized void addBreakpoint(UUID nodeId) {
         breakpoints.add(Objects.requireNonNull(nodeId, "nodeId"));
@@ -53,6 +55,7 @@ public final class CanvasExecutionDebugger {
     /** Pauses before the next node starts. A running node is allowed to finish. */
     public synchronized void pause() {
         pauseRequested = true;
+        nextPauseReason = CanvasExecutionPauseReason.REQUESTED;
     }
 
     /** Continues execution until the next breakpoint or pause request. */
@@ -62,6 +65,8 @@ public final class CanvasExecutionDebugger {
         paused = false;
         pausedNodeId = null;
         pausedNodeInputs = Map.of();
+        nextPauseReason = null;
+        pausedReason = null;
         notifyAll();
     }
 
@@ -75,6 +80,8 @@ public final class CanvasExecutionDebugger {
         paused = false;
         pausedNodeId = null;
         pausedNodeInputs = Map.of();
+        nextPauseReason = null;
+        pausedReason = null;
         notifyAll();
     }
 
@@ -96,6 +103,11 @@ public final class CanvasExecutionDebugger {
         return pausedNodeId == null ? Optional.empty() : Optional.of(pausedNodeInputs);
     }
 
+    /** Returns why the debugger is currently paused, if it is paused. */
+    public synchronized Optional<CanvasExecutionPauseReason> pauseReason() {
+        return Optional.ofNullable(pausedReason);
+    }
+
     /** Clears per-execution pause state while retaining configured breakpoints. */
     synchronized void complete() {
         pauseRequested = false;
@@ -103,6 +115,8 @@ public final class CanvasExecutionDebugger {
         singleStep = false;
         pausedNodeId = null;
         pausedNodeInputs = Map.of();
+        nextPauseReason = null;
+        pausedReason = null;
         encounteredBreakpoints.clear();
         notifyAll();
     }
@@ -137,11 +151,15 @@ public final class CanvasExecutionDebugger {
                                  long eventSequence) {
         if (breakpoints.contains(nodeId) && encounteredBreakpoints.add(nodeId)) {
             pauseRequested = true;
+            nextPauseReason = CanvasExecutionPauseReason.BREAKPOINT;
         }
         if (pauseRequested && !cancellationToken.isCancellationRequested()) {
             paused = true;
             pausedNodeId = nodeId;
             pausedNodeInputs = CanvasExecutionValueSnapshots.snapshot(inputs, "inputs");
+            pausedReason = nextPauseReason == null
+                    ? CanvasExecutionPauseReason.REQUESTED
+                    : nextPauseReason;
             notifyAll();
             eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
                     nodeId, inputs, eventSequence);
@@ -157,6 +175,7 @@ public final class CanvasExecutionDebugger {
             paused = false;
             pausedNodeId = null;
             pausedNodeInputs = Map.of();
+            pausedReason = null;
             if (!cancelled) {
                 eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_RESUMED,
                         nodeId, eventSequence);
@@ -165,6 +184,7 @@ public final class CanvasExecutionDebugger {
         paused = false;
         pausedNodeId = null;
         pausedNodeInputs = Map.of();
+        pausedReason = null;
         return eventSequence;
     }
 
@@ -172,6 +192,7 @@ public final class CanvasExecutionDebugger {
         if (singleStep) {
             singleStep = false;
             pauseRequested = true;
+            nextPauseReason = CanvasExecutionPauseReason.STEP;
         }
     }
 
