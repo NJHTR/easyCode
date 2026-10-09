@@ -33,6 +33,16 @@ public final class CanvasExecutionDebugger {
         return Set.copyOf(breakpoints);
     }
 
+    /** Returns breakpoint node IDs encountered during the current execution. */
+    public synchronized Set<UUID> hitBreakpoints() {
+        return Set.copyOf(encounteredBreakpoints);
+    }
+
+    /** Returns whether a configured breakpoint has been encountered this run. */
+    public synchronized boolean hasHitBreakpoint(UUID nodeId) {
+        return encounteredBreakpoints.contains(Objects.requireNonNull(nodeId, "nodeId"));
+    }
+
     /** Removes all configured breakpoints. */
     public synchronized void clearBreakpoints() {
         breakpoints.clear();

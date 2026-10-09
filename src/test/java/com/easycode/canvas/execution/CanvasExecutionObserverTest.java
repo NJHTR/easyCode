@@ -24,6 +24,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -536,6 +537,9 @@ class CanvasExecutionObserverTest {
 
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(second.nodeId(), debugger.pausedNodeId());
+            assertEquals(Set.of(second.nodeId()), debugger.hitBreakpoints());
+            assertTrue(debugger.hasHitBreakpoint(second.nodeId()));
+            assertFalse(debugger.hasHitBreakpoint(first.nodeId()));
             assertEquals(List.of(first.nodeId()), List.copyOf(executed));
             assertEquals(List.of(first.nodeId()), collector.completedNodeIds());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
@@ -550,6 +554,7 @@ class CanvasExecutionObserverTest {
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(third.nodeId(), debugger.pausedNodeId());
             assertEquals(List.of(first.nodeId(), second.nodeId()), List.copyOf(executed));
+            assertEquals(Set.of(second.nodeId()), debugger.hitBreakpoints());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
                             CanvasExecutionEventType.NODE_STARTED, CanvasExecutionEventType.NODE_SUCCEEDED,
                             CanvasExecutionEventType.DEBUGGER_PAUSED, CanvasExecutionEventType.DEBUGGER_RESUMED,
@@ -568,6 +573,7 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
             assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
             assertTrue(collector.isComplete());
+            assertEquals(Set.of(), debugger.hitBreakpoints());
         } finally {
             debugger.resume();
             cancellation.cancel();
@@ -605,6 +611,7 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
             assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
             assertEquals(false, debugger.isPauseRequested());
+            assertEquals(Set.of(), debugger.hitBreakpoints());
         } finally {
             debugger.resume();
             cancellation.cancel();
@@ -634,14 +641,17 @@ class CanvasExecutionObserverTest {
             assertEquals(false, debugger.isPauseRequested());
             assertEquals(null, debugger.pausedNodeId());
             assertEquals(Set.of(node.nodeId()), debugger.breakpoints());
+            assertEquals(Set.of(), debugger.hitBreakpoints());
 
             Future<CanvasExecutionResult> secondRun = executor.submit(() -> service.executeDebuggable(
                     CanvasExecutionRequest.forCanvas(canvas), new CanvasExecutionEventCollector(),
                     new CanvasExecutionCancellationToken(), debugger));
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(node.nodeId(), debugger.pausedNodeId());
+            assertEquals(Set.of(node.nodeId()), debugger.hitBreakpoints());
             debugger.resume();
             assertEquals(CanvasExecutionStatus.SUCCEEDED, secondRun.get(5, TimeUnit.SECONDS).status());
+            assertEquals(Set.of(), debugger.hitBreakpoints());
         } finally {
             debugger.resume();
             executor.shutdownNow();
@@ -712,6 +722,7 @@ class CanvasExecutionObserverTest {
         UUID second = UUID.randomUUID();
 
         assertEquals(Set.of(), debugger.breakpoints());
+        assertEquals(Set.of(), debugger.hitBreakpoints());
         debugger.addBreakpoint(first);
         debugger.addBreakpoint(second);
         assertEquals(Set.of(first, second), debugger.breakpoints());
