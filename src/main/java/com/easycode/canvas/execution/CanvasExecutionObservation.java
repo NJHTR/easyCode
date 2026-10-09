@@ -71,6 +71,39 @@ public record CanvasExecutionObservation(
         if (activeNodeId.isPresent() && pausedNodeId.isPresent()) {
             throw new IllegalArgumentException("execution cannot be active and paused at the same time");
         }
+        if (activeNodeId.isEmpty() && !activeNodeInputs.isEmpty()) {
+            throw new IllegalArgumentException("active node inputs require an active node");
+        }
+        if (pausedNodeId.isEmpty() && !pausedNodeInputs.isEmpty()) {
+            throw new IllegalArgumentException("paused node inputs require a paused node");
+        }
+        if (activeNodeId.filter(nodeStatuses::containsKey).isPresent()
+                || pausedNodeId.filter(nodeStatuses::containsKey).isPresent()) {
+            throw new IllegalArgumentException("active or paused node cannot already have a terminal status");
+        }
+        List<UUID> successfulNodeIds = nodeStatuses.entrySet().stream()
+                .filter(entry -> entry.getValue() == CanvasExecutionStatus.SUCCEEDED)
+                .map(Map.Entry::getKey)
+                .toList();
+        if (!completedNodeIds.equals(successfulNodeIds)) {
+            throw new IllegalArgumentException("completed node ids must match successful node statuses in order");
+        }
+        long failedNodeCount = nodeStatuses.values().stream()
+                .filter(status -> status == CanvasExecutionStatus.FAILED)
+                .count();
+        long cancelledNodeCount = nodeStatuses.values().stream()
+                .filter(status -> status == CanvasExecutionStatus.CANCELLED)
+                .count();
+        if (failedNodeId.isPresent()
+                && nodeStatuses.get(failedNodeId.orElseThrow()) != CanvasExecutionStatus.FAILED) {
+            throw new IllegalArgumentException("failed node id must identify a failed node status");
+        }
+        if (failedNodeCount > 1 || cancelledNodeCount > 1 || (failedNodeCount > 0 && cancelledNodeCount > 0)) {
+            throw new IllegalArgumentException("execution can have only one terminal node outcome");
+        }
+        if (activeNodeId.isPresent() && (failedNodeCount > 0 || cancelledNodeCount > 0)) {
+            throw new IllegalArgumentException("terminal node outcome cannot coexist with an active node");
+        }
         if (complete != terminalStatus.isPresent()) {
             throw new IllegalArgumentException("complete flag must match terminal status");
         }
@@ -89,21 +122,51 @@ public record CanvasExecutionObservation(
         if (failedNodeId.isEmpty() && failureDetails.isPresent()) {
             throw new IllegalArgumentException("failure details require a failed node");
         }
+        if (failedNodeId.isEmpty() && failedNodeCount > 0) {
+            throw new IllegalArgumentException("failed node status requires a failed node id");
+        }
         if (terminalStatus.isPresent()) {
             switch (terminalStatus.orElseThrow()) {
                 case SUCCEEDED -> {
                     if (failedNodeId.isPresent() || failureDetails.isPresent() || terminalMessage.isPresent()) {
                         throw new IllegalArgumentException("successful execution cannot contain failure details");
                     }
+                    if (activeNodeId.isPresent() || pausedNodeId.isPresent()
+                            || failedNodeCount > 0 || cancelledNodeCount > 0) {
+                        throw new IllegalArgumentException("successful execution cannot contain unfinished or failed nodes");
+                    }
                 }
                 case FAILED -> {
                     if (failedNodeId.isEmpty() || terminalMessage.isEmpty()) {
                         throw new IllegalArgumentException("failed execution must identify a node and message");
                     }
+                    if (failedNodeCount != 1 || cancelledNodeCount > 0
+                            || activeNodeId.isPresent() || pausedNodeId.isPresent()) {
+                        throw new IllegalArgumentException("failed execution must end at its failed node");
+                    }
+                    UUID lastNodeId = nodeStatuses.keySet().stream().reduce((first, second) -> second)
+                            .orElseThrow();
+                    if (!lastNodeId.equals(failedNodeId.orElseThrow())) {
+                        throw new IllegalArgumentException("failed node must be the last terminal node");
+                    }
+                    if (failureDetails.isPresent()
+                            && !terminalMessage.orElseThrow().equals(failureDetails.orElseThrow().message())) {
+                        throw new IllegalArgumentException("failure details must match the terminal message");
+                    }
                 }
                 case CANCELLED -> {
                     if (failedNodeId.isPresent() || failureDetails.isPresent() || terminalMessage.isEmpty()) {
                         throw new IllegalArgumentException("cancelled execution must contain only a cancellation message");
+                    }
+                    if (failedNodeCount > 0 || activeNodeId.isPresent() || pausedNodeId.isPresent()) {
+                        throw new IllegalArgumentException("cancelled execution cannot contain active or failed nodes");
+                    }
+                    if (cancelledNodeCount == 1) {
+                        UUID lastNodeId = nodeStatuses.keySet().stream().reduce((first, second) -> second)
+                                .orElseThrow();
+                        if (nodeStatuses.get(lastNodeId) != CanvasExecutionStatus.CANCELLED) {
+                            throw new IllegalArgumentException("cancelled node must be the last terminal node");
+                        }
                     }
                 }
             }
