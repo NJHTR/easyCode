@@ -127,12 +127,6 @@ public final class CanvasExecutionEngine {
                 return cancelled(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
             }
-            eventSequence = debugger.beforeNode(nodeId, cancellationToken, observer,
-                    request.executionId(), eventSequence);
-            if (cancellationToken.isCancellationRequested()) {
-                return cancelled(request.executionId(), observer, canvas, completed, traces,
-                        consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
-            }
             CanvasNode node = nodes.get(nodeId);
             Instant nodeStartedAt = Instant.now();
             Map<UUID, Object> nodeInputs = new LinkedHashMap<>();
@@ -143,6 +137,12 @@ public final class CanvasExecutionEngine {
             }
             Map<UUID, Object> traceInputs = CanvasExecutionValueSnapshots.snapshot(
                     nodeInputs, "inputs", traceSnapshotter);
+            eventSequence = debugger.beforeNode(nodeId, nodeInputs, cancellationToken, observer,
+                    request.executionId(), eventSequence);
+            if (cancellationToken.isCancellationRequested()) {
+                return cancelled(request.executionId(), observer, canvas, completed, traces,
+                        consoleOutput, outputValues, null, Map.of(), Map.of(), List.of(), eventSequence, startedAt);
+            }
             eventSequence = emit(observer, request.executionId(), CanvasExecutionEventType.NODE_STARTED,
                     nodeId, "", eventSequence, nodeInputs, Map.of(), List.of());
             CanvasNodeExecutor executor = executors.get(node.nodeType());

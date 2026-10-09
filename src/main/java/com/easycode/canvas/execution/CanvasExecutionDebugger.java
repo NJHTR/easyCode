@@ -3,6 +3,7 @@ package com.easycode.canvas.execution;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -85,8 +86,10 @@ public final class CanvasExecutionDebugger {
         return paused;
     }
 
-    synchronized long beforeNode(UUID nodeId, CanvasExecutionCancellationToken cancellationToken,
-                                 CanvasExecutionObserver observer, UUID executionId, long eventSequence) {
+    synchronized long beforeNode(UUID nodeId, Map<UUID, Object> inputs,
+                                 CanvasExecutionCancellationToken cancellationToken,
+                                 CanvasExecutionObserver observer, UUID executionId,
+                                 long eventSequence) {
         if (breakpoints.contains(nodeId) && encounteredBreakpoints.add(nodeId)) {
             pauseRequested = true;
         }
@@ -95,7 +98,7 @@ public final class CanvasExecutionDebugger {
             pausedNodeId = nodeId;
             notifyAll();
             eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
-                    nodeId, eventSequence);
+                    nodeId, inputs, eventSequence);
             while (pauseRequested && !cancellationToken.isCancellationRequested()) {
                 try {
                     wait(CANCELLATION_POLL_MILLIS);
@@ -126,7 +129,14 @@ public final class CanvasExecutionDebugger {
 
     private static long emit(CanvasExecutionObserver observer, UUID executionId,
                              CanvasExecutionEventType type, UUID nodeId, long sequence) {
-        observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, "", sequence));
+        return emit(observer, executionId, type, nodeId, Map.of(), sequence);
+    }
+
+    private static long emit(CanvasExecutionObserver observer, UUID executionId,
+                             CanvasExecutionEventType type, UUID nodeId,
+                             Map<UUID, Object> inputs, long sequence) {
+        observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, "", sequence,
+                inputs, Map.of(), List.of()));
         return sequence + 1;
     }
 }

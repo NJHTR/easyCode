@@ -191,9 +191,10 @@ canvas outputs. The engine does not forcibly interrupt threads.
 execution. Callers may set node breakpoints, pause before the next node, resume,
 or step one node at a time. A breakpoint pauses before that node starts; a pause
 requested during a node takes effect after the node finishes. The debugger does
-not interrupt node code. Execution remains synchronous and the caller owns any
-thread used to issue controls concurrently. Cancellation releases a paused
-execution. This is basic graph-level stepping, not source-line debugging or a
+not interrupt node code. The pause event includes the selected node's inputs at
+that boundary, before its executor runs. Execution remains synchronous and the
+caller owns any thread used to issue controls concurrently. Cancellation releases
+a paused execution. This is basic graph-level stepping, not source-line debugging or a
 mutable variable watch session.
 
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and

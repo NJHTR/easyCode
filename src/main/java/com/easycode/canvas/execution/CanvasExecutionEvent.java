@@ -97,6 +97,11 @@ public record CanvasExecutionEvent(
                 && (!outputs.isEmpty() || !consoleOutput.isEmpty())) {
             throw new IllegalArgumentException("node started events cannot carry outputs");
         }
+        if ((type == CanvasExecutionEventType.DEBUGGER_PAUSED
+                || type == CanvasExecutionEventType.DEBUGGER_RESUMED)
+                && (!outputs.isEmpty() || !consoleOutput.isEmpty())) {
+            throw new IllegalArgumentException("debugger transition events cannot carry outputs or console lines");
+        }
     }
 
     CanvasExecutionEvent withValueSnapshotter(CanvasExecutionValueSnapshotter snapshotter) {

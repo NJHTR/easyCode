@@ -503,6 +503,44 @@ class CanvasExecutionObserverTest {
     }
 
     @Test
+    void debuggerPauseIncludesInputsBeforeNodeStarts() throws Exception {
+        UUID nodeId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+        CanvasNode node = new CanvasNode(nodeId, "inspect", "inspect", Map.of(), List.of(
+                new CanvasPort(inputPortId, "in", CanvasPortDirection.INPUT)));
+        CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "debug-inputs",
+                List.of(node), List.of());
+        CanvasService service = new CanvasService(Map.of("inspect", (ignored, context) -> { }));
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        debugger.addBreakpoint(nodeId);
+        CanvasExecutionCancellationToken cancellation = new CanvasExecutionCancellationToken();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<CanvasExecutionResult> result = executor.submit(() -> service.executeDebuggable(
+                    CanvasExecutionRequest.withInputs(canvas, List.of(), Map.of(inputPortId, "visible")),
+                    collector, cancellation, debugger));
+
+            assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
+            CanvasExecutionEvent paused = collector.eventsOfType(CanvasExecutionEventType.DEBUGGER_PAUSED)
+                    .get(0);
+            assertEquals(Map.of(inputPortId, "visible"), paused.inputs());
+            assertEquals(List.of(CanvasExecutionEventType.STARTED,
+                            CanvasExecutionEventType.DEBUGGER_PAUSED),
+                    collector.events().stream().map(CanvasExecutionEvent::type).toList());
+
+            debugger.resume();
+            assertEquals(CanvasExecutionStatus.SUCCEEDED,
+                    result.get(5, TimeUnit.SECONDS).status());
+        } finally {
+            debugger.resume();
+            cancellation.cancel();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void debuggerRejectsBreakpointOutsideExecutionBeforeStarting() {
         CanvasNode node = bareNode("node");
         CanvasDefinition canvas = new CanvasDefinition(UUID.randomUUID(), "invalid-breakpoint",

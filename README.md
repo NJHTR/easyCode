@@ -171,7 +171,8 @@ For node-boundary debugging, `CanvasExecutionDebugger` supports per-node
 breakpoints, pause, resume, and one-node stepping. It does not stop a node in the
 middle of its execution. The execution call stays synchronous; callers that
 need to control it concurrently run that call on a thread they own. Cancellation
-also releases an execution waiting at a debugger pause.
+also releases an execution waiting at a debugger pause. A pause event includes
+the selected node's input snapshot before that node starts.
 
 `CanvasNodeCatalog` exposes the available node type descriptions and can
 create a node with generated node and port identities. The built-in catalog is
