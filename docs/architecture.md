@@ -191,7 +191,9 @@ query snapshot and does not add event streaming or persistence. Its
 requiring callers to interpret optional fields.
 `nodeObservation(nodeId)` and `nodeObservations()` provide immutable per-node
 snapshots with timing, inputs, outputs, console lines, status, and failure data;
-they are still query projections over the in-memory collector.
+they are still query projections over the in-memory collector. Their lifecycle
+helpers distinguish a running node, a paused-before-start node, and a terminal
+node without requiring timestamp interpretation.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

@@ -48,6 +48,11 @@ public record CanvasNodeExecutionObservation(
         return status.isEmpty();
     }
 
+    /** Returns whether this node is paused before its executor starts. */
+    public boolean isPaused() {
+        return isActive() && startedAt.isEmpty();
+    }
+
     /** Returns whether this node reached a terminal outcome. */
     public boolean isComplete() {
         return status.isPresent();

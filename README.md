@@ -184,6 +184,8 @@ make the lifecycle state explicit without parsing optional fields.
 `nodeObservation(nodeId)` and `nodeObservations()` provide the equivalent
 consistent view for one or all observed nodes, including node timing, values,
 console output, status, and failure information.
+Node observations also expose direct `isActive()`, `isPaused()`, and
+`isComplete()` lifecycle helpers.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.
