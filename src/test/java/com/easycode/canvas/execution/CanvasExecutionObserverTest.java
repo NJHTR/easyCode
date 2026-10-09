@@ -41,8 +41,12 @@ class CanvasExecutionObserverTest {
                 .build();
         CanvasExecutionRequest request = CanvasExecutionRequest.forCanvas(canvas);
         List<CanvasExecutionEvent> events = new ArrayList<>();
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
 
-        CanvasExecutionResult result = application.execute(request, events::add);
+        CanvasExecutionResult result = application.execute(request, event -> {
+            events.add(event);
+            collector.onEvent(event);
+        });
 
         assertEquals(CanvasExecutionStatus.SUCCEEDED, result.status());
         assertEquals(List.of(
@@ -73,6 +77,8 @@ class CanvasExecutionObserverTest {
                 () -> events.get(4).consoleOutput().add("mutated"));
         assertTrue(events.stream().allMatch(event -> request.executionId().equals(event.executionId())));
         assertEquals(request.executionId(), result.executionId());
+        assertEquals(Map.of(first.ports().get(0).portId(), "one"), collector.publishedOutputValues());
+        assertEquals(List.of("one"), collector.consoleOutput());
     }
 
     @Test

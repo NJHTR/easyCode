@@ -159,8 +159,10 @@ preserve execution order and return immutable lists. It validates contiguous
 event numbering, node start/outcome pairs, debugger pause/resume transitions,
 and that terminal outcomes agree with the last node lifecycle state.
 It also exposes synchronized queries for the active node, paused node,
-successfully completed node IDs, and terminal status, so a debugger does not
-need to parse the raw event list for basic run state.
+successfully completed node IDs, published output values, console lines, and
+terminal status, so a debugger does not need to parse the raw event list for
+basic run state. Failed or cancelled node outputs are intentionally excluded
+from the published map, while their console diagnostics remain available.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

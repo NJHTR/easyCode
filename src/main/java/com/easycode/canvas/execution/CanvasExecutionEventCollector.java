@@ -1,7 +1,10 @@
 package com.easycode.canvas.execution;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +23,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private UUID debuggerPausedNodeId;
     private CanvasExecutionEventType lastNodeOutcome;
     private final List<UUID> completedNodeIds = new ArrayList<>();
+    private final List<String> consoleOutput = new ArrayList<>();
+    private final Map<UUID, Object> publishedOutputValues = new LinkedHashMap<>();
     private CanvasExecutionStatus terminalStatus;
 
     public CanvasExecutionEventCollector() {
@@ -65,7 +70,9 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             lastNodeOutcome = event.type();
             if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED) {
                 completedNodeIds.add(event.nodeId());
+                publishedOutputValues.putAll(snapshot.outputs());
             }
+            consoleOutput.addAll(snapshot.consoleOutput());
         }
         events.add(snapshot);
         terminalStatus = terminalStatusOf(event.type());
@@ -173,6 +180,16 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns node IDs that have completed successfully in execution order. */
     public synchronized List<UUID> completedNodeIds() {
         return List.copyOf(completedNodeIds);
+    }
+
+    /** Returns console lines observed from completed, failed, or cancelled nodes. */
+    public synchronized List<String> consoleOutput() {
+        return List.copyOf(consoleOutput);
+    }
+
+    /** Returns values published by successfully completed nodes so far. */
+    public synchronized Map<UUID, Object> publishedOutputValues() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(publishedOutputValues));
     }
 
     /** Returns the terminal status once execution has completed. */
