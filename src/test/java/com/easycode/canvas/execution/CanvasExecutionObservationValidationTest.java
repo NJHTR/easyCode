@@ -95,6 +95,29 @@ class CanvasExecutionObservationValidationTest {
     }
 
     @Test
+    void rejectsPauseReasonWithoutPausedNode() {
+        assertThrows(IllegalArgumentException.class, () -> new CanvasExecutionObservation(
+                Optional.of(UUID.randomUUID()),
+                Optional.of(Instant.EPOCH),
+                Optional.empty(),
+                Optional.of(Duration.ZERO),
+                Optional.empty(),
+                Map.of(),
+                Optional.empty(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                Map.of(),
+                List.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                Optional.of(CanvasExecutionPauseReason.BREAKPOINT)));
+    }
+
+    @Test
     void rejectsFailedNodeWithoutFailureMessage() {
         assertThrows(IllegalArgumentException.class, () -> new CanvasNodeExecutionObservation(
                 UUID.randomUUID(),

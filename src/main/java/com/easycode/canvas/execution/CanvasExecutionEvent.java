@@ -17,7 +17,22 @@ public record CanvasExecutionEvent(
         Map<UUID, Object> outputs,
         List<String> consoleOutput,
         Instant occurredAt,
-        CanvasExecutionFailure failureDetails) {
+        CanvasExecutionFailure failureDetails,
+        CanvasExecutionPauseReason pauseReason) {
+    public CanvasExecutionEvent(UUID executionId,
+                                CanvasExecutionEventType type,
+                                UUID nodeId,
+                                String message,
+                                long sequence,
+                                Map<UUID, Object> inputs,
+                                Map<UUID, Object> outputs,
+                                List<String> consoleOutput,
+                                Instant occurredAt,
+                                CanvasExecutionFailure failureDetails) {
+        this(executionId, type, nodeId, message, sequence, inputs, outputs, consoleOutput,
+                occurredAt, failureDetails, null);
+    }
+
     public CanvasExecutionEvent(UUID executionId,
                                 CanvasExecutionEventType type,
                                 UUID nodeId,
@@ -90,6 +105,9 @@ public record CanvasExecutionEvent(
         if (failureDetails != null && type != CanvasExecutionEventType.NODE_FAILED) {
             throw new IllegalArgumentException("failure details can only be attached to node failure events");
         }
+        if (pauseReason != null && type != CanvasExecutionEventType.DEBUGGER_PAUSED) {
+            throw new IllegalArgumentException("pause reason can only be attached to debugger pause events");
+        }
         if (!nodeEvent && (!inputs.isEmpty() || !outputs.isEmpty() || !consoleOutput.isEmpty())) {
             throw new IllegalArgumentException("execution events cannot carry node snapshots");
         }
@@ -109,6 +127,6 @@ public record CanvasExecutionEvent(
         return new CanvasExecutionEvent(executionId, type, nodeId, message, sequence,
                 CanvasExecutionValueSnapshots.snapshot(inputs, "inputs", snapshotter),
                 CanvasExecutionValueSnapshots.snapshot(outputs, "outputs", snapshotter),
-                consoleOutput, occurredAt, failureDetails);
+                consoleOutput, occurredAt, failureDetails, pauseReason);
     }
 }

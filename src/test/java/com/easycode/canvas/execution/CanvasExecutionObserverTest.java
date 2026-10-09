@@ -631,6 +631,10 @@ class CanvasExecutionObserverTest {
             assertEquals(List.of(first.nodeId()), collector.completedNodeIds());
             assertEquals(java.util.Optional.empty(), collector.activeNodeId());
             assertEquals(java.util.Optional.of(second.nodeId()), collector.pausedNodeId());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.BREAKPOINT),
+                    collector.pausedReason());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.BREAKPOINT),
+                    collector.observation().pausedReason());
             assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
             assertEquals(java.util.Optional.empty(), collector.terminalStatus());
             assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
@@ -641,6 +645,8 @@ class CanvasExecutionObserverTest {
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(third.nodeId(), debugger.pausedNodeId());
             assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.STEP), debugger.pauseReason());
+            assertEquals(java.util.Optional.of(CanvasExecutionPauseReason.STEP),
+                    collector.observation().pausedReason());
             assertEquals(List.of(first.nodeId(), second.nodeId()), List.copyOf(executed));
             assertEquals(Set.of(second.nodeId()), debugger.hitBreakpoints());
             assertEquals(List.of(CanvasExecutionEventType.STARTED,
@@ -660,6 +666,7 @@ class CanvasExecutionObserverTest {
             assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
             assertEquals(java.util.Optional.empty(), collector.activeNodeInputs());
             assertEquals(java.util.Optional.empty(), collector.pausedNodeInputs());
+            assertEquals(java.util.Optional.empty(), collector.observation().pausedReason());
             assertTrue(collector.isComplete());
             assertEquals(Set.of(), debugger.hitBreakpoints());
             assertEquals(java.util.Optional.empty(), debugger.pauseReason());

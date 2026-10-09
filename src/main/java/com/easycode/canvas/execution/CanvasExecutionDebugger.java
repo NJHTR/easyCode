@@ -1,6 +1,7 @@
 package com.easycode.canvas.execution;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +172,7 @@ public final class CanvasExecutionDebugger {
                     : nextPauseReason;
             notifyAll();
             eventSequence = emit(observer, executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
-                    nodeId, inputs, eventSequence);
+                    nodeId, inputs, eventSequence, pausedReason);
             while (pauseRequested && !cancellationToken.isCancellationRequested()) {
                 try {
                     wait(CANCELLATION_POLL_MILLIS);
@@ -213,8 +214,15 @@ public final class CanvasExecutionDebugger {
     private static long emit(CanvasExecutionObserver observer, UUID executionId,
                              CanvasExecutionEventType type, UUID nodeId,
                              Map<UUID, Object> inputs, long sequence) {
+        return emit(observer, executionId, type, nodeId, inputs, sequence, null);
+    }
+
+    private static long emit(CanvasExecutionObserver observer, UUID executionId,
+                             CanvasExecutionEventType type, UUID nodeId,
+                             Map<UUID, Object> inputs, long sequence,
+                             CanvasExecutionPauseReason pauseReason) {
         observer.onEvent(new CanvasExecutionEvent(executionId, type, nodeId, "", sequence,
-                inputs, Map.of(), List.of()));
+                inputs, Map.of(), List.of(), Instant.now(), null, pauseReason));
         return sequence + 1;
     }
 }

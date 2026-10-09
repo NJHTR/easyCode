@@ -31,6 +31,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private Map<UUID, Object> activeNodeInputs = Map.of();
     private UUID debuggerPausedNodeId;
     private Map<UUID, Object> debuggerPausedNodeInputs = Map.of();
+    private CanvasExecutionPauseReason debuggerPauseReason;
     private UUID debuggerResumedNodeId;
     private CanvasExecutionEventType lastNodeOutcome;
     private final List<UUID> completedNodeIds = new ArrayList<>();
@@ -78,9 +79,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         if (event.type() == CanvasExecutionEventType.DEBUGGER_PAUSED) {
             debuggerPausedNodeId = event.nodeId();
             debuggerPausedNodeInputs = snapshot.inputs();
+            debuggerPauseReason = snapshot.pauseReason();
         } else if (event.type() == CanvasExecutionEventType.DEBUGGER_RESUMED) {
             debuggerPausedNodeId = null;
             debuggerPausedNodeInputs = Map.of();
+            debuggerPauseReason = null;
             debuggerResumedNodeId = event.nodeId();
         }
         if (event.type() == CanvasExecutionEventType.NODE_STARTED) {
@@ -99,6 +102,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             if (cancelledPausedNode) {
                 debuggerPausedNodeId = null;
                 debuggerPausedNodeInputs = Map.of();
+                debuggerPauseReason = null;
                 debuggerResumedNodeId = null;
             }
             lastNodeOutcome = event.type();
@@ -135,6 +139,7 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
             activeNodeInputs = Map.of();
             debuggerPausedNodeId = null;
             debuggerPausedNodeInputs = Map.of();
+            debuggerPauseReason = null;
             debuggerResumedNodeId = null;
         }
     }
@@ -285,7 +290,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 Optional.ofNullable(failedNodeId),
                 Optional.ofNullable(failureDetails),
                 Optional.ofNullable(terminalMessage),
-                terminal);
+                terminal,
+                Optional.ofNullable(debuggerPauseReason));
     }
 
     /** Returns the timestamp at which a node entered execution, if it started. */
@@ -436,6 +442,11 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return debuggerPausedNodeId == null
                 ? Optional.empty()
                 : Optional.of(debuggerPausedNodeInputs);
+    }
+
+    /** Returns why the observed execution is paused, if the event includes that detail. */
+    public synchronized Optional<CanvasExecutionPauseReason> pausedReason() {
+        return Optional.ofNullable(debuggerPauseReason);
     }
 
     /** Returns node IDs that have completed successfully in execution order. */

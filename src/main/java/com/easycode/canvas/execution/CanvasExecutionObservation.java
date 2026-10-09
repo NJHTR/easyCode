@@ -31,7 +31,31 @@ public record CanvasExecutionObservation(
         Optional<UUID> failedNodeId,
         Optional<CanvasExecutionFailure> failureDetails,
         Optional<String> terminalMessage,
-        boolean complete) {
+        boolean complete,
+        Optional<CanvasExecutionPauseReason> pausedReason) {
+    public CanvasExecutionObservation(Optional<UUID> executionId,
+                                      Optional<Instant> startedAt,
+                                      Optional<Instant> completedAt,
+                                      Optional<Duration> elapsed,
+                                      Optional<UUID> activeNodeId,
+                                      Map<UUID, Object> activeNodeInputs,
+                                      Optional<UUID> pausedNodeId,
+                                      Map<UUID, Object> pausedNodeInputs,
+                                      Map<UUID, CanvasExecutionStatus> nodeStatuses,
+                                      List<UUID> completedNodeIds,
+                                      Map<UUID, Object> publishedOutputValues,
+                                      List<String> consoleOutput,
+                                      Optional<CanvasExecutionStatus> terminalStatus,
+                                      Optional<UUID> failedNodeId,
+                                      Optional<CanvasExecutionFailure> failureDetails,
+                                      Optional<String> terminalMessage,
+                                      boolean complete) {
+        this(executionId, startedAt, completedAt, elapsed, activeNodeId, activeNodeInputs,
+                pausedNodeId, pausedNodeInputs, nodeStatuses, completedNodeIds,
+                publishedOutputValues, consoleOutput, terminalStatus, failedNodeId,
+                failureDetails, terminalMessage, complete, Optional.empty());
+    }
+
     public CanvasExecutionObservation {
         Objects.requireNonNull(executionId, "executionId");
         Objects.requireNonNull(startedAt, "startedAt");
@@ -43,6 +67,7 @@ public record CanvasExecutionObservation(
         Objects.requireNonNull(failedNodeId, "failedNodeId");
         Objects.requireNonNull(failureDetails, "failureDetails");
         Objects.requireNonNull(terminalMessage, "terminalMessage");
+        Objects.requireNonNull(pausedReason, "pausedReason");
         activeNodeInputs = immutableValues(activeNodeInputs, "activeNodeInputs");
         pausedNodeInputs = immutableValues(pausedNodeInputs, "pausedNodeInputs");
         nodeStatuses = immutableStatuses(nodeStatuses);
@@ -76,6 +101,9 @@ public record CanvasExecutionObservation(
         }
         if (pausedNodeId.isEmpty() && !pausedNodeInputs.isEmpty()) {
             throw new IllegalArgumentException("paused node inputs require a paused node");
+        }
+        if (pausedNodeId.isEmpty() && pausedReason.isPresent()) {
+            throw new IllegalArgumentException("pause reason requires a paused node");
         }
         if (activeNodeId.filter(nodeStatuses::containsKey).isPresent()
                 || pausedNodeId.filter(nodeStatuses::containsKey).isPresent()) {
@@ -174,6 +202,7 @@ public record CanvasExecutionObservation(
         if (executionId.isEmpty() && (startedAt.isPresent() || completedAt.isPresent() || elapsed.isPresent()
                 || activeNodeId.isPresent() || !activeNodeInputs.isEmpty()
                 || pausedNodeId.isPresent() || !pausedNodeInputs.isEmpty() || !nodeStatuses.isEmpty()
+                || pausedReason.isPresent()
                 || !completedNodeIds.isEmpty() || !publishedOutputValues.isEmpty()
                 || !consoleOutput.isEmpty() || terminalStatus.isPresent() || failedNodeId.isPresent()
                 || failureDetails.isPresent() || terminalMessage.isPresent() || complete)) {
