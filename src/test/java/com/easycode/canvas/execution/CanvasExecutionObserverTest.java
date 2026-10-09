@@ -528,6 +528,14 @@ class CanvasExecutionObserverTest {
                 collector.events().stream().map(CanvasExecutionEvent::type).toList());
         assertEquals("partial value", collector.events().get(2).outputs().get(outputPortId));
         assertTrue(collector.isComplete());
+        CanvasExecutionObservation observation = collector.observation();
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), observation.terminalStatus());
+        assertEquals(java.util.Optional.empty(), observation.failedNodeId());
+        assertEquals(java.util.Optional.empty(), observation.failureDetails());
+        assertEquals(Map.of(), observation.publishedOutputValues());
+        assertEquals(List.of("partial log"), observation.consoleOutput());
+        assertTrue(observation.complete());
+        assertFalse(observation.isRunning());
     }
 
     @Test
