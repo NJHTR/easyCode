@@ -88,8 +88,14 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         } else if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED
                 || event.type() == CanvasExecutionEventType.NODE_FAILED
                 || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
+            boolean cancelledPausedNode = event.type() == CanvasExecutionEventType.NODE_CANCELLED
+                    && event.nodeId().equals(debuggerPausedNodeId);
             activeNodeId = null;
             activeNodeInputs = Map.of();
+            if (cancelledPausedNode) {
+                debuggerPausedNodeId = null;
+                debuggerPausedNodeInputs = Map.of();
+            }
             lastNodeOutcome = event.type();
             if (event.type() == CanvasExecutionEventType.NODE_FAILED) {
                 failedNodeId = event.nodeId();
