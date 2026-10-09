@@ -94,6 +94,16 @@ class CanvasExecutionObserverTest {
                 collector.nodeStatus(second.nodeId()));
         assertEquals(List.of("one"), collector.consoleOutput());
         assertEquals(List.of("one"), collector.consoleOutputForNode(second.nodeId()));
+
+        CanvasExecutionObservation observation = collector.observation();
+        assertEquals(java.util.Optional.of(request.executionId()), observation.executionId());
+        assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), observation.terminalStatus());
+        assertEquals(Map.of(first.nodeId(), CanvasExecutionStatus.SUCCEEDED,
+                second.nodeId(), CanvasExecutionStatus.SUCCEEDED), observation.nodeStatuses());
+        assertEquals(List.of("one"), observation.consoleOutput());
+        assertTrue(observation.complete());
+        assertThrows(UnsupportedOperationException.class,
+                () -> observation.nodeStatuses().clear());
     }
 
     @Test
@@ -201,6 +211,25 @@ class CanvasExecutionObserverTest {
                 null, "", 1L, Map.of(), Map.of(), List.of(), completedAt));
         assertEquals(java.util.Optional.of(completedAt), collector.completedAt());
         assertEquals(Duration.ofMillis(125), collector.elapsed().orElseThrow());
+    }
+
+    @Test
+    void observationSnapshotReflectsLivePauseState() {
+        CanvasExecutionEventCollector collector = new CanvasExecutionEventCollector();
+        UUID executionId = UUID.randomUUID();
+        UUID nodeId = UUID.randomUUID();
+        UUID inputPortId = UUID.randomUUID();
+
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.STARTED,
+                null, "", 0L));
+        collector.onEvent(new CanvasExecutionEvent(executionId, CanvasExecutionEventType.DEBUGGER_PAUSED,
+                nodeId, "", 1L, Map.of(inputPortId, "paused"), Map.of(), List.of()));
+
+        CanvasExecutionObservation observation = collector.observation();
+        assertEquals(java.util.Optional.of(nodeId), observation.pausedNodeId());
+        assertEquals(Map.of(inputPortId, "paused"), observation.pausedNodeInputs());
+        assertEquals(java.util.Optional.empty(), observation.terminalStatus());
+        assertEquals(false, observation.complete());
     }
 
     @Test

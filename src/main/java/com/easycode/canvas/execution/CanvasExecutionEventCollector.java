@@ -205,6 +205,28 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
         return Optional.of(duration.isNegative() ? Duration.ZERO : duration);
     }
 
+    /** Returns one immutable, internally consistent view of the collected state. */
+    public synchronized CanvasExecutionObservation observation() {
+        return new CanvasExecutionObservation(
+                Optional.ofNullable(executionId),
+                Optional.ofNullable(startedAt),
+                Optional.ofNullable(completedAt),
+                elapsed(),
+                Optional.ofNullable(activeNodeId),
+                activeNodeInputs,
+                Optional.ofNullable(debuggerPausedNodeId),
+                debuggerPausedNodeInputs,
+                nodeStatuses,
+                completedNodeIds,
+                publishedOutputValues,
+                consoleOutput,
+                Optional.ofNullable(terminalStatus),
+                Optional.ofNullable(failedNodeId),
+                Optional.ofNullable(failureDetails),
+                Optional.ofNullable(terminalMessage),
+                terminal);
+    }
+
     /** Returns the timestamp at which a node entered execution, if it started. */
     public synchronized Optional<Instant> nodeStartedAt(UUID nodeId) {
         Objects.requireNonNull(nodeId, "nodeId");
