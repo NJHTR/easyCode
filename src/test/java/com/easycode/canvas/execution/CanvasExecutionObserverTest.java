@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
@@ -554,6 +555,30 @@ class CanvasExecutionObserverTest {
                 CanvasExecutionRequest.forCanvas(canvas), events::add,
                 new CanvasExecutionCancellationToken(), debugger));
         assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void debuggerExposesAndUpdatesBreakpointConfiguration() {
+        CanvasExecutionDebugger debugger = new CanvasExecutionDebugger();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+
+        assertEquals(Set.of(), debugger.breakpoints());
+        debugger.addBreakpoint(first);
+        debugger.addBreakpoint(second);
+        assertEquals(Set.of(first, second), debugger.breakpoints());
+        assertThrows(UnsupportedOperationException.class,
+                () -> debugger.breakpoints().clear());
+
+        debugger.removeBreakpoint(first);
+        assertEquals(Set.of(second), debugger.breakpoints());
+        debugger.clearBreakpoints();
+        assertEquals(Set.of(), debugger.breakpoints());
+        assertEquals(false, debugger.isPauseRequested());
+        debugger.pause();
+        assertEquals(true, debugger.isPauseRequested());
+        debugger.resume();
+        assertEquals(false, debugger.isPauseRequested());
     }
 
     @Test

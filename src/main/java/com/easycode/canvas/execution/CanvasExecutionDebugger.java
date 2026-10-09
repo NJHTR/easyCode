@@ -28,6 +28,16 @@ public final class CanvasExecutionDebugger {
         breakpoints.remove(Objects.requireNonNull(nodeId, "nodeId"));
     }
 
+    /** Returns the configured breakpoint node IDs. */
+    public synchronized Set<UUID> breakpoints() {
+        return Set.copyOf(breakpoints);
+    }
+
+    /** Removes all configured breakpoints. */
+    public synchronized void clearBreakpoints() {
+        breakpoints.clear();
+    }
+
     /** Pauses before the next node starts. A running node is allowed to finish. */
     public synchronized void pause() {
         pauseRequested = true;
@@ -56,6 +66,11 @@ public final class CanvasExecutionDebugger {
 
     public synchronized boolean isPaused() {
         return paused;
+    }
+
+    /** Returns whether execution will pause at the next node boundary. */
+    public synchronized boolean isPauseRequested() {
+        return pauseRequested;
     }
 
     public synchronized UUID pausedNodeId() {
