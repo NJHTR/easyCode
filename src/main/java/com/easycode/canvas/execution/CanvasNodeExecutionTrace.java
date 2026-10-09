@@ -1,8 +1,6 @@
 package com.easycode.canvas.execution;
 
 import java.time.Duration;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -75,12 +73,6 @@ public record CanvasNodeExecutionTrace(
     }
 
     private static Map<UUID, Object> immutableValues(Map<UUID, Object> values, String name) {
-        if (values == null) {
-            return Map.of();
-        }
-        if (values.entrySet().stream().anyMatch(entry -> entry.getKey() == null)) {
-            throw new IllegalArgumentException(name + " cannot contain a null port id");
-        }
-        return Collections.unmodifiableMap(new LinkedHashMap<>(values));
+        return CanvasExecutionValueSnapshots.snapshot(values, name);
     }
 }

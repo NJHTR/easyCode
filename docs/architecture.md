@@ -63,7 +63,10 @@ in-memory nodes. A `CanvasNodeExecutor` is selected by `nodeType`, receives a
 `CanvasNodeExecutionContext`, and may publish values by output port. The engine
 transfers those values along validated connections and returns a terminal
 `CanvasExecutionResult` with immutable per-node traces. The traces are a
-post-run observation, not a realtime debugger or persistent log. A connected
+post-run observation, not a realtime debugger or persistent log. Trace values
+recursively snapshot standard maps, collections, arrays, and dates so later
+nodes cannot mutate previously captured container state; custom objects remain
+shared references unless an observer snapshotter projects them. A connected
 output must be published by its source executor; if it is absent, the source
 node fails explicitly before downstream execution. Outputs without downstream
 connections remain optional. Executors may read only declared input ports;

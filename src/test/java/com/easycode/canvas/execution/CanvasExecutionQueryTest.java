@@ -3,6 +3,8 @@ package com.easycode.canvas.execution;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,6 +52,33 @@ class CanvasExecutionQueryTest {
         assertTrue(trace.output(outputPort).present());
         assertNull(trace.output(outputPort).requireValue());
         assertFalse(trace.input(UUID.randomUUID()).present());
+    }
+
+    @Test
+    void traceSnapshotsNestedStandardValuesAtConstructionTime() {
+        UUID outputPort = UUID.randomUUID();
+        List<Object> items = new ArrayList<>(List.of("before"));
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("items", items);
+        Object[] array = new Object[]{"array-before"};
+        List<Object> output = new ArrayList<>(List.of(value, array));
+        CanvasNodeExecutionTrace trace = new CanvasNodeExecutionTrace(UUID.randomUUID(), "test",
+                CanvasExecutionStatus.SUCCEEDED, Map.of(), Map.of(outputPort, output),
+                List.of(), Duration.ZERO, "");
+
+        items.add("after");
+        value.put("later", true);
+        array[0] = "array-after";
+        output.clear();
+
+        List<?> outputSnapshot = (List<?>) trace.outputs().get(outputPort);
+        Map<?, ?> mapSnapshot = (Map<?, ?>) outputSnapshot.get(0);
+        assertEquals(List.of("before"), mapSnapshot.get("items"));
+        assertFalse(mapSnapshot.containsKey("later"));
+        assertEquals(List.of("array-before"), outputSnapshot.get(1));
+        assertThrows(UnsupportedOperationException.class, outputSnapshot::clear);
+        assertThrows(UnsupportedOperationException.class,
+                () -> ((List<?>) mapSnapshot.get("items")).clear());
     }
 
     @Test
