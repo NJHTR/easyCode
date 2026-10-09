@@ -16,7 +16,19 @@ public record CanvasNodeExecutionTrace(
         Map<UUID, Object> outputs,
         java.util.List<String> consoleOutput,
         Duration duration,
-        String failureMessage) {
+        String failureMessage,
+        CanvasExecutionFailure failureDetails) {
+    public CanvasNodeExecutionTrace(UUID nodeId,
+                                    String nodeType,
+                                    CanvasExecutionStatus status,
+                                    Map<UUID, Object> inputs,
+                                    Map<UUID, Object> outputs,
+                                    java.util.List<String> consoleOutput,
+                                    Duration duration,
+                                    String failureMessage) {
+        this(nodeId, nodeType, status, inputs, outputs, consoleOutput, duration, failureMessage, null);
+    }
+
     public CanvasNodeExecutionTrace {
         Objects.requireNonNull(nodeId, "nodeId");
         if (nodeType == null || nodeType.isBlank()) {
@@ -36,6 +48,11 @@ public record CanvasNodeExecutionTrace(
         }
         if (status == CanvasExecutionStatus.FAILED && failureMessage.isBlank()) {
             throw new IllegalArgumentException("failed trace must contain a failure message");
+        }
+        if (failureDetails != null
+                && (status != CanvasExecutionStatus.FAILED
+                || !failureMessage.equals(failureDetails.message()))) {
+            throw new IllegalArgumentException("failure details must match a failed trace message");
         }
     }
 

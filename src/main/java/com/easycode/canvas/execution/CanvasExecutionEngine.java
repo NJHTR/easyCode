@@ -102,15 +102,15 @@ public final class CanvasExecutionEngine {
                 executor.execute(node, context);
             } catch (Exception exception) {
                 String message = messageOf(exception);
+                CanvasExecutionFailure failureDetails = CanvasExecutionFailure.from(exception);
                 traces.add(new CanvasNodeExecutionTrace(node.nodeId(), node.nodeType(), CanvasExecutionStatus.FAILED,
                         nodeInputs, context.outputsSnapshot(), context.consoleOutputSnapshot(),
-                        Duration.between(nodeStartedAt, Instant.now()), message));
+                        Duration.between(nodeStartedAt, Instant.now()), message, failureDetails));
                 consoleOutput.addAll(context.consoleOutputSnapshot());
                 return failed(request.executionId(), observer, canvas, completed, traces,
                         consoleOutput, outputValues,
                         nodeId, message, startedAt, eventSequence, nodeInputs,
-                        context.outputsSnapshot(), context.consoleOutputSnapshot(),
-                        CanvasExecutionFailure.from(exception));
+                        context.outputsSnapshot(), context.consoleOutputSnapshot(), failureDetails);
             }
             Map<UUID, Object> outputs = context.outputsSnapshot();
             for (CanvasConnection connection : outgoing.getOrDefault(nodeId, List.of())) {

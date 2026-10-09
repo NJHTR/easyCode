@@ -157,6 +157,8 @@ because their safe copying semantics are type-specific.
 If a node executor throws, its `NODE_FAILED` event carries immutable failure
 details with the exception type, message, and formatted stack trace. Engine
 validation failures do not claim to have an exception stack when none exists.
+The same thrown-exception details are included in the failed node trace returned
+by `CanvasExecutionResult`, independent of whether an observer was supplied.
 
 `CanvasNodeDescriptor` and `CanvasNodeCatalog` form the small discovery and
 creation boundary above the raw graph model. A descriptor defines a node type's
