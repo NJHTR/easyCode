@@ -155,6 +155,9 @@ run can pass a `CanvasExecutionEventCollector` as the observer and read its
 immutable `events()` snapshot, or query it by node or lifecycle event type.
 The collector validates that the recorded events belong to one execution, have
 contiguous sequence numbers, and end with one terminal event.
+It also exposes structured live queries for the active node, paused node,
+successfully completed node IDs, and terminal status while the synchronous call
+is running or after it returns.
 This is a small in-process observation hook, not a realtime log stream, event bus,
 debugger, scheduler, or persistence layer. Invalid requests rejected during
 preflight emit no lifecycle events.

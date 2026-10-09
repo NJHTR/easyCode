@@ -3,6 +3,7 @@ package com.easycode.canvas.execution;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -18,6 +19,8 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     private UUID activeNodeId;
     private UUID debuggerPausedNodeId;
     private CanvasExecutionEventType lastNodeOutcome;
+    private final List<UUID> completedNodeIds = new ArrayList<>();
+    private CanvasExecutionStatus terminalStatus;
 
     public CanvasExecutionEventCollector() {
         this(CanvasExecutionValueSnapshotter.identity());
@@ -60,11 +63,13 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
                 || event.type() == CanvasExecutionEventType.NODE_CANCELLED) {
             activeNodeId = null;
             lastNodeOutcome = event.type();
+            if (event.type() == CanvasExecutionEventType.NODE_SUCCEEDED) {
+                completedNodeIds.add(event.nodeId());
+            }
         }
         events.add(snapshot);
-        terminal = event.type() == CanvasExecutionEventType.SUCCEEDED
-                || event.type() == CanvasExecutionEventType.FAILED
-                || event.type() == CanvasExecutionEventType.CANCELLED;
+        terminalStatus = terminalStatusOf(event.type());
+        terminal = terminalStatus != null;
     }
 
     private void validateLifecycle(CanvasExecutionEvent event) {
@@ -149,5 +154,34 @@ public final class CanvasExecutionEventCollector implements CanvasExecutionObser
     /** Returns whether a terminal success, failure, or cancellation event has been collected. */
     public synchronized boolean isComplete() {
         return terminal;
+    }
+
+    /** Returns the node whose executor is currently running, if any. */
+    public synchronized Optional<UUID> activeNodeId() {
+        return Optional.ofNullable(activeNodeId);
+    }
+
+    /** Returns the node at which execution is currently paused, if any. */
+    public synchronized Optional<UUID> pausedNodeId() {
+        return Optional.ofNullable(debuggerPausedNodeId);
+    }
+
+    /** Returns node IDs that have completed successfully in execution order. */
+    public synchronized List<UUID> completedNodeIds() {
+        return List.copyOf(completedNodeIds);
+    }
+
+    /** Returns the terminal status once execution has completed. */
+    public synchronized Optional<CanvasExecutionStatus> terminalStatus() {
+        return Optional.ofNullable(terminalStatus);
+    }
+
+    private static CanvasExecutionStatus terminalStatusOf(CanvasExecutionEventType type) {
+        return switch (type) {
+            case SUCCEEDED -> CanvasExecutionStatus.SUCCEEDED;
+            case FAILED -> CanvasExecutionStatus.FAILED;
+            case CANCELLED -> CanvasExecutionStatus.CANCELLED;
+            default -> null;
+        };
     }
 }

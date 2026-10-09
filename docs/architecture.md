@@ -158,6 +158,9 @@ an execution registry or a persistence layer. Its node and event-type queries
 preserve execution order and return immutable lists. It validates contiguous
 event numbering, node start/outcome pairs, debugger pause/resume transitions,
 and that terminal outcomes agree with the last node lifecycle state.
+It also exposes synchronized queries for the active node, paused node,
+successfully completed node IDs, and terminal status, so a debugger does not
+need to parse the raw event list for basic run state.
 The collector requires one execution ID, contiguous event sequence numbers, and
 a terminal success or failure event; it rejects attempts to append events after
 completion.

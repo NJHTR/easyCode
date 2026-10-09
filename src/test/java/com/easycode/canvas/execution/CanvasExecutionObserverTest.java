@@ -421,6 +421,10 @@ class CanvasExecutionObserverTest {
             assertTrue(debugger.awaitPaused(Duration.ofSeconds(5)));
             assertEquals(second.nodeId(), debugger.pausedNodeId());
             assertEquals(List.of(first.nodeId()), List.copyOf(executed));
+            assertEquals(List.of(first.nodeId()), collector.completedNodeIds());
+            assertEquals(java.util.Optional.empty(), collector.activeNodeId());
+            assertEquals(java.util.Optional.of(second.nodeId()), collector.pausedNodeId());
+            assertEquals(java.util.Optional.empty(), collector.terminalStatus());
             assertEquals(List.of(CanvasExecutionEventType.STARTED, CanvasExecutionEventType.NODE_STARTED,
                             CanvasExecutionEventType.NODE_SUCCEEDED, CanvasExecutionEventType.DEBUGGER_PAUSED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
@@ -440,6 +444,10 @@ class CanvasExecutionObserverTest {
             assertEquals(CanvasExecutionStatus.SUCCEEDED,
                     result.get(5, TimeUnit.SECONDS).status());
             assertEquals(List.of(first.nodeId(), second.nodeId(), third.nodeId()), List.copyOf(executed));
+            assertEquals(List.of(first.nodeId(), second.nodeId(), third.nodeId()), collector.completedNodeIds());
+            assertEquals(java.util.Optional.of(CanvasExecutionStatus.SUCCEEDED), collector.terminalStatus());
+            assertEquals(java.util.Optional.empty(), collector.activeNodeId());
+            assertEquals(java.util.Optional.empty(), collector.pausedNodeId());
             assertTrue(collector.isComplete());
         } finally {
             debugger.resume();
@@ -474,6 +482,8 @@ class CanvasExecutionObserverTest {
                             CanvasExecutionEventType.CANCELLED),
                     collector.events().stream().map(CanvasExecutionEvent::type).toList());
             assertTrue(collector.isComplete());
+            assertEquals(java.util.Optional.of(CanvasExecutionStatus.CANCELLED), collector.terminalStatus());
+            assertEquals(java.util.Optional.of(node.nodeId()), collector.pausedNodeId());
         } finally {
             debugger.resume();
             cancellation.cancel();
