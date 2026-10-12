@@ -29,6 +29,7 @@ public final class CanvasMvpWorkspace {
     private final Map<UUID, PlacedNode> nodes = new LinkedHashMap<>();
     private final List<CanvasConnection> connections = new ArrayList<>();
     private int nextNodeNumber = 1;
+    private long revision;
 
     public CanvasMvpWorkspace() {
         this("My first canvas", new CanvasApplication());
@@ -51,12 +52,17 @@ public final class CanvasMvpWorkspace {
         PlacedNode placed = new PlacedNode(node, 48 + (nodes.size() % 3) * 270,
                 48 + (nodes.size() / 3) * 190);
         nodes.put(node.nodeId(), placed);
+        revision++;
         return placed;
     }
 
     public synchronized void moveNode(UUID nodeId, int x, int y) {
         PlacedNode current = requireNode(nodeId);
-        nodes.put(nodeId, new PlacedNode(current.node(), Math.max(8, x), Math.max(8, y)));
+        PlacedNode moved = new PlacedNode(current.node(), Math.max(8, x), Math.max(8, y));
+        if (current.x() != moved.x() || current.y() != moved.y()) {
+            nodes.put(nodeId, moved);
+            revision++;
+        }
     }
 
     public synchronized CanvasConnection connect(UUID fromNodeId, String fromPortName,
@@ -66,6 +72,7 @@ public final class CanvasMvpWorkspace {
         CanvasConnection connection = new CanvasConnection(UUID.randomUUID(), fromNodeId,
                 from.portId(), toNodeId, to.portId());
         connections.add(connection);
+        revision++;
         return connection;
     }
 
@@ -109,6 +116,7 @@ public final class CanvasMvpWorkspace {
         canvasId = document.canvasId();
         name = document.name();
         nextNodeNumber = nodes.size() + 1;
+        revision++;
     }
 
     public CanvasExecutionResult run(CanvasExecutionObserver observer) {
@@ -121,6 +129,10 @@ public final class CanvasMvpWorkspace {
 
     public synchronized List<CanvasConnection> connections() {
         return List.copyOf(connections);
+    }
+
+    public synchronized long revision() {
+        return revision;
     }
 
     private PlacedNode requireNode(UUID nodeId) {

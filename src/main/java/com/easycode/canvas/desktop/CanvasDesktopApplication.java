@@ -35,6 +35,8 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.math.BigDecimal;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -62,6 +64,7 @@ public final class CanvasDesktopApplication {
     private String pendingOutputName;
     private boolean running;
     private Path currentFile;
+    private long savedRevision;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new CanvasDesktopApplication().show());
@@ -69,7 +72,20 @@ public final class CanvasDesktopApplication {
 
     private void show() {
         frame = new JFrame("easyCode Canvas MVP");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent event) {
+                if (running) {
+                    JOptionPane.showMessageDialog(frame, "Wait for the current run to finish before closing.",
+                            "Run in progress", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                if (confirmUnsavedChanges()) {
+                    frame.dispose();
+                }
+            }
+        });
         frame.setMinimumSize(new Dimension(960, 650));
         frame.setSize(1180, 760);
         frame.setLocationRelativeTo(null);
@@ -94,7 +110,7 @@ public final class CanvasDesktopApplication {
         JPanel actions = new JPanel();
         actions.setOpaque(false);
         addAction(actions, "Open", this::openCanvas);
-        addAction(actions, "Save", this::saveCanvas);
+        addAction(actions, "Save", () -> saveCanvas());
         addAction(actions, "Constant", () -> addConstant());
         addAction(actions, "Add", () -> addNode(CanvasMvpWorkspace.addNodeType()));
         addAction(actions, "Print", () -> addNode(CanvasMvpWorkspace.printNodeType()));
@@ -168,7 +184,11 @@ public final class CanvasDesktopApplication {
         Path selected = chooser.getSelectedFile().toPath();
         try {
             CanvasMvpDocument document = documentStore.load(selected);
+            if (!confirmUnsavedChanges()) {
+                return;
+            }
             workspace.replace(document);
+            savedRevision = workspace.revision();
             currentFile = selected;
             nodeStates.clear();
             document.nodes().forEach(node -> nodeStates.put(node.node().nodeId(), "READY"));
@@ -178,29 +198,60 @@ public final class CanvasDesktopApplication {
             console.setText("");
             graph.reload(workspace.nodes());
             graph.setPendingPort(null, null);
-            frame.setTitle("easyCode Canvas MVP - " + document.name());
+            updateDocumentTitle();
             status.setText("Opened " + selected.getFileName());
         } catch (IOException | RuntimeException exception) {
             showError(exception.getMessage());
         }
     }
 
-    private void saveCanvas() {
+    private boolean saveCanvas() {
         JFileChooser chooser = canvasFileChooser();
         if (currentFile != null) {
             chooser.setSelectedFile(currentFile.toFile());
         }
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
-            return;
+            return false;
         }
         Path selected = withCanvasExtension(chooser.getSelectedFile().toPath());
         try {
             documentStore.save(selected, workspace.document());
             currentFile = selected;
+            savedRevision = workspace.revision();
+            updateDocumentTitle();
             status.setText("Saved " + selected.getFileName());
+            return true;
         } catch (IOException | RuntimeException exception) {
             showError(exception.getMessage());
+            return false;
         }
+    }
+
+    private boolean confirmUnsavedChanges() {
+        if (workspace.revision() == savedRevision) {
+            return true;
+        }
+        Object[] options = {"Save", "Discard", "Cancel"};
+        int choice = JOptionPane.showOptionDialog(frame,
+                "Save changes before leaving this canvas?",
+                "Unsaved changes",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+                null,
+                options,
+                options[0]);
+        if (choice == 0) {
+            return saveCanvas();
+        }
+        return choice == 1;
+    }
+
+    private void updateDocumentTitle() {
+        if (frame == null) {
+            return;
+        }
+        String title = "easyCode Canvas MVP - " + workspace.document().name();
+        frame.setTitle(workspace.revision() == savedRevision ? title : title + " *");
     }
 
     private JFileChooser canvasFileChooser() {
@@ -234,6 +285,7 @@ public final class CanvasDesktopApplication {
             CanvasMvpWorkspace.PlacedNode node = workspace.addNode(type, configuration);
             nodeStates.put(node.node().nodeId(), "READY");
             graph.addNode(node);
+            updateDocumentTitle();
             status.setText("Added " + node.displayName());
             graph.revalidate();
             graph.repaint();
@@ -261,6 +313,7 @@ public final class CanvasDesktopApplication {
             CanvasConnection connection = workspace.connect(pendingOutputNode, pendingOutputName,
                     node.nodeId(), port.name());
             graph.addConnection(connection);
+            updateDocumentTitle();
             status.setText("Connected " + pendingOutputName + " to " + port.name());
         } catch (RuntimeException exception) {
             showError(exception.getMessage());
@@ -516,6 +569,7 @@ public final class CanvasDesktopApplication {
                         int y = getY() + event.getY() - dragY;
                         setLocation(Math.max(0, x), Math.max(0, y));
                         workspace.moveNode(node.nodeId(), getX(), getY());
+                        updateDocumentTitle();
                         repaint();
                     }
                 };

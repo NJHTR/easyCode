@@ -11,6 +11,30 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class CanvasMvpWorkspaceTest {
     @Test
+    void revisionChangesOnlyWhenTheEditableDocumentChanges() {
+        CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
+        assertEquals(0, workspace.revision());
+
+        CanvasMvpWorkspace.PlacedNode constant = workspace.addNode(
+                CanvasMvpWorkspace.constantNodeType(), Map.of("value", 21));
+        assertEquals(1, workspace.revision());
+
+        workspace.moveNode(constant.node().nodeId(), constant.x(), constant.y());
+        assertEquals(1, workspace.revision());
+        workspace.moveNode(constant.node().nodeId(), constant.x() + 20, constant.y() + 10);
+        assertEquals(2, workspace.revision());
+
+        CanvasMvpWorkspace.PlacedNode add = workspace.addNode(CanvasMvpWorkspace.addNodeType(), Map.of());
+        assertEquals(3, workspace.revision());
+        workspace.connect(constant.node().nodeId(), "out", add.node().nodeId(), "left");
+        assertEquals(4, workspace.revision());
+
+        CanvasMvpWorkspace reopened = new CanvasMvpWorkspace();
+        reopened.replace(workspace.document());
+        assertEquals(1, reopened.revision());
+    }
+
+    @Test
     void userComposedGraphExecutesThroughCanvasApplication() {
         CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
         CanvasMvpWorkspace.PlacedNode constant = workspace.addNode(
