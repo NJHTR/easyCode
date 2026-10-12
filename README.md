@@ -33,7 +33,7 @@ modify validated instructions without calling UI classes directly.
 ## Canvas Graph Foundation
 
 The product's visual foundation is a graph of canvases, nodes, ports, and
-connections. The current slice is deliberately UI-independent:
+connections. The graph model and execution engine stay UI-independent:
 
 ```text
 CanvasDefinition
@@ -43,13 +43,28 @@ CanvasDefinition
         -> CanvasGraphValidator
 ```
 
+### Run the desktop Canvas MVP
+
+The first local editor is a small Swing application backed by the same
+`CanvasApplication` execution engine. From PowerShell at the repository root:
+
+```powershell
+& .\scripts\start-canvas-mvp.ps1
+```
+
+Add two `Constant` nodes, one `Add`, and one `Print`. Enter `20` and `22` in
+the constants, click each constant's output port and then an Add input port,
+and connect the Add output to Print's input. Click `Run` to see node status,
+live port values, and console output. Numeric constants are parsed as numbers;
+other values are treated as text. This MVP runs in memory and does not yet
+save canvas documents between launches.
+
 `CanvasDefinition` and its nested records use UUID identities, so a display
 name can change without changing the identity used by connections. The graph
 validator checks unique identities, port ownership, output-to-input direction,
-and duplicate connection endpoints. The model does not yet render a canvas,
-execute a graph, persist documents, or implement triggers, scheduling, or
-workflow semantics. Those concerns must be layered above this stable graph
-contract.
+and duplicate connection endpoints. The desktop MVP above is a thin editor for
+this model and engine; it does not yet persist documents or implement triggers,
+scheduling, or workflow semantics.
 
 The graph can also be converted into a `CanvasExecutionPlan`. This is a
 deterministic, immutable topological order of node IDs produced by
