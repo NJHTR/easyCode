@@ -111,6 +111,18 @@ public final class CanvasMvpWorkspace {
         return removed;
     }
 
+    public synchronized void reset(String newName) {
+        if (newName == null || newName.isBlank()) {
+            throw new IllegalArgumentException("canvas name must not be blank");
+        }
+        canvasId = UUID.randomUUID();
+        name = newName.trim();
+        nodes.clear();
+        connections.clear();
+        nextNodeNumber = 1;
+        revision++;
+    }
+
     public synchronized CanvasDefinition definition() {
         return new CanvasDefinition(canvasId, name,
                 nodes.values().stream().map(PlacedNode::node).toList(), List.copyOf(connections));

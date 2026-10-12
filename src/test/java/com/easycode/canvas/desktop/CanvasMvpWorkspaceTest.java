@@ -109,4 +109,22 @@ class CanvasMvpWorkspaceTest {
         assertEquals(List.of(), workspace.connections());
         assertEquals(CanvasExecutionStatus.FAILED, workspace.run(event -> { }).status());
     }
+
+    @Test
+    void resetStartsAnEmptyCanvasWithANewIdentity() {
+        CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
+        CanvasMvpWorkspace.PlacedNode oldNode = workspace.addNode(
+                CanvasMvpWorkspace.constantNodeType(), Map.of("value", 7));
+        var oldCanvasId = workspace.definition().canvasId();
+
+        workspace.reset("Second canvas");
+
+        assertEquals("Second canvas", workspace.definition().name());
+        assertTrue(!oldCanvasId.equals(workspace.definition().canvasId()));
+        assertEquals(List.of(), workspace.nodes());
+        assertEquals(List.of(), workspace.connections());
+        CanvasMvpWorkspace.PlacedNode newNode = workspace.addNode(
+                CanvasMvpWorkspace.constantNodeType(), Map.of("value", 8));
+        assertTrue(!oldNode.node().nodeId().equals(newNode.node().nodeId()));
+    }
 }

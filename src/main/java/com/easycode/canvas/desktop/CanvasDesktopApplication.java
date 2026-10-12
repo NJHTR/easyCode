@@ -8,20 +8,34 @@ import com.easycode.canvas.model.CanvasConnection;
 import com.easycode.canvas.model.CanvasNode;
 import com.easycode.canvas.model.CanvasPort;
 import com.easycode.canvas.model.CanvasPortDirection;
+import com.easycode.project.model.EasyCodeProject;
+import com.easycode.project.persistence.EasyCodeProjectStore;
+import com.easycode.project.persistence.RecentProjectStore;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JDialog;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTree;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JFileChooser;
+import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.TransferHandler;
+import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -39,9 +53,14 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
 import java.math.BigDecimal;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.List;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -56,16 +75,29 @@ public final class CanvasDesktopApplication {
 
     private final CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
     private final CanvasDocumentStore documentStore = new CanvasDocumentStore();
+    private final EasyCodeProjectStore projectStore = new EasyCodeProjectStore();
+    private final RecentProjectStore recentProjects = new RecentProjectStore();
     private final Map<UUID, String> nodeStates = new HashMap<>();
     private final Map<UUID, Map<UUID, Object>> liveOutputs = new HashMap<>();
     private final JTextArea console = new JTextArea();
     private final JLabel status = new JLabel("Ready");
     private final GraphPanel graph = new GraphPanel();
+    private final JTabbedPane canvasTabs = new JTabbedPane();
+    private final CanvasProjectExplorer projectExplorer =
+            new CanvasProjectExplorer(this::openProjectFolder, this::openCanvasPath);
     private JFrame frame;
+    private JSplitPane editorAndOutput;
+    private JSplitPane projectAndEditor;
+    private JPanel outputWindow;
+    private JDialog nodePaletteWindow;
+    private JCheckBoxMenuItem nodeLibraryMenuItem;
+    private boolean projectWindowVisible = true;
+    private boolean consoleWindowVisible = true;
     private UUID pendingOutputNode;
     private String pendingOutputName;
     private boolean running;
     private Path currentFile;
+    private EasyCodeProject currentProject;
     private long savedRevision;
 
     public static void main(String[] args) {
@@ -92,40 +124,552 @@ public final class CanvasDesktopApplication {
         frame.setSize(1180, 760);
         frame.setLocationRelativeTo(null);
         frame.setLayout(new BorderLayout());
-        frame.add(toolbar(), BorderLayout.NORTH);
-        JScrollPane canvasScroll = new JScrollPane(graph);
-        canvasScroll.setBorder(BorderFactory.createEmptyBorder());
-        frame.add(canvasScroll, BorderLayout.CENTER);
-        frame.add(inspector(), BorderLayout.EAST);
+        frame.setJMenuBar(null);
+        showWelcome();
         frame.setVisible(true);
     }
 
-    private JPanel toolbar() {
-        JPanel bar = new JPanel(new BorderLayout(16, 0));
-        bar.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
-        bar.setBackground(Color.WHITE);
-        JLabel brand = new JLabel("easyCode  /  Canvas");
-        brand.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 17));
+    private void showWelcome() {
+        if (frame == null) {
+            return;
+        }
+        frame.setTitle("easyCode");
+        frame.setJMenuBar(null);
+        frame.getContentPane().removeAll();
+        JPanel page = new JPanel(new BorderLayout(0, 24));
+        page.setBorder(BorderFactory.createEmptyBorder(48, 64, 48, 64));
+        JLabel brand = new JLabel("easyCode");
+        brand.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 30));
         brand.setForeground(INK);
-        bar.add(brand, BorderLayout.WEST);
+        page.add(brand, BorderLayout.NORTH);
 
-        JPanel actions = new JPanel();
-        actions.setOpaque(false);
-        addAction(actions, "Open", this::openCanvas);
-        addAction(actions, "Save", () -> saveCanvas());
-        addAction(actions, "Constant", () -> addConstant());
-        addAction(actions, "Add", () -> addNode(CanvasMvpWorkspace.addNodeType()));
-        addAction(actions, "Print", () -> addNode(CanvasMvpWorkspace.printNodeType()));
-        addAction(actions, "Run", this::runGraph, true);
-        bar.add(actions, BorderLayout.CENTER);
-        status.setForeground(MUTED);
-        bar.add(status, BorderLayout.EAST);
+        JPanel content = new JPanel(new BorderLayout(40, 0));
+        JPanel actions = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
+        c.insets = new Insets(0, 0, 10, 0);
+        addWelcomeAction(actions, c, "新建项目", this::createProject);
+        c.gridy++;
+        addWelcomeAction(actions, c, "打开项目", this::openProjectDialog);
+        c.gridy++;
+        addWelcomeAction(actions, c, "打开单个画布", this::openCanvas);
+        content.add(actions, BorderLayout.WEST);
+
+        JPanel recentPanel = new JPanel(new BorderLayout(0, 8));
+        recentPanel.add(new JLabel("最近打开的项目"), BorderLayout.NORTH);
+        JPanel recentList = new JPanel();
+        recentList.setLayout(new javax.swing.BoxLayout(recentList, javax.swing.BoxLayout.Y_AXIS));
+        try {
+            List<EasyCodeProject> projects = recentProjects.load();
+            if (projects.isEmpty()) {
+                recentList.add(new JLabel("还没有打开过项目"));
+            } else {
+                for (EasyCodeProject project : projects) {
+                    JButton item = new JButton("<html><b>" + escapeHtml(project.name())
+                            + "</b><br><span style='color:#6a7684'>"
+                            + escapeHtml(project.rootDirectory().toString()) + "</span></html>");
+                    item.setHorizontalAlignment(JButton.LEFT);
+                    item.setBackground(Color.WHITE);
+                    item.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+                    item.addActionListener(event -> openProject(project.rootDirectory()));
+                    recentList.add(item);
+                }
+            }
+        } catch (IOException exception) {
+            recentList.add(new JLabel("最近项目列表暂不可用：" + exception.getMessage()));
+        }
+        recentPanel.add(new JScrollPane(recentList), BorderLayout.CENTER);
+        content.add(recentPanel, BorderLayout.CENTER);
+        page.add(content, BorderLayout.CENTER);
+        frame.add(page, BorderLayout.CENTER);
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private static void addWelcomeAction(JPanel panel, GridBagConstraints constraints,
+                                         String label, Runnable action) {
+        JButton button = new JButton(label);
+        button.setHorizontalAlignment(JButton.LEFT);
+        button.setPreferredSize(new Dimension(210, 42));
+        button.addActionListener(event -> action.run());
+        panel.add(button, constraints);
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    private void createProject() {
+        JTextField name = new JTextField("My Project", 24);
+        JTextField parent = new JTextField(System.getProperty("user.home"), 28);
+        JButton browse = new JButton("浏览...");
+        browse.addActionListener(event -> {
+            JFileChooser chooser = new JFileChooser(parent.getText());
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                parent.setText(chooser.getSelectedFile().toPath().toString());
+            }
+        });
+        JPanel form = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(5, 5, 5, 5);
+        c.anchor = GridBagConstraints.WEST;
+        c.gridx = 0;
+        c.gridy = 0;
+        form.add(new JLabel("项目名称"), c);
+        c.gridx = 1;
+        form.add(name, c);
+        c.gridx = 0;
+        c.gridy = 1;
+        form.add(new JLabel("保存位置"), c);
+        c.gridx = 1;
+        form.add(parent, c);
+        c.gridx = 2;
+        form.add(browse, c);
+        if (JOptionPane.showConfirmDialog(frame, form, "新建 easyCode 项目",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            EasyCodeProject project = projectStore.create(Path.of(parent.getText()), name.getText());
+            recentProjects.record(project);
+            currentProject = project;
+            workspace.reset(project.name());
+            currentFile = project.canvasDirectory().resolve(project.name() + ".easycanvas.json");
+            documentStore.save(currentFile, workspace.document());
+            savedRevision = workspace.revision();
+            showWorkspace();
+            projectExplorer.setRoot(project.rootDirectory());
+            graph.reload(workspace.nodes());
+            updateDocumentTitle();
+        } catch (IOException | RuntimeException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private void openProjectDialog() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("打开 easyCode 项目文件夹");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+            openProject(chooser.getSelectedFile().toPath());
+        }
+    }
+
+    private void openProject(Path root) {
+        try {
+            EasyCodeProject project = projectStore.open(root);
+            recentProjects.record(project);
+            currentProject = project;
+            showWorkspace();
+            projectExplorer.setRoot(project.rootDirectory());
+            Path canvas = findFirstCanvas(project);
+            if (canvas != null) {
+                openCanvasPath(canvas);
+            } else {
+                workspace.reset(project.name());
+                currentFile = project.canvasDirectory().resolve(project.name() + ".easycanvas.json");
+                documentStore.save(currentFile, workspace.document());
+                savedRevision = workspace.revision();
+                graph.reload(workspace.nodes());
+                updateDocumentTitle();
+            }
+            status.setText("项目已打开: " + project.name());
+        } catch (IOException | RuntimeException exception) {
+            JOptionPane.showMessageDialog(frame, exception.getMessage(), "无法打开项目",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private static Path findFirstCanvas(EasyCodeProject project) throws IOException {
+        try (var files = Files.list(project.canvasDirectory())) {
+            return files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".easycanvas.json"))
+                    .sorted()
+                    .findFirst().orElse(null);
+        }
+    }
+
+    private void showWorkspace() {
+        frame.setJMenuBar(menuBar());
+        frame.getContentPane().removeAll();
+        frame.add(toolbar(), BorderLayout.NORTH);
+        frame.add(workbench(), BorderLayout.CENTER);
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(190, 198, 205)),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+        footer.add(status, BorderLayout.WEST);
+        frame.add(footer, BorderLayout.SOUTH);
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private void returnToWelcome() {
+        if (running || !confirmUnsavedChanges()) {
+            return;
+        }
+        currentProject = null;
+        currentFile = null;
+        canvasTabs.removeAll();
+        showWelcome();
+    }
+
+    private JMenuBar menuBar() {
+        JMenuBar menus = new JMenuBar();
+        JMenu file = new JMenu("文件");
+        addMenuItem(file, "打开项目...", this::openProjectDialog);
+        addMenuItem(file, "返回欢迎页", this::returnToWelcome);
+        file.addSeparator();
+        addMenuItem(file, "新建画布", this::newCanvas);
+        addMenuItem(file, "打开...", this::openCanvas);
+        addMenuItem(file, "保存", () -> saveCanvas());
+        file.addSeparator();
+        addMenuItem(file, "退出", () -> frame.dispatchEvent(
+                new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
+        JMenu edit = new JMenu("编辑");
+        addMenuItem(edit, "添加节点...", () -> showNodePicker(centerOfCanvas()));
+        JMenu view = new JMenu("视图");
+        JCheckBoxMenuItem projectItem = new JCheckBoxMenuItem("项目", projectWindowVisible);
+        projectItem.addActionListener(event -> setProjectWindowVisible(projectItem.isSelected()));
+        view.add(projectItem);
+        JCheckBoxMenuItem consoleItem = new JCheckBoxMenuItem("控制台", consoleWindowVisible);
+        consoleItem.addActionListener(event -> setConsoleWindowVisible(consoleItem.isSelected()));
+        view.add(consoleItem);
+        nodeLibraryMenuItem = new JCheckBoxMenuItem("节点库", false);
+        nodeLibraryMenuItem.addActionListener(event -> showNodePaletteWindow(nodeLibraryMenuItem.isSelected()));
+        view.add(nodeLibraryMenuItem);
+        JMenu execute = new JMenu("执行");
+        addMenuItem(execute, "运行画布", this::runGraph);
+        JMenu help = new JMenu("帮助");
+        addMenuItem(help, "关于 easyCode", () -> JOptionPane.showMessageDialog(frame,
+                "easyCode Canvas MVP", "关于", JOptionPane.INFORMATION_MESSAGE));
+        menus.add(file);
+        menus.add(edit);
+        menus.add(view);
+        menus.add(execute);
+        menus.add(new JMenu("工具"));
+        menus.add(help);
+        return menus;
+    }
+
+    private static void addMenuItem(JMenu menu, String label, Runnable action) {
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(event -> action.run());
+        menu.add(item);
+    }
+
+    private JPanel toolbar() {
+        JPanel bar = new JPanel(new BorderLayout());
+        bar.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(190, 198, 205)),
+                BorderFactory.createEmptyBorder(4, 6, 4, 6)));
+        JToolBar actions = new JToolBar();
+        actions.setFloatable(false);
+        actions.setBorderPainted(false);
+        addAction(actions, "新建", this::newCanvas);
+        addAction(actions, "打开", this::openCanvas);
+        addAction(actions, "保存", () -> saveCanvas());
+        actions.addSeparator(new Dimension(8, 1));
+        addAction(actions, "添加节点", () -> showNodePicker(centerOfCanvas()));
+        addAction(actions, "运行", this::runGraph, true);
+        bar.add(actions, BorderLayout.WEST);
         return bar;
+    }
+
+    private JSplitPane workbench() {
+        JScrollPane canvasScroll = new JScrollPane(graph);
+        canvasScroll.setBorder(BorderFactory.createEmptyBorder());
+        if (canvasTabs.getTabCount() == 0) {
+            canvasTabs.addTab(workspace.document().name(), canvasScroll);
+        }
+        JTabbedPane outputTabs = new JTabbedPane();
+        outputWindow = inspector();
+        outputTabs.addTab("控制台", outputWindow);
+        editorAndOutput = new JSplitPane(JSplitPane.VERTICAL_SPLIT, canvasTabs, outputTabs);
+        editorAndOutput.setResizeWeight(0.78);
+        editorAndOutput.setDividerLocation(0.78);
+        editorAndOutput.setOneTouchExpandable(true);
+        editorAndOutput.setBorder(BorderFactory.createEmptyBorder());
+        projectAndEditor = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, projectExplorer, editorAndOutput);
+        projectAndEditor.setResizeWeight(0.0);
+        projectAndEditor.setDividerLocation(250);
+        projectAndEditor.setOneTouchExpandable(true);
+        projectAndEditor.setBorder(BorderFactory.createEmptyBorder());
+        return projectAndEditor;
+    }
+
+    private JPanel nodePalette() {
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setPreferredSize(new Dimension(245, 0));
+        panel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 6));
+        JPanel heading = new JPanel(new BorderLayout());
+        heading.add(new JLabel("节点"), BorderLayout.WEST);
+        JTextField search = new JTextField();
+        search.setToolTipText("搜索节点");
+        search.setPreferredSize(new Dimension(110, 25));
+        heading.add(search, BorderLayout.EAST);
+
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("节点库");
+        DefaultMutableTreeNode basics = new DefaultMutableTreeNode("基础");
+        basics.add(new DefaultMutableTreeNode(new PaletteNode("常量", CanvasMvpWorkspace.constantNodeType())));
+        basics.add(new DefaultMutableTreeNode(new PaletteNode("加法", CanvasMvpWorkspace.addNodeType())));
+        basics.add(new DefaultMutableTreeNode(new PaletteNode("输出", CanvasMvpWorkspace.printNodeType())));
+        root.add(basics);
+        JTree tree = new JTree(root);
+        tree.setRootVisible(false);
+        tree.setShowsRootHandles(true);
+        tree.setRowHeight(24);
+        tree.expandRow(0);
+        tree.expandRow(1);
+        tree.setDragEnabled(true);
+        tree.setTransferHandler(new PaletteTransferHandler());
+        tree.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2) {
+                    PaletteNode selected = selectedPaletteNode(tree);
+                    if (selected != null) {
+                        addPaletteNode(selected.nodeType(), null);
+                    }
+                }
+            }
+        });
+        search.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent event) {
+                filterPalette(tree, search.getText());
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent event) {
+                filterPalette(tree, search.getText());
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent event) {
+                filterPalette(tree, search.getText());
+            }
+        });
+        panel.add(heading, BorderLayout.NORTH);
+        panel.add(new JScrollPane(tree), BorderLayout.CENTER);
+        return panel;
+    }
+
+    private static PaletteNode selectedPaletteNode(JTree tree) {
+        Object selected = tree.getLastSelectedPathComponent();
+        if (selected instanceof DefaultMutableTreeNode treeNode
+                && treeNode.getUserObject() instanceof PaletteNode paletteNode) {
+            return paletteNode;
+        }
+        return null;
+    }
+
+    private static void filterPalette(JTree tree, String query) {
+        String filter = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("节点库");
+        DefaultMutableTreeNode basics = new DefaultMutableTreeNode("基础");
+        for (PaletteNode item : java.util.List.of(
+                new PaletteNode("常量", CanvasMvpWorkspace.constantNodeType()),
+                new PaletteNode("加法", CanvasMvpWorkspace.addNodeType()),
+                new PaletteNode("输出", CanvasMvpWorkspace.printNodeType()))) {
+            if (filter.isEmpty() || item.label().toLowerCase(java.util.Locale.ROOT).contains(filter)
+                    || item.nodeType().toLowerCase(java.util.Locale.ROOT).contains(filter)) {
+                basics.add(new DefaultMutableTreeNode(item));
+            }
+        }
+        if (basics.getChildCount() > 0) {
+            root.add(basics);
+        }
+        tree.setModel(new javax.swing.tree.DefaultTreeModel(root));
+        tree.expandRow(0);
+        tree.expandRow(1);
+    }
+
+    private final class PaletteTransferHandler extends TransferHandler {
+        @Override
+        protected Transferable createTransferable(javax.swing.JComponent component) {
+            PaletteNode selected = selectedPaletteNode((JTree) component);
+            return selected == null ? null : new StringSelection(selected.nodeType());
+        }
+
+        @Override
+        public int getSourceActions(javax.swing.JComponent component) {
+            return COPY;
+        }
+
+        @Override
+        public boolean canImport(TransferSupport support) {
+            return !running && support.isDataFlavorSupported(DataFlavor.stringFlavor)
+                    && support.getComponent() == graph;
+        }
+
+        @Override
+        public boolean importData(TransferSupport support) {
+            if (!canImport(support)) {
+                return false;
+            }
+            try {
+                String nodeType = (String) support.getTransferable().getTransferData(DataFlavor.stringFlavor);
+                java.awt.Point location = support.getDropLocation().getDropPoint();
+                addPaletteNode(nodeType, location);
+                return true;
+            } catch (Exception exception) {
+                showError(exception.getMessage());
+                return false;
+            }
+        }
+    }
+
+    private record PaletteNode(String label, String nodeType) {
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    private void openProjectFolder() {
+        if (running) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser(projectExplorer.root() == null ? null
+                : projectExplorer.root().toFile());
+        chooser.setDialogTitle("打开项目文件夹");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setAcceptAllFileFilterUsed(false);
+        if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        try {
+            Path selected = chooser.getSelectedFile().toPath();
+            EasyCodeProject project = projectStore.open(selected);
+            recentProjects.record(project);
+            currentProject = project;
+            projectExplorer.setRoot(project.rootDirectory());
+            status.setText("项目: " + project.name());
+        } catch (IOException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private void setProjectWindowVisible(boolean visible) {
+        projectWindowVisible = visible;
+        projectAndEditor.setLeftComponent(visible ? projectExplorer : null);
+        projectAndEditor.setDividerSize(visible ? 6 : 0);
+        projectAndEditor.setDividerLocation(visible ? 250 : 0);
+    }
+
+    private void setConsoleWindowVisible(boolean visible) {
+        consoleWindowVisible = visible;
+        editorAndOutput.setBottomComponent(visible ? outputTabs() : null);
+        editorAndOutput.setDividerSize(visible ? 6 : 0);
+        editorAndOutput.setDividerLocation(visible ? 0.78 : 1.0);
+    }
+
+    private JTabbedPane outputTabs() {
+        JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("控制台", outputWindow);
+        return tabs;
+    }
+
+    private void showNodePaletteWindow(boolean visible) {
+        if (nodePaletteWindow == null) {
+            nodePaletteWindow = new JDialog(frame, "节点库", false);
+            nodePaletteWindow.setContentPane(nodePalette());
+            nodePaletteWindow.setSize(270, 430);
+            nodePaletteWindow.setLocation(frame.getX() + 40, frame.getY() + 90);
+            nodePaletteWindow.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+            nodePaletteWindow.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent event) {
+                    nodePaletteMenuClosed();
+                }
+            });
+        }
+        nodePaletteWindow.setVisible(visible);
+    }
+
+    private void nodePaletteMenuClosed() {
+        nodePaletteWindow.setVisible(false);
+        nodeLibraryMenuItem.setSelected(false);
+    }
+
+    private java.awt.Point centerOfCanvas() {
+        java.awt.Rectangle visible = graph.getVisibleRect();
+        return new java.awt.Point(visible.x + visible.width / 2, visible.y + visible.height / 2);
+    }
+
+    private void showNodePicker(java.awt.Point location) {
+        if (running) {
+            return;
+        }
+        JPopupMenu popup = new JPopupMenu();
+        JMenu data = new JMenu("数据");
+        addNodeMenuItem(data, "常量", CanvasMvpWorkspace.constantNodeType(), location);
+        JMenu math = new JMenu("计算");
+        addNodeMenuItem(math, "加法", CanvasMvpWorkspace.addNodeType(), location);
+        JMenu output = new JMenu("输出");
+        addNodeMenuItem(output, "打印到控制台", CanvasMvpWorkspace.printNodeType(), location);
+        popup.add(data);
+        popup.add(math);
+        popup.add(output);
+        popup.show(graph, Math.max(0, location.x), Math.max(0, location.y));
+    }
+
+    private void addNodeMenuItem(JMenu group, String label, String type, java.awt.Point location) {
+        JMenuItem item = new JMenuItem(label);
+        item.addActionListener(event -> addPaletteNode(type, location));
+        group.add(item);
+    }
+
+    private void newCanvas() {
+        if (running || !confirmUnsavedChanges()) {
+            return;
+        }
+        JTextField name = new JTextField("My canvas", 24);
+        JPanel form = new JPanel(new BorderLayout(8, 0));
+        form.add(new JLabel("Name"), BorderLayout.WEST);
+        form.add(name, BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(frame, form, "New canvas",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            Path newFile = currentProject == null ? null
+                    : currentProject.canvasDirectory().resolve(fileSafeName(name.getText())
+                            + ".easycanvas.json");
+            if (newFile != null && Files.exists(newFile)) {
+                    JOptionPane.showMessageDialog(frame, "A canvas with this name already exists.",
+                            "Canvas already exists", JOptionPane.WARNING_MESSAGE);
+                    return;
+            }
+            workspace.reset(name.getText());
+            currentFile = newFile;
+            if (currentFile != null) {
+                documentStore.save(currentFile, workspace.document());
+                projectExplorer.refresh();
+            }
+            savedRevision = currentFile == null ? workspace.revision() - 1 : workspace.revision();
+            nodeStates.clear();
+            liveOutputs.clear();
+            pendingOutputNode = null;
+            pendingOutputName = null;
+            console.setText("");
+            graph.reload(workspace.nodes());
+            graph.setPendingPort(null, null);
+            updateDocumentTitle();
+            status.setText("Created " + workspace.document().name());
+        } catch (IOException | RuntimeException exception) {
+            showError(exception.getMessage());
+        }
     }
 
     private JPanel inspector() {
         JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.setPreferredSize(new Dimension(310, 0));
+        panel.setPreferredSize(new Dimension(0, 180));
         panel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(224, 229, 234)),
                 BorderFactory.createEmptyBorder(16, 14, 14, 14)));
@@ -143,11 +687,11 @@ public final class CanvasDesktopApplication {
         return panel;
     }
 
-    private void addAction(JPanel actions, String label, Runnable action) {
+    private void addAction(java.awt.Container actions, String label, Runnable action) {
         addAction(actions, label, action, false);
     }
 
-    private void addAction(JPanel actions, String label, Runnable action, boolean primary) {
+    private void addAction(java.awt.Container actions, String label, Runnable action, boolean primary) {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
         button.setBackground(primary ? TEAL : new Color(240, 244, 246));
@@ -158,36 +702,30 @@ public final class CanvasDesktopApplication {
         actions.add(button);
     }
 
-    private void addConstant() {
-        JTextField value = new JTextField("hello easyCode", 18);
-        JPanel form = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-        c.gridx = 0;
-        c.gridy = 0;
-        c.anchor = GridBagConstraints.WEST;
-        c.insets = new Insets(4, 4, 4, 8);
-        form.add(new JLabel("Value"), c);
-        c.gridx = 1;
-        form.add(value, c);
-        if (JOptionPane.showConfirmDialog(frame, form, "Add constant node",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
+    private void openCanvas() {
+        if (running) {
             return;
         }
-        String text = value.getText();
-        Object parsed = parseValue(text);
-        addNode(CanvasMvpWorkspace.constantNodeType(), Map.of("value", parsed));
-    }
-
-    private void openCanvas() {
-        JFileChooser chooser = canvasFileChooser();
+        JFileChooser chooser = new JFileChooser(currentProject == null ? null
+                : currentProject.canvasDirectory().toFile());
+        chooser.setFileFilter(new FileNameExtensionFilter("easyCode canvas (*.easycanvas.json)", "json"));
         if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
             return;
         }
-        Path selected = chooser.getSelectedFile().toPath();
+        openCanvasPath(chooser.getSelectedFile().toPath());
+    }
+
+    private void openCanvasPath(Path selected) {
+        if (running) {
+            return;
+        }
         try {
             CanvasMvpDocument document = documentStore.load(selected);
             if (!confirmUnsavedChanges()) {
                 return;
+            }
+            if (frame.getJMenuBar() == null) {
+                showWorkspace();
             }
             workspace.replace(document);
             savedRevision = workspace.revision();
@@ -200,6 +738,9 @@ public final class CanvasDesktopApplication {
             console.setText("");
             graph.reload(workspace.nodes());
             graph.setPendingPort(null, null);
+            if (selected.getParent() != null && projectExplorer.root() == null) {
+                projectExplorer.setRoot(selected.getParent());
+            }
             updateDocumentTitle();
             status.setText("Opened " + selected.getFileName());
         } catch (IOException | RuntimeException exception) {
@@ -208,6 +749,9 @@ public final class CanvasDesktopApplication {
     }
 
     private boolean saveCanvas() {
+        if (running) {
+            return false;
+        }
         JFileChooser chooser = canvasFileChooser();
         if (currentFile != null) {
             chooser.setSelectedFile(currentFile.toFile());
@@ -219,6 +763,11 @@ public final class CanvasDesktopApplication {
         try {
             documentStore.save(selected, workspace.document());
             currentFile = selected;
+            if (selected.getParent() != null && projectExplorer.root() == null) {
+                projectExplorer.setRoot(selected.getParent());
+            } else {
+                projectExplorer.refresh();
+            }
             savedRevision = workspace.revision();
             updateDocumentTitle();
             status.setText("Saved " + selected.getFileName());
@@ -254,6 +803,10 @@ public final class CanvasDesktopApplication {
         }
         String title = "easyCode Canvas MVP - " + workspace.document().name();
         frame.setTitle(workspace.revision() == savedRevision ? title : title + " *");
+        if (canvasTabs.getTabCount() > 0) {
+            canvasTabs.setTitleAt(0, workspace.document().name()
+                    + (workspace.revision() == savedRevision ? "" : " *"));
+        }
     }
 
     private JFileChooser canvasFileChooser() {
@@ -269,6 +822,12 @@ public final class CanvasDesktopApplication {
                 : selected.resolveSibling(fileName + ".easycanvas.json");
     }
 
+    private static String fileSafeName(String value) {
+        String name = value == null ? "canvas" : value.trim();
+        String safe = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+        return safe.isBlank() ? "canvas" : safe;
+    }
+
     private static Object parseValue(String text) {
         String value = text == null ? "" : text.trim();
         try {
@@ -278,13 +837,26 @@ public final class CanvasDesktopApplication {
         }
     }
 
-    private void addNode(String type) {
-        addNode(type, Map.of());
+    private void addNode(String type, Map<String, Object> configuration) {
+        addNode(type, configuration, null);
     }
 
-    private void addNode(String type, Map<String, Object> configuration) {
+    private void addPaletteNode(String type, java.awt.Point location) {
+        Map<String, Object> configuration = type.equals(CanvasMvpWorkspace.constantNodeType())
+                ? Map.of("value", "hello easyCode") : Map.of();
+        addNode(type, configuration, location);
+    }
+
+    private void addNode(String type, Map<String, Object> configuration, java.awt.Point location) {
         try {
             CanvasMvpWorkspace.PlacedNode node = workspace.addNode(type, configuration);
+            if (location != null) {
+                UUID nodeId = node.node().nodeId();
+                workspace.moveNode(nodeId, location.x, location.y);
+                node = workspace.nodes().stream()
+                        .filter(placed -> placed.node().nodeId().equals(nodeId))
+                        .findFirst().orElseThrow();
+            }
             nodeStates.put(node.node().nodeId(), "READY");
             graph.addNode(node);
             updateDocumentTitle();
@@ -505,6 +1077,7 @@ public final class CanvasDesktopApplication {
             setLayout(null);
             setBackground(CANVAS);
             setPreferredSize(new Dimension(900, 650));
+            setTransferHandler(new PaletteTransferHandler());
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent event) {
@@ -524,6 +1097,7 @@ public final class CanvasDesktopApplication {
             }
             CanvasConnection connection = findConnectionAt(event.getPoint());
             if (connection == null) {
+                showNodePicker(event.getPoint());
                 return;
             }
             JPopupMenu popup = new JPopupMenu();
@@ -595,6 +1169,14 @@ public final class CanvasDesktopApplication {
                 for (int y = 16; y < getHeight(); y += 24) {
                     g.fillOval(x, y, 2, 2);
                 }
+            }
+            if (workspace.nodes().isEmpty()) {
+                String hint = "右键画布或点击“添加节点”开始";
+                g.setColor(new Color(105, 125, 140));
+                g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 17));
+                java.awt.FontMetrics metrics = g.getFontMetrics();
+                g.drawString(hint, Math.max(12, (getWidth() - metrics.stringWidth(hint)) / 2),
+                        getHeight() / 2);
             }
             for (CanvasConnection connection : workspace.connections()) {
                 NodeCard from = cards.get(connection.fromNodeId());

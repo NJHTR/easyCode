@@ -52,7 +52,16 @@ The first local editor is a small Swing application backed by the same
 & .\scripts\start-canvas-mvp.ps1
 ```
 
-Add two `Constant` nodes, one `Add`, and one `Print`. Enter `20` and `22` in
+At startup, choose `新建项目`, `打开项目`, or continue from `最近打开的项目`.
+A project is a directory containing `easycode.project.json` and a `canvases`
+folder. New projects receive an initial empty canvas. Use `新建画布` to add
+another canvas to the current project; unsaved changes are protected before
+leaving the current canvas. The left Explorer displays the actual project
+files. Double-click an `.easycanvas.json` file there to open it. Add nodes with
+the toolbar button or right-click an empty part of the canvas; the optional node library is available
+from `视图 > 节点库`. Resize the project and console areas with their dividers,
+or hide them from the `视图` menu. Add two `Constant` nodes, one `Add`, and one
+`Print`. Enter `20` and `22` in
 the constants, click each constant's output port and then an Add input port,
 and connect the Add output to Print's input. Click `Run` to see node status,
 live port values, and console output. Numeric constants are parsed as numbers;
