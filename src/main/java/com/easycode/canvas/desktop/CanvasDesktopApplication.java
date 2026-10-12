@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.prefs.Preferences;
 import javax.swing.event.ChangeEvent;
 
 /** Standalone Swing entry point for the first visual graph execution MVP. */
@@ -78,6 +79,7 @@ public final class CanvasDesktopApplication {
     private final CanvasDocumentStore documentStore = new CanvasDocumentStore();
     private final EasyCodeProjectStore projectStore = new EasyCodeProjectStore();
     private final RecentProjectStore recentProjects = new RecentProjectStore();
+    private final Preferences layoutPreferences = Preferences.userRoot().node("com.easycode.desktop");
     private Map<UUID, String> nodeStates = new HashMap<>();
     private Map<UUID, Map<UUID, Object>> liveOutputs = new HashMap<>();
     private final JTextArea console = new JTextArea();
@@ -92,8 +94,8 @@ public final class CanvasDesktopApplication {
     private JPanel outputWindow;
     private JDialog nodePaletteWindow;
     private JCheckBoxMenuItem nodeLibraryMenuItem;
-    private boolean projectWindowVisible = true;
-    private boolean consoleWindowVisible = true;
+    private boolean projectWindowVisible = layoutPreferences.getBoolean("project.visible", true);
+    private boolean consoleWindowVisible = layoutPreferences.getBoolean("console.visible", true);
     private boolean canvasTabsConfigured;
     private UUID pendingOutputNode;
     private String pendingOutputName;
@@ -119,7 +121,8 @@ public final class CanvasDesktopApplication {
                             "Run in progress", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
-                if (confirmUnsavedChanges()) {
+                if (confirmAllUnsavedChanges()) {
+                    saveLayoutPreferences();
                     frame.dispose();
                 }
             }
@@ -131,6 +134,17 @@ public final class CanvasDesktopApplication {
         frame.setJMenuBar(null);
         showWelcome();
         frame.setVisible(true);
+    }
+
+    private void saveLayoutPreferences() {
+        layoutPreferences.putBoolean("project.visible", projectWindowVisible);
+        layoutPreferences.putBoolean("console.visible", consoleWindowVisible);
+        if (projectAndEditor != null) {
+            layoutPreferences.putInt("project.divider", projectAndEditor.getDividerLocation());
+        }
+        if (editorAndOutput != null) {
+            layoutPreferences.putInt("console.divider", editorAndOutput.getDividerLocation());
+        }
     }
 
     private void ensureInitialTab() {
@@ -273,6 +287,9 @@ public final class CanvasDesktopApplication {
     }
 
     private void createProject() {
+        if (running || !confirmAllUnsavedChanges()) {
+            return;
+        }
         JTextField name = new JTextField("My Project", 24);
         JTextField parent = new JTextField(System.getProperty("user.home"), 28);
         JButton browse = new JButton("浏览...");
@@ -336,6 +353,9 @@ public final class CanvasDesktopApplication {
     }
 
     private void openProject(Path root) {
+        if (running || !confirmAllUnsavedChanges()) {
+            return;
+        }
         try {
             EasyCodeProject project = projectStore.open(root);
             recentProjects.record(project);
@@ -391,7 +411,7 @@ public final class CanvasDesktopApplication {
     }
 
     private void returnToWelcome() {
-        if (running || !confirmUnsavedChanges()) {
+        if (running || !confirmAllUnsavedChanges()) {
             return;
         }
         currentProject = null;
@@ -489,6 +509,22 @@ public final class CanvasDesktopApplication {
         projectAndEditor.setDividerLocation(250);
         projectAndEditor.setOneTouchExpandable(true);
         projectAndEditor.setBorder(BorderFactory.createEmptyBorder());
+        int projectDivider = layoutPreferences.getInt("project.divider", 250);
+        int consoleDivider = layoutPreferences.getInt("console.divider", -1);
+        projectAndEditor.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
+                event -> saveLayoutPreferences());
+        editorAndOutput.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
+                event -> saveLayoutPreferences());
+        SwingUtilities.invokeLater(() -> {
+            if (projectWindowVisible) {
+                projectAndEditor.setDividerLocation(Math.max(160, projectDivider));
+            }
+            if (consoleWindowVisible && consoleDivider >= 0) {
+                editorAndOutput.setDividerLocation(consoleDivider);
+            }
+            setProjectWindowVisible(projectWindowVisible);
+            setConsoleWindowVisible(consoleWindowVisible);
+        });
         return projectAndEditor;
     }
 
@@ -649,14 +685,26 @@ public final class CanvasDesktopApplication {
         projectWindowVisible = visible;
         projectAndEditor.setLeftComponent(visible ? projectExplorer : null);
         projectAndEditor.setDividerSize(visible ? 6 : 0);
-        projectAndEditor.setDividerLocation(visible ? 250 : 0);
+        projectAndEditor.setDividerLocation(visible
+                ? layoutPreferences.getInt("project.divider", 250) : 0);
+        saveLayoutPreferences();
     }
 
     private void setConsoleWindowVisible(boolean visible) {
         consoleWindowVisible = visible;
         editorAndOutput.setBottomComponent(visible ? outputTabs() : null);
         editorAndOutput.setDividerSize(visible ? 6 : 0);
-        editorAndOutput.setDividerLocation(visible ? 0.78 : 1.0);
+        if (visible) {
+            int savedDivider = layoutPreferences.getInt("console.divider", -1);
+            if (savedDivider >= 0) {
+                editorAndOutput.setDividerLocation(savedDivider);
+            } else {
+                editorAndOutput.setDividerLocation(0.78);
+            }
+        } else {
+            editorAndOutput.setDividerLocation(1.0);
+        }
+        saveLayoutPreferences();
     }
 
     private JTabbedPane outputTabs() {
@@ -895,6 +943,31 @@ public final class CanvasDesktopApplication {
         return choice == 1;
     }
 
+    private boolean confirmAllUnsavedChanges() {
+        int selected = canvasTabs.getSelectedIndex();
+        for (int index = 0; index < canvasTabs.getTabCount(); index++) {
+            CanvasTabState state = tabs.get(canvasTabs.getComponentAt(index));
+            if (state == null || state.workspace.revision() == state.savedRevision) {
+                continue;
+            }
+            canvasTabs.setSelectedIndex(index);
+            switchCanvasTab(index);
+            if (!confirmUnsavedChanges()) {
+                if (selected >= 0 && selected < canvasTabs.getTabCount()) {
+                    canvasTabs.setSelectedIndex(selected);
+                    switchCanvasTab(selected);
+                }
+                return false;
+            }
+            captureActiveTab();
+        }
+        if (selected >= 0 && selected < canvasTabs.getTabCount()) {
+            canvasTabs.setSelectedIndex(selected);
+            switchCanvasTab(selected);
+        }
+        return true;
+    }
+
     private void updateDocumentTitle() {
         if (frame == null) {
             return;
@@ -1096,6 +1169,7 @@ public final class CanvasDesktopApplication {
             return;
         }
         running = true;
+        canvasTabs.setEnabled(false);
         setToolbarEnabled(false);
         nodeStates.replaceAll((nodeId, state) -> "WAITING");
         liveOutputs.clear();
@@ -1116,6 +1190,7 @@ public final class CanvasDesktopApplication {
             @Override
             protected void done() {
                 running = false;
+                canvasTabs.setEnabled(true);
                 setToolbarEnabled(true);
                 try {
                     CanvasExecutionResult result = get();
