@@ -210,7 +210,6 @@ public final class CanvasDesktopApplication {
         tabs.clear();
         canvasTabs.removeAll();
         activeTab = null;
-        canvasTabsConfigured = false;
     }
 
     private void showWelcome() {
@@ -379,6 +378,7 @@ public final class CanvasDesktopApplication {
                 graph.reload(workspace.nodes());
                 updateDocumentTitle();
             }
+            showWorkspace();
             status.setText("项目已打开: " + project.name());
         } catch (IOException | RuntimeException exception) {
             JOptionPane.showMessageDialog(frame, exception.getMessage(), "无法打开项目",
