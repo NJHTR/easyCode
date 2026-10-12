@@ -18,8 +18,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -34,6 +36,8 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -47,6 +51,7 @@ public final class CanvasDesktopApplication {
     private static final Color TEAL = new Color(0, 126, 121);
 
     private final CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
+    private final CanvasDocumentStore documentStore = new CanvasDocumentStore();
     private final Map<UUID, String> nodeStates = new HashMap<>();
     private final Map<UUID, Map<UUID, Object>> liveOutputs = new HashMap<>();
     private final JTextArea console = new JTextArea();
@@ -56,6 +61,7 @@ public final class CanvasDesktopApplication {
     private UUID pendingOutputNode;
     private String pendingOutputName;
     private boolean running;
+    private Path currentFile;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new CanvasDesktopApplication().show());
@@ -87,6 +93,8 @@ public final class CanvasDesktopApplication {
 
         JPanel actions = new JPanel();
         actions.setOpaque(false);
+        addAction(actions, "Open", this::openCanvas);
+        addAction(actions, "Save", this::saveCanvas);
         addAction(actions, "Constant", () -> addConstant());
         addAction(actions, "Add", () -> addNode(CanvasMvpWorkspace.addNodeType()));
         addAction(actions, "Print", () -> addNode(CanvasMvpWorkspace.printNodeType()));
@@ -150,6 +158,62 @@ public final class CanvasDesktopApplication {
         String text = value.getText();
         Object parsed = parseValue(text);
         addNode(CanvasMvpWorkspace.constantNodeType(), Map.of("value", parsed));
+    }
+
+    private void openCanvas() {
+        JFileChooser chooser = canvasFileChooser();
+        if (chooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path selected = chooser.getSelectedFile().toPath();
+        try {
+            CanvasMvpDocument document = documentStore.load(selected);
+            workspace.replace(document);
+            currentFile = selected;
+            nodeStates.clear();
+            document.nodes().forEach(node -> nodeStates.put(node.node().nodeId(), "READY"));
+            liveOutputs.clear();
+            pendingOutputNode = null;
+            pendingOutputName = null;
+            console.setText("");
+            graph.reload(workspace.nodes());
+            graph.setPendingPort(null, null);
+            frame.setTitle("easyCode Canvas MVP - " + document.name());
+            status.setText("Opened " + selected.getFileName());
+        } catch (IOException | RuntimeException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private void saveCanvas() {
+        JFileChooser chooser = canvasFileChooser();
+        if (currentFile != null) {
+            chooser.setSelectedFile(currentFile.toFile());
+        }
+        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path selected = withCanvasExtension(chooser.getSelectedFile().toPath());
+        try {
+            documentStore.save(selected, workspace.document());
+            currentFile = selected;
+            status.setText("Saved " + selected.getFileName());
+        } catch (IOException | RuntimeException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private JFileChooser canvasFileChooser() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new FileNameExtensionFilter("easyCode canvas (*.easycanvas.json)", "json"));
+        return chooser;
+    }
+
+    private static Path withCanvasExtension(Path selected) {
+        String fileName = selected.getFileName().toString();
+        return fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".easycanvas.json")
+                ? selected
+                : selected.resolveSibling(fileName + ".easycanvas.json");
     }
 
     private static Object parseValue(String text) {
@@ -328,6 +392,14 @@ public final class CanvasDesktopApplication {
             add(card);
         }
 
+        private void reload(java.util.List<CanvasMvpWorkspace.PlacedNode> placedNodes) {
+            removeAll();
+            cards.clear();
+            placedNodes.forEach(this::addNode);
+            revalidate();
+            repaint();
+        }
+
         private void addConnection(CanvasConnection connection) {
             repaint();
         }
@@ -437,6 +509,9 @@ public final class CanvasDesktopApplication {
 
                     @Override
                     public void mouseDragged(MouseEvent event) {
+                        if (running) {
+                            return;
+                        }
                         int x = getX() + event.getX() - dragX;
                         int y = getY() + event.getY() - dragY;
                         setLocation(Math.max(0, x), Math.max(0, y));

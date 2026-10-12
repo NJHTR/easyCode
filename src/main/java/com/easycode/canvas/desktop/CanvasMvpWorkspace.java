@@ -10,7 +10,9 @@ import com.easycode.canvas.model.CanvasConnection;
 import com.easycode.canvas.model.CanvasDefinition;
 import com.easycode.canvas.model.CanvasNode;
 import com.easycode.canvas.model.CanvasPort;
+import com.easycode.canvas.model.CanvasPortDescriptor;
 import com.easycode.canvas.model.CanvasPortDirection;
+import com.easycode.canvas.validation.CanvasGraphValidator;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -22,8 +24,8 @@ import java.util.UUID;
 /** Mutable document state for the first local canvas editor. */
 public final class CanvasMvpWorkspace {
     private final CanvasApplication application;
-    private final UUID canvasId = UUID.randomUUID();
-    private final String name;
+    private UUID canvasId = UUID.randomUUID();
+    private String name;
     private final Map<UUID, PlacedNode> nodes = new LinkedHashMap<>();
     private final List<CanvasConnection> connections = new ArrayList<>();
     private int nextNodeNumber = 1;
@@ -72,6 +74,43 @@ public final class CanvasMvpWorkspace {
                 nodes.values().stream().map(PlacedNode::node).toList(), List.copyOf(connections));
     }
 
+    public synchronized CanvasMvpDocument document() {
+        return new CanvasMvpDocument(CanvasMvpDocument.CURRENT_FORMAT_VERSION, canvasId, name,
+                List.copyOf(nodes.values()), List.copyOf(connections));
+    }
+
+    /** Validates a complete document before replacing the current workspace state. */
+    public synchronized void replace(CanvasMvpDocument document) {
+        Objects.requireNonNull(document, "document");
+        Map<UUID, PlacedNode> loadedNodes = new LinkedHashMap<>();
+        for (PlacedNode placed : document.nodes()) {
+            CanvasNode node = placed.node();
+            var registration = application.nodes().find(node.nodeType())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "unknown node type in canvas file: " + node.nodeType()));
+            List<CanvasPortDescriptor> actualPorts = node.ports().stream()
+                    .map(port -> new CanvasPortDescriptor(port.name(), port.direction()))
+                    .toList();
+            if (!registration.descriptor().ports().equals(actualPorts)) {
+                throw new IllegalArgumentException("node ports do not match the registered type: " + node.nodeType());
+            }
+            if (loadedNodes.putIfAbsent(node.nodeId(), placed) != null) {
+                throw new IllegalArgumentException("duplicate node id in canvas file: " + node.nodeId());
+            }
+        }
+        CanvasDefinition candidate = new CanvasDefinition(document.canvasId(), document.name(),
+                document.nodes().stream().map(PlacedNode::node).toList(), document.connections());
+        new CanvasGraphValidator().validate(candidate);
+
+        nodes.clear();
+        nodes.putAll(loadedNodes);
+        connections.clear();
+        connections.addAll(document.connections());
+        canvasId = document.canvasId();
+        name = document.name();
+        nextNodeNumber = nodes.size() + 1;
+    }
+
     public CanvasExecutionResult run(CanvasExecutionObserver observer) {
         return application.execute(CanvasExecutionRequest.forCanvas(definition()), observer);
     }
@@ -104,6 +143,9 @@ public final class CanvasMvpWorkspace {
     public record PlacedNode(CanvasNode node, int x, int y) {
         public PlacedNode {
             Objects.requireNonNull(node, "node");
+            if (x < 0 || y < 0 || x > 100_000 || y > 100_000) {
+                throw new IllegalArgumentException("node position is outside the supported canvas bounds");
+            }
         }
 
         public String displayName() {
