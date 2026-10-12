@@ -56,7 +56,9 @@ Add two `Constant` nodes, one `Add`, and one `Print`. Enter `20` and `22` in
 the constants, click each constant's output port and then an Add input port,
 and connect the Add output to Print's input. Click `Run` to see node status,
 live port values, and console output. Numeric constants are parsed as numbers;
-other values are treated as text. `Save` and `Open` use local
+other values are treated as text. Right-click a constant to edit its value,
+right-click a node to delete it and its connected lines, or right-click a line
+to delete only that connection. `Save` and `Open` use local
 `.easycanvas.json` files and preserve node/port/connection identities and
 canvas positions. The first format supports JSON-compatible node configuration
 values and rejects malformed or structurally invalid graphs before replacing

@@ -15,6 +15,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -33,6 +34,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.geom.Line2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -294,6 +296,73 @@ public final class CanvasDesktopApplication {
         }
     }
 
+    private void editConstantNode(CanvasNode node) {
+        if (running) {
+            return;
+        }
+        Object currentValue = node.configuration().get("value");
+        JTextField value = new JTextField(currentValue == null ? "" : currentValue.toString(), 24);
+        JPanel form = new JPanel(new BorderLayout(8, 0));
+        form.add(new JLabel("Value"), BorderLayout.WEST);
+        form.add(value, BorderLayout.CENTER);
+        int choice = JOptionPane.showConfirmDialog(frame, form, "Edit " + node.name(),
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (choice != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            workspace.updateNodeConfiguration(node.nodeId(), Map.of("value", parseValue(value.getText())));
+            graph.reload(workspace.nodes());
+            updateDocumentTitle();
+            status.setText("Updated " + node.name());
+        } catch (RuntimeException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private void deleteNode(CanvasNode node) {
+        if (running) {
+            return;
+        }
+        long connectionCount = workspace.connections().stream()
+                .filter(connection -> connection.fromNodeId().equals(node.nodeId())
+                        || connection.toNodeId().equals(node.nodeId()))
+                .count();
+        String message = connectionCount == 0
+                ? "Delete " + node.name() + "?"
+                : "Delete " + node.name() + " and its " + connectionCount + " connection(s)?";
+        if (JOptionPane.showConfirmDialog(frame, message, "Delete node",
+                JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) != JOptionPane.YES_OPTION) {
+            return;
+        }
+        try {
+            workspace.deleteNode(node.nodeId());
+            nodeStates.remove(node.nodeId());
+            liveOutputs.remove(node.nodeId());
+            if (node.nodeId().equals(pendingOutputNode)) {
+                pendingOutputNode = null;
+                pendingOutputName = null;
+                graph.setPendingPort(null, null);
+            }
+            graph.reload(workspace.nodes());
+            updateDocumentTitle();
+            status.setText("Deleted " + node.name());
+        } catch (RuntimeException exception) {
+            showError(exception.getMessage());
+        }
+    }
+
+    private void deleteConnection(CanvasConnection connection) {
+        if (running) {
+            return;
+        }
+        if (workspace.deleteConnection(connection.connectionId())) {
+            graph.repaint();
+            updateDocumentTitle();
+            status.setText("Connection deleted");
+        }
+    }
+
     private void selectPort(CanvasNode node, CanvasPort port) {
         if (running) {
             return;
@@ -436,6 +505,59 @@ public final class CanvasDesktopApplication {
             setLayout(null);
             setBackground(CANVAS);
             setPreferredSize(new Dimension(900, 650));
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    showConnectionPopup(event);
+                }
+
+                @Override
+                public void mouseReleased(MouseEvent event) {
+                    showConnectionPopup(event);
+                }
+            });
+        }
+
+        private void showConnectionPopup(MouseEvent event) {
+            if (running || !event.isPopupTrigger()) {
+                return;
+            }
+            CanvasConnection connection = findConnectionAt(event.getPoint());
+            if (connection == null) {
+                return;
+            }
+            JPopupMenu popup = new JPopupMenu();
+            javax.swing.JMenuItem delete = new javax.swing.JMenuItem("Delete connection");
+            delete.addActionListener(ignored -> deleteConnection(connection));
+            popup.add(delete);
+            popup.show(this, event.getX(), event.getY());
+        }
+
+        private CanvasConnection findConnectionAt(java.awt.Point point) {
+            CanvasConnection nearest = null;
+            double nearestDistance = 8.0;
+            for (CanvasConnection connection : workspace.connections()) {
+                NodeCard from = cards.get(connection.fromNodeId());
+                NodeCard to = cards.get(connection.toNodeId());
+                if (from == null || to == null) {
+                    continue;
+                }
+                java.awt.Point start = from.portCenter(connection.fromPortId());
+                java.awt.Point end = to.portCenter(connection.toPortId());
+                int bend = Math.max(48, Math.abs(end.x - start.x) / 2);
+                double distance = Math.min(
+                        Line2D.ptSegDist(start.x, start.y, start.x + bend, start.y, point.x, point.y),
+                        Math.min(
+                                Line2D.ptSegDist(start.x + bend, start.y, start.x + bend, end.y,
+                                        point.x, point.y),
+                                Line2D.ptSegDist(start.x + bend, end.y, end.x, end.y,
+                                        point.x, point.y)));
+                if (distance <= nearestDistance) {
+                    nearest = connection;
+                    nearestDistance = distance;
+                }
+            }
+            return nearest;
         }
 
         private void addNode(CanvasMvpWorkspace.PlacedNode placed) {
@@ -522,6 +644,9 @@ public final class CanvasDesktopApplication {
                 name.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
                 name.setForeground(INK);
                 add(name, BorderLayout.NORTH);
+                JPopupMenu popup = nodePopup(node);
+                setComponentPopupMenu(popup);
+                name.setComponentPopupMenu(popup);
                 JPanel ports = new JPanel(new GridBagLayout());
                 ports.setOpaque(false);
                 int row = 0;
@@ -539,6 +664,7 @@ public final class CanvasDesktopApplication {
                     label.setToolTipText(port.direction() == CanvasPortDirection.INPUT
                             ? "Click after selecting an output" : "Click to start a connection");
                     label.addActionListener(event -> selectPort(node, port));
+                    label.setComponentPopupMenu(popup);
                     portButtons.put(port.portId(), label);
                     GridBagConstraints c = new GridBagConstraints();
                     c.gridx = port.direction() == CanvasPortDirection.INPUT ? 0 : 1;
@@ -549,9 +675,22 @@ public final class CanvasDesktopApplication {
                     c.fill = GridBagConstraints.HORIZONTAL;
                     ports.add(label, c);
                 }
-                add(ports, BorderLayout.CENTER);
+                JPanel body = new JPanel(new BorderLayout(0, 4));
+                body.setOpaque(false);
+                if (node.nodeType().equals(CanvasMvpWorkspace.constantNodeType())
+                        && node.configuration().containsKey("value")) {
+                    JLabel value = new JLabel("value: " + node.configuration().get("value"));
+                    value.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+                    value.setForeground(MUTED);
+                    value.setComponentPopupMenu(popup);
+                    body.add(value, BorderLayout.NORTH);
+                }
+                body.add(ports, BorderLayout.CENTER);
+                ports.setComponentPopupMenu(popup);
+                add(body, BorderLayout.CENTER);
                 stateLabel.setForeground(MUTED);
                 stateLabel.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 10));
+                stateLabel.setComponentPopupMenu(popup);
                 add(stateLabel, BorderLayout.SOUTH);
                 MouseAdapter drag = new MouseAdapter() {
                     @Override
@@ -581,7 +720,23 @@ public final class CanvasDesktopApplication {
             }
 
             private int preferredHeight() {
-                return Math.max(100, 68 + node.ports().size() * 23);
+                int configurationHeight = node.nodeType().equals(CanvasMvpWorkspace.constantNodeType())
+                        && node.configuration().containsKey("value") ? 20 : 0;
+                return Math.max(100, 68 + node.ports().size() * 23 + configurationHeight);
+            }
+
+            private JPopupMenu nodePopup(CanvasNode target) {
+                JPopupMenu popup = new JPopupMenu();
+                if (target.nodeType().equals(CanvasMvpWorkspace.constantNodeType())) {
+                    javax.swing.JMenuItem edit = new javax.swing.JMenuItem("Edit value");
+                    edit.addActionListener(event -> editConstantNode(target));
+                    popup.add(edit);
+                    popup.addSeparator();
+                }
+                javax.swing.JMenuItem delete = new javax.swing.JMenuItem("Delete node");
+                delete.addActionListener(event -> deleteNode(target));
+                popup.add(delete);
+                return popup;
             }
 
             private java.awt.Point portCenter(UUID portId) {

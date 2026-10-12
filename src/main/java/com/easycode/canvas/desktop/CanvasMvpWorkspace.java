@@ -76,6 +76,41 @@ public final class CanvasMvpWorkspace {
         return connection;
     }
 
+    public synchronized PlacedNode updateNodeConfiguration(UUID nodeId, Map<String, Object> configuration) {
+        PlacedNode current = requireNode(nodeId);
+        Map<String, Object> safeConfiguration = configuration == null ? Map.of() : configuration;
+        if (current.node().configuration().equals(safeConfiguration)) {
+            return current;
+        }
+        CanvasNode updated = new CanvasNode(current.node().nodeId(), current.node().name(),
+                current.node().nodeType(), safeConfiguration, current.node().ports());
+        PlacedNode placed = new PlacedNode(updated, current.x(), current.y());
+        nodes.put(nodeId, placed);
+        revision++;
+        return placed;
+    }
+
+    public synchronized List<CanvasConnection> deleteNode(UUID nodeId) {
+        requireNode(nodeId);
+        nodes.remove(nodeId);
+        List<CanvasConnection> removedConnections = connections.stream()
+                .filter(connection -> connection.fromNodeId().equals(nodeId)
+                        || connection.toNodeId().equals(nodeId))
+                .toList();
+        connections.removeAll(removedConnections);
+        revision++;
+        return removedConnections;
+    }
+
+    public synchronized boolean deleteConnection(UUID connectionId) {
+        Objects.requireNonNull(connectionId, "connectionId");
+        boolean removed = connections.removeIf(connection -> connection.connectionId().equals(connectionId));
+        if (removed) {
+            revision++;
+        }
+        return removed;
+    }
+
     public synchronized CanvasDefinition definition() {
         return new CanvasDefinition(canvasId, name,
                 nodes.values().stream().map(PlacedNode::node).toList(), List.copyOf(connections));
