@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import javax.swing.event.ChangeEvent;
 
 /** Standalone Swing entry point for the first visual graph execution MVP. */
 public final class CanvasDesktopApplication {
@@ -73,15 +74,15 @@ public final class CanvasDesktopApplication {
     private static final Color CANVAS = new Color(245, 247, 249);
     private static final Color TEAL = new Color(0, 126, 121);
 
-    private final CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
+    private CanvasMvpWorkspace workspace = new CanvasMvpWorkspace();
     private final CanvasDocumentStore documentStore = new CanvasDocumentStore();
     private final EasyCodeProjectStore projectStore = new EasyCodeProjectStore();
     private final RecentProjectStore recentProjects = new RecentProjectStore();
-    private final Map<UUID, String> nodeStates = new HashMap<>();
-    private final Map<UUID, Map<UUID, Object>> liveOutputs = new HashMap<>();
+    private Map<UUID, String> nodeStates = new HashMap<>();
+    private Map<UUID, Map<UUID, Object>> liveOutputs = new HashMap<>();
     private final JTextArea console = new JTextArea();
     private final JLabel status = new JLabel("Ready");
-    private final GraphPanel graph = new GraphPanel();
+    private GraphPanel graph = new GraphPanel();
     private final JTabbedPane canvasTabs = new JTabbedPane();
     private final CanvasProjectExplorer projectExplorer =
             new CanvasProjectExplorer(this::openProjectFolder, this::openCanvasPath);
@@ -93,12 +94,15 @@ public final class CanvasDesktopApplication {
     private JCheckBoxMenuItem nodeLibraryMenuItem;
     private boolean projectWindowVisible = true;
     private boolean consoleWindowVisible = true;
+    private boolean canvasTabsConfigured;
     private UUID pendingOutputNode;
     private String pendingOutputName;
     private boolean running;
     private Path currentFile;
     private EasyCodeProject currentProject;
     private long savedRevision;
+    private final Map<java.awt.Component, CanvasTabState> tabs = new LinkedHashMap<>();
+    private CanvasTabState activeTab;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new CanvasDesktopApplication().show());
@@ -127,6 +131,72 @@ public final class CanvasDesktopApplication {
         frame.setJMenuBar(null);
         showWelcome();
         frame.setVisible(true);
+    }
+
+    private void ensureInitialTab() {
+        if (activeTab == null) {
+            installTab(new CanvasTabState(workspace, graph, currentFile, savedRevision,
+                    nodeStates, liveOutputs));
+        }
+    }
+
+    private void installTab(CanvasTabState state) {
+        activeTab = state;
+        workspace = state.workspace;
+        graph = state.graph;
+        currentFile = state.file;
+        savedRevision = state.savedRevision;
+        nodeStates = state.nodeStates;
+        liveOutputs = state.liveOutputs;
+    }
+
+    private void captureActiveTab() {
+        if (activeTab == null) {
+            return;
+        }
+        activeTab.workspace = workspace;
+        activeTab.graph = graph;
+        activeTab.file = currentFile;
+        activeTab.savedRevision = savedRevision;
+        activeTab.nodeStates = nodeStates;
+        activeTab.liveOutputs = liveOutputs;
+        activeTab.consoleText = console.getText();
+    }
+
+    private void addCanvasTab(CanvasTabState state) {
+        JScrollPane scroll = new JScrollPane(state.graph);
+        scroll.setBorder(BorderFactory.createEmptyBorder());
+        tabs.put(scroll, state);
+        canvasTabs.addTab(state.workspace.document().name(), scroll);
+        canvasTabs.setSelectedComponent(scroll);
+        installTab(state);
+        updateDocumentTitle();
+    }
+
+    private void switchCanvasTab(int index) {
+        if (index < 0 || index >= canvasTabs.getTabCount()) {
+            return;
+        }
+        captureActiveTab();
+        CanvasTabState state = tabs.get(canvasTabs.getComponentAt(index));
+        if (state == null) {
+            return;
+        }
+        installTab(state);
+        pendingOutputNode = null;
+        pendingOutputName = null;
+        console.setText(state.consoleText);
+        updateDocumentTitle();
+        graph.reload(workspace.nodes());
+        graph.setPendingPort(null, null);
+    }
+
+    private void resetTabs() {
+        captureActiveTab();
+        tabs.clear();
+        canvasTabs.removeAll();
+        activeTab = null;
+        canvasTabsConfigured = false;
     }
 
     private void showWelcome() {
@@ -237,10 +307,16 @@ public final class CanvasDesktopApplication {
             EasyCodeProject project = projectStore.create(Path.of(parent.getText()), name.getText());
             recentProjects.record(project);
             currentProject = project;
+            resetTabs();
             workspace.reset(project.name());
             currentFile = project.canvasDirectory().resolve(project.name() + ".easycanvas.json");
             documentStore.save(currentFile, workspace.document());
             savedRevision = workspace.revision();
+            graph = new GraphPanel();
+            nodeStates = new HashMap<>();
+            liveOutputs = new HashMap<>();
+            addCanvasTab(new CanvasTabState(workspace, graph, currentFile, savedRevision,
+                    nodeStates, liveOutputs));
             showWorkspace();
             projectExplorer.setRoot(project.rootDirectory());
             graph.reload(workspace.nodes());
@@ -264,7 +340,7 @@ public final class CanvasDesktopApplication {
             EasyCodeProject project = projectStore.open(root);
             recentProjects.record(project);
             currentProject = project;
-            showWorkspace();
+            resetTabs();
             projectExplorer.setRoot(project.rootDirectory());
             Path canvas = findFirstCanvas(project);
             if (canvas != null) {
@@ -274,6 +350,12 @@ public final class CanvasDesktopApplication {
                 currentFile = project.canvasDirectory().resolve(project.name() + ".easycanvas.json");
                 documentStore.save(currentFile, workspace.document());
                 savedRevision = workspace.revision();
+                graph = new GraphPanel();
+                nodeStates = new HashMap<>();
+                liveOutputs = new HashMap<>();
+                addCanvasTab(new CanvasTabState(workspace, graph, currentFile, savedRevision,
+                        nodeStates, liveOutputs));
+                showWorkspace();
                 graph.reload(workspace.nodes());
                 updateDocumentTitle();
             }
@@ -314,7 +396,7 @@ public final class CanvasDesktopApplication {
         }
         currentProject = null;
         currentFile = null;
-        canvasTabs.removeAll();
+        resetTabs();
         showWelcome();
     }
 
@@ -327,6 +409,7 @@ public final class CanvasDesktopApplication {
         addMenuItem(file, "新建画布", this::newCanvas);
         addMenuItem(file, "打开...", this::openCanvas);
         addMenuItem(file, "保存", () -> saveCanvas());
+        addMenuItem(file, "关闭当前画布", this::closeCurrentCanvas);
         file.addSeparator();
         addMenuItem(file, "退出", () -> frame.dispatchEvent(
                 new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
@@ -381,10 +464,17 @@ public final class CanvasDesktopApplication {
     }
 
     private JSplitPane workbench() {
-        JScrollPane canvasScroll = new JScrollPane(graph);
-        canvasScroll.setBorder(BorderFactory.createEmptyBorder());
         if (canvasTabs.getTabCount() == 0) {
-            canvasTabs.addTab(workspace.document().name(), canvasScroll);
+            addCanvasTab(new CanvasTabState(workspace, graph, currentFile, savedRevision,
+                    nodeStates, liveOutputs));
+        }
+        if (!canvasTabsConfigured) {
+            canvasTabs.addChangeListener(event -> {
+                if (!running) {
+                    switchCanvasTab(canvasTabs.getSelectedIndex());
+                }
+            });
+            canvasTabsConfigured = true;
         }
         JTabbedPane outputTabs = new JTabbedPane();
         outputWindow = inspector();
@@ -626,7 +716,7 @@ public final class CanvasDesktopApplication {
     }
 
     private void newCanvas() {
-        if (running || !confirmUnsavedChanges()) {
+        if (running) {
             return;
         }
         JTextField name = new JTextField("My canvas", 24);
@@ -646,18 +736,18 @@ public final class CanvasDesktopApplication {
                             "Canvas already exists", JOptionPane.WARNING_MESSAGE);
                     return;
             }
-            workspace.reset(name.getText());
-            currentFile = newFile;
-            if (currentFile != null) {
-                documentStore.save(currentFile, workspace.document());
+            CanvasMvpWorkspace created = new CanvasMvpWorkspace();
+            created.reset(name.getText());
+            if (newFile != null) {
+                documentStore.save(newFile, created.document());
                 projectExplorer.refresh();
             }
-            savedRevision = currentFile == null ? workspace.revision() - 1 : workspace.revision();
-            nodeStates.clear();
-            liveOutputs.clear();
+            CanvasTabState state = new CanvasTabState(created, new GraphPanel(), newFile,
+                    created.revision(), new HashMap<>(), new HashMap<>());
             pendingOutputNode = null;
             pendingOutputName = null;
             console.setText("");
+            addCanvasTab(state);
             graph.reload(workspace.nodes());
             graph.setPendingPort(null, null);
             updateDocumentTitle();
@@ -721,21 +811,29 @@ public final class CanvasDesktopApplication {
         }
         try {
             CanvasMvpDocument document = documentStore.load(selected);
-            if (!confirmUnsavedChanges()) {
-                return;
+            boolean showWorkspaceAfterOpen = frame.getJMenuBar() == null;
+            Path normalized = selected.toAbsolutePath().normalize();
+            for (int i = 0; i < canvasTabs.getTabCount(); i++) {
+                CanvasTabState existing = tabs.get(canvasTabs.getComponentAt(i));
+                if (existing != null && existing.file != null
+                        && existing.file.toAbsolutePath().normalize().equals(normalized)) {
+                    canvasTabs.setSelectedIndex(i);
+                    return;
+                }
             }
-            if (frame.getJMenuBar() == null) {
-                showWorkspace();
-            }
-            workspace.replace(document);
-            savedRevision = workspace.revision();
-            currentFile = selected;
-            nodeStates.clear();
-            document.nodes().forEach(node -> nodeStates.put(node.node().nodeId(), "READY"));
-            liveOutputs.clear();
+            CanvasMvpWorkspace opened = new CanvasMvpWorkspace();
+            opened.replace(document);
+            Map<UUID, String> states = new HashMap<>();
+            document.nodes().forEach(node -> states.put(node.node().nodeId(), "READY"));
+            CanvasTabState state = new CanvasTabState(opened, new GraphPanel(), selected,
+                    opened.revision(), states, new HashMap<>());
             pendingOutputNode = null;
             pendingOutputName = null;
             console.setText("");
+            addCanvasTab(state);
+            if (showWorkspaceAfterOpen) {
+                showWorkspace();
+            }
             graph.reload(workspace.nodes());
             graph.setPendingPort(null, null);
             if (selected.getParent() != null && projectExplorer.root() == null) {
@@ -803,9 +901,31 @@ public final class CanvasDesktopApplication {
         }
         String title = "easyCode Canvas MVP - " + workspace.document().name();
         frame.setTitle(workspace.revision() == savedRevision ? title : title + " *");
-        if (canvasTabs.getTabCount() > 0) {
-            canvasTabs.setTitleAt(0, workspace.document().name()
+        if (canvasTabs.getTabCount() > 0 && canvasTabs.getSelectedIndex() >= 0) {
+            canvasTabs.setTitleAt(canvasTabs.getSelectedIndex(), workspace.document().name()
                     + (workspace.revision() == savedRevision ? "" : " *"));
+        }
+    }
+
+    private void closeCurrentCanvas() {
+        if (running || !confirmUnsavedChanges() || canvasTabs.getTabCount() == 0) {
+            return;
+        }
+        int index = canvasTabs.getSelectedIndex();
+        java.awt.Component component = canvasTabs.getComponentAt(index);
+        tabs.remove(component);
+        canvasTabs.removeTabAt(index);
+        if (canvasTabs.getTabCount() == 0) {
+            CanvasMvpWorkspace empty = new CanvasMvpWorkspace();
+            graph = new GraphPanel();
+            workspace = empty;
+            currentFile = null;
+            savedRevision = 0;
+            nodeStates = new HashMap<>();
+            liveOutputs = new HashMap<>();
+            addCanvasTab(new CanvasTabState(workspace, graph, null, 0, nodeStates, liveOutputs));
+        } else {
+            switchCanvasTab(canvasTabs.getSelectedIndex());
         }
     }
 
@@ -1035,6 +1155,9 @@ public final class CanvasDesktopApplication {
     private void append(String line) {
         console.append(line + System.lineSeparator());
         console.setCaretPosition(console.getDocument().getLength());
+        if (activeTab != null) {
+            activeTab.consoleText = console.getText();
+        }
     }
 
     private void setToolbarEnabled(boolean enabled) {
@@ -1068,12 +1191,35 @@ public final class CanvasDesktopApplication {
         return id.toString().substring(0, 8);
     }
 
+    private final class CanvasTabState {
+        private CanvasMvpWorkspace workspace;
+        private GraphPanel graph;
+        private Path file;
+        private long savedRevision;
+        private Map<UUID, String> nodeStates;
+        private Map<UUID, Map<UUID, Object>> liveOutputs;
+        private String consoleText = "";
+
+        private CanvasTabState(CanvasMvpWorkspace workspace, GraphPanel graph, Path file,
+                               long savedRevision, Map<UUID, String> nodeStates,
+                               Map<UUID, Map<UUID, Object>> liveOutputs) {
+            this.workspace = workspace;
+            this.graph = graph;
+            this.file = file;
+            this.savedRevision = savedRevision;
+            this.nodeStates = nodeStates;
+            this.liveOutputs = liveOutputs;
+        }
+    }
+
     private final class GraphPanel extends JPanel {
+        private final CanvasMvpWorkspace model;
         private final Map<UUID, NodeCard> cards = new LinkedHashMap<>();
         private UUID pendingNodeId;
         private UUID pendingPortId;
 
         private GraphPanel() {
+            model = workspace;
             setLayout(null);
             setBackground(CANVAS);
             setPreferredSize(new Dimension(900, 650));
@@ -1110,7 +1256,7 @@ public final class CanvasDesktopApplication {
         private CanvasConnection findConnectionAt(java.awt.Point point) {
             CanvasConnection nearest = null;
             double nearestDistance = 8.0;
-            for (CanvasConnection connection : workspace.connections()) {
+            for (CanvasConnection connection : model.connections()) {
                 NodeCard from = cards.get(connection.fromNodeId());
                 NodeCard to = cards.get(connection.toNodeId());
                 if (from == null || to == null) {
@@ -1170,7 +1316,7 @@ public final class CanvasDesktopApplication {
                     g.fillOval(x, y, 2, 2);
                 }
             }
-            if (workspace.nodes().isEmpty()) {
+            if (model.nodes().isEmpty()) {
                 String hint = "右键画布或点击“添加节点”开始";
                 g.setColor(new Color(105, 125, 140));
                 g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 17));
@@ -1178,7 +1324,7 @@ public final class CanvasDesktopApplication {
                 g.drawString(hint, Math.max(12, (getWidth() - metrics.stringWidth(hint)) / 2),
                         getHeight() / 2);
             }
-            for (CanvasConnection connection : workspace.connections()) {
+            for (CanvasConnection connection : model.connections()) {
                 NodeCard from = cards.get(connection.fromNodeId());
                 NodeCard to = cards.get(connection.toNodeId());
                 if (from == null || to == null) {
@@ -1289,7 +1435,7 @@ public final class CanvasDesktopApplication {
                         int x = getX() + event.getX() - dragX;
                         int y = getY() + event.getY() - dragY;
                         setLocation(Math.max(0, x), Math.max(0, y));
-                        workspace.moveNode(node.nodeId(), getX(), getY());
+                        model.moveNode(node.nodeId(), getX(), getY());
                         updateDocumentTitle();
                         repaint();
                     }
